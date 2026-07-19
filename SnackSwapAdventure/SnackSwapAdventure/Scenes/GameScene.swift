@@ -1365,6 +1365,7 @@ final class SnackNode: SKNode {
     private let gloss: SKShapeNode
     private let sheen: SKShapeNode
     private let rimLight: SKShapeNode
+    private let materialDetails: SKNode
     private let badgeSprite: SKSpriteNode?
     private var liveStarted = false
 
@@ -1376,6 +1377,7 @@ final class SnackNode: SKNode {
         self.type = cell.snack
         self.special = cell.special
         self.tileSize = tileSize
+        materialDetails = SKNode()
 
         let plateSize = tileSize * 0.96
         let snackSize = tileSize * 0.94
@@ -1465,6 +1467,8 @@ final class SnackNode: SKNode {
         contentRoot.addChild(rimLight)
         contentRoot.addChild(gloss)
         contentRoot.addChild(sheen)
+        materialDetails.zPosition = 4.5
+        contentRoot.addChild(materialDetails)
         if let badgeSprite { contentRoot.addChild(badgeSprite) }
 
         if !hasArt {
@@ -1478,11 +1482,94 @@ final class SnackNode: SKNode {
 
         // Clip sheen roughly to snack area via crop is heavy; keep free-moving sheen subtle.
         sheen.alpha = 0
+        buildMaterialDetails()
     }
 
     @available(*, unavailable)
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    private func buildMaterialDetails() {
+        let detailAlpha: CGFloat = special == nil ? 0.32 : 0.44
+
+        switch type {
+        case .cookie:
+            // Tiny warm glints sit above the existing chips and make the baked
+            // surface read as textured instead of a flat painted disc.
+            let crumbOffsets: [CGPoint] = [
+                CGPoint(x: -0.24, y: 0.17), CGPoint(x: 0.02, y: 0.27),
+                CGPoint(x: 0.25, y: 0.10), CGPoint(x: -0.03, y: -0.11),
+                CGPoint(x: 0.20, y: -0.25)
+            ]
+            for (index, offset) in crumbOffsets.enumerated() {
+                let crumb = SKShapeNode(ellipseOf: CGSize(width: tileSize * 0.045, height: tileSize * 0.022))
+                crumb.fillColor = index.isMultiple(of: 2)
+                    ? SKColor(white: 1, alpha: detailAlpha)
+                    : SKColor(red: 0.58, green: 0.27, blue: 0.12, alpha: 0.26)
+                crumb.strokeColor = .clear
+                crumb.position = CGPoint(x: offset.x * tileSize, y: offset.y * tileSize)
+                crumb.zRotation = CGFloat(index) * 0.4
+                materialDetails.addChild(crumb)
+            }
+
+        case .donut:
+            // A broad icing reflection follows the donut's curved top plane.
+            let icingSheen = SKShapeNode(
+                ellipseOf: CGSize(width: tileSize * 0.40, height: tileSize * 0.10)
+            )
+            icingSheen.fillColor = SKColor(white: 1, alpha: 0.25)
+            icingSheen.strokeColor = .clear
+            icingSheen.position = CGPoint(x: -tileSize * 0.15, y: tileSize * 0.23)
+            icingSheen.zRotation = -0.16
+            materialDetails.addChild(icingSheen)
+
+            let icingSpark = SKShapeNode(circleOfRadius: tileSize * 0.035)
+            icingSpark.fillColor = SKColor(white: 1, alpha: 0.58)
+            icingSpark.strokeColor = .clear
+            icingSpark.position = CGPoint(x: tileSize * 0.12, y: tileSize * 0.30)
+            materialDetails.addChild(icingSpark)
+
+        case .candy:
+            // Two narrow reflections reinforce the hard sugar-shell material.
+            for x: CGFloat in [-0.14, -0.03] {
+                let candyStripe = SKShapeNode(
+                    rectOf: CGSize(width: tileSize * 0.055, height: tileSize * 0.34),
+                    cornerRadius: tileSize * 0.025
+                )
+                candyStripe.fillColor = SKColor(white: 1, alpha: x < -0.1 ? 0.42 : 0.18)
+                candyStripe.strokeColor = .clear
+                candyStripe.position = CGPoint(x: tileSize * x, y: tileSize * 0.13)
+                candyStripe.zRotation = -0.42
+                materialDetails.addChild(candyStripe)
+            }
+
+        case .popcorn:
+            // Popcorn gets small hot highlights on separate kernels, rather
+            // than one generic gloss that makes the cluster look plastic.
+            let kernelOffsets: [CGPoint] = [
+                CGPoint(x: -0.18, y: 0.20), CGPoint(x: 0.05, y: 0.27),
+                CGPoint(x: 0.22, y: 0.07), CGPoint(x: -0.05, y: -0.02),
+                CGPoint(x: 0.14, y: -0.20)
+            ]
+            for offset in kernelOffsets {
+                let highlight = SKShapeNode(
+                    ellipseOf: CGSize(width: tileSize * 0.075, height: tileSize * 0.040)
+                )
+                highlight.fillColor = SKColor(white: 1, alpha: 0.30)
+                highlight.strokeColor = .clear
+                highlight.position = CGPoint(x: offset.x * tileSize, y: offset.y * tileSize)
+                materialDetails.addChild(highlight)
+            }
+
+        case .lollipop, .cupcake:
+            let sparkle = SKShapeNode(ellipseOf: CGSize(width: tileSize * 0.18, height: tileSize * 0.07))
+            sparkle.fillColor = SKColor(white: 1, alpha: detailAlpha)
+            sparkle.strokeColor = .clear
+            sparkle.position = CGPoint(x: -tileSize * 0.12, y: tileSize * 0.24)
+            sparkle.zRotation = -0.25
+            materialDetails.addChild(sparkle)
+        }
     }
 
     /// Lightweight idle effects. Only featured tiles and specials animate continuously.
