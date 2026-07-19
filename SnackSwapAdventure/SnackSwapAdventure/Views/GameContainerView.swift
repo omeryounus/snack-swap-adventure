@@ -136,16 +136,30 @@ struct GameContainerView: View {
         isWatchingAd = true
         adProgress = 0
         SoundManager.shared.playUITap()
-        // Simulated rewarded ad (3s) — swap for real AdMob later.
+        // Progress ticker while ad loads / plays (real AdMob or simulated fallback).
         Task {
-            for i in 1...30 {
-                try? await Task.sleep(nanoseconds: 100_000_000)
-                await MainActor.run { adProgress = Double(i) / 30.0 }
+            let ticker = Task {
+                for i in 1...40 {
+                    try? await Task.sleep(nanoseconds: 80_000_000)
+                    await MainActor.run {
+                        if isWatchingAd {
+                            adProgress = min(0.95, Double(i) / 40.0)
+                        }
+                    }
+                }
             }
-            await MainActor.run {
-                isWatchingAd = false
-                adProgress = 0
-                _ = gameState.extendTime()
+            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+                RewardedAdService.shared.show { earned in
+                    Task { @MainActor in
+                        ticker.cancel()
+                        isWatchingAd = false
+                        adProgress = 1
+                        if earned {
+                            _ = gameState.extendTime()
+                        }
+                        cont.resume()
+                    }
+                }
             }
         }
     }

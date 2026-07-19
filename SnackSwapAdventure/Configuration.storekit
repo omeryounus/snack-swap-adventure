@@ -1,0 +1,66 @@
+{
+  "identifier" : "SnackSwapStore",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "SSA60",
+      "localizations" : [
+        {
+          "description" : "60 stars to extend timers and buy boosts",
+          "displayName" : "60 Stars",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.snackswap.adventure.stars60",
+      "referenceName" : "Stars 60",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "SSA180",
+      "localizations" : [
+        {
+          "description" : "180 stars pack — best for regular players",
+          "displayName" : "180 Stars",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.snackswap.adventure.stars180",
+      "referenceName" : "Stars 180",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "6.99",
+      "familyShareable" : false,
+      "internalID" : "SSA500",
+      "localizations" : [
+        {
+          "description" : "500 stars mega pack",
+          "displayName" : "500 Stars",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.snackswap.adventure.stars500",
+      "referenceName" : "Stars 500",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

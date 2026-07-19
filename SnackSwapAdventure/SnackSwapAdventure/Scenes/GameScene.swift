@@ -662,9 +662,9 @@ final class GameScene: SKScene {
 final class SnackNode: SKNode {
     let type: SnackType
     let special: SpecialKind?
-    private let body: SKShapeNode
-    private let emojiLabel: SKLabelNode
-    private let badgeLabel: SKLabelNode?
+    private let sprite: SKSpriteNode
+    private let plate: SKShapeNode
+    private let badgeSprite: SKSpriteNode?
 
     convenience init(type: SnackType, tileSize: CGFloat) {
         self.init(cell: BoardCell(snack: type), tileSize: tileSize)
@@ -673,36 +673,59 @@ final class SnackNode: SKNode {
     init(cell: BoardCell, tileSize: CGFloat) {
         self.type = cell.snack
         self.special = cell.special
-        let inset = tileSize * 0.04
-        body = SKShapeNode(
-            rectOf: CGSize(width: tileSize - inset * 2, height: tileSize - inset * 2),
-            cornerRadius: (tileSize - inset * 2) * 0.28
+
+        let inset = tileSize * 0.06
+        let plateSize = tileSize - inset * 2
+        plate = SKShapeNode(
+            rectOf: CGSize(width: plateSize, height: plateSize),
+            cornerRadius: plateSize * 0.28
         )
-        body.fillColor = cell.special?.accent ?? cell.snack.color
-        body.strokeColor = cell.special != nil ? SKColor(white: 1, alpha: 0.85) : SKColor(white: 1, alpha: 0.35)
-        body.lineWidth = cell.special != nil ? 2.5 : 1.5
+        plate.fillColor = SKColor(white: 1, alpha: 0.10)
+        plate.strokeColor = cell.special != nil
+            ? (cell.special?.accent ?? .white)
+            : SKColor(white: 1, alpha: 0.22)
+        plate.lineWidth = cell.special != nil ? 2.4 : 1.2
 
-        emojiLabel = SKLabelNode(text: cell.snack.emoji)
-        emojiLabel.fontSize = tileSize * 0.48
-        emojiLabel.verticalAlignmentMode = .center
-        emojiLabel.horizontalAlignmentMode = .center
-        emojiLabel.position = CGPoint(x: 0, y: -1)
-
-        if let special = cell.special {
-            let badge = SKLabelNode(text: special.emoji)
-            badge.fontSize = tileSize * 0.28
-            badge.verticalAlignmentMode = .center
-            badge.horizontalAlignmentMode = .center
-            badge.position = CGPoint(x: tileSize * 0.28, y: tileSize * 0.28)
-            badgeLabel = badge
+        let texture = SKTexture(imageNamed: cell.snack.textureName)
+        let hasArt = texture.size().width > 1
+        if hasArt {
+            sprite = SKSpriteNode(texture: texture)
+            sprite.size = CGSize(width: plateSize * 0.86, height: plateSize * 0.86)
         } else {
-            badgeLabel = nil
+            // Fallback: solid color + emoji if texture missing
+            sprite = SKSpriteNode(color: cell.snack.color, size: CGSize(width: plateSize * 0.86, height: plateSize * 0.86))
+        }
+
+        if cell.special != nil {
+            let badgeTex = SKTexture(imageNamed: "Snack_special_star")
+            if badgeTex.size().width > 1 {
+                let badge = SKSpriteNode(texture: badgeTex)
+                badge.size = CGSize(width: tileSize * 0.34, height: tileSize * 0.34)
+                badge.position = CGPoint(x: tileSize * 0.28, y: tileSize * 0.28)
+                badge.zPosition = 2
+                badgeSprite = badge
+            } else {
+                badgeSprite = nil
+            }
+            plate.fillColor = SKColor(white: 1, alpha: 0.16)
+        } else {
+            badgeSprite = nil
         }
 
         super.init()
-        addChild(body)
-        addChild(emojiLabel)
-        if let badgeLabel { addChild(badgeLabel) }
+        addChild(plate)
+        addChild(sprite)
+        sprite.zPosition = 1
+        if let badgeSprite { addChild(badgeSprite) }
+
+        if !hasArt {
+            let fallback = SKLabelNode(text: cell.snack.emoji)
+            fallback.fontSize = tileSize * 0.45
+            fallback.verticalAlignmentMode = .center
+            fallback.horizontalAlignmentMode = .center
+            fallback.zPosition = 3
+            addChild(fallback)
+        }
     }
 
     @available(*, unavailable)
@@ -713,8 +736,9 @@ final class SnackNode: SKNode {
     func popAway(duration: TimeInterval, completion: @escaping () -> Void) {
         run(.sequence([
             .group([
-                .scale(to: 1.25, duration: duration * 0.4),
-                .fadeAlpha(to: 0.0, duration: duration)
+                .scale(to: 1.28, duration: duration * 0.35),
+                .fadeAlpha(to: 0.0, duration: duration),
+                .rotate(byAngle: .pi / 8, duration: duration)
             ]),
             .run(completion)
         ]))

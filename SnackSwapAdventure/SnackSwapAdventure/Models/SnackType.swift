@@ -37,7 +37,7 @@ enum SnackType: Int, CaseIterable, Equatable, Hashable, Codable {
         Color(color)
     }
 
-    /// Simple emoji stand-ins until art assets land.
+    /// Fallback emoji when textures fail to load.
     var emoji: String {
         switch self {
         case .cookie: return "🍪"
@@ -46,6 +46,18 @@ enum SnackType: Int, CaseIterable, Equatable, Hashable, Codable {
         case .popcorn: return "🍿"
         case .lollipop: return "🍭"
         case .cupcake: return "🧁"
+        }
+    }
+
+    /// Asset catalog imageset name for board tiles.
+    var textureName: String {
+        switch self {
+        case .cookie: return "Snack_cookie"
+        case .donut: return "Snack_donut"
+        case .candy: return "Snack_candy"
+        case .popcorn: return "Snack_popcorn"
+        case .lollipop: return "Snack_lollipop"
+        case .cupcake: return "Snack_cupcake"
         }
     }
 

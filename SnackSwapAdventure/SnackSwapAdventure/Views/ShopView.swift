@@ -1,8 +1,10 @@
 import SwiftUI
+import StoreKit
 
 struct ShopView: View {
     let onBack: () -> Void
     @StateObject private var meta = MetaProgress.shared
+    @StateObject private var store = StoreManager.shared
     @State private var toast: String?
 
     var body: some View {
@@ -35,12 +37,26 @@ struct ShopView: View {
                 .padding()
 
                 ScrollView {
-                    VStack(spacing: 12) {
-                        Text("Spend snack coins on boosters for your next level.")
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.75))
-                            .padding(.horizontal)
+                    VStack(spacing: 18) {
+                        // IAP star packs
+                        sectionHeader("⭐ Star Packs", subtitle: "Real purchases via App Store (StoreKit)")
+                        if store.isLoading {
+                            ProgressView().tint(.white)
+                        } else if store.products.isEmpty {
+                            iapFallbackCard
+                        } else {
+                            ForEach(store.products, id: \.id) { product in
+                                iapRow(product)
+                            }
+                        }
+                        if let err = store.lastError {
+                            Text(err)
+                                .font(.caption2)
+                                .foregroundStyle(.orange.opacity(0.9))
+                                .multilineTextAlignment(.center)
+                        }
 
+                        sectionHeader("🪙 Coin Boosters", subtitle: "Spend snack coins for next-level power-ups")
                         ForEach(MetaProgress.shopCatalog) { item in
                             shopRow(item)
                         }
@@ -66,6 +82,103 @@ struct ShopView: View {
                 }
             }
         }
+        .task {
+            await store.loadProducts()
+        }
+    }
+
+    private func sectionHeader(_ title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.headline.bold())
+                .foregroundStyle(.white)
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.65))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 4)
+    }
+
+    private func iapRow(_ product: Product) -> some View {
+        let stars = StoreManager.ProductID.starAmount(for: product.id)
+        let busy = store.purchaseInFlight == product.id
+        return HStack(spacing: 12) {
+            Text("⭐")
+                .font(.system(size: 34))
+                .frame(width: 48, height: 48)
+                .background(
+                    LinearGradient(colors: [.orange, .pink], startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(product.displayName)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                Text(product.description)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.7))
+                Text("+\(stars) stars")
+                    .font(.caption.bold())
+                    .foregroundStyle(.yellow)
+            }
+            Spacer()
+            Button {
+                SoundManager.shared.playUITap()
+                Task {
+                    let ok = await store.purchase(product)
+                    toast = ok ? "Purchased +\(stars) ⭐!" : (store.lastError ?? "Purchase cancelled")
+                }
+            } label: {
+                if busy {
+                    ProgressView().tint(.white)
+                        .frame(width: 72, height: 34)
+                } else {
+                    Text(product.displayPrice)
+                        .font(.subheadline.bold())
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(LinearGradient(colors: [.yellow, .orange], startPoint: .leading, endPoint: .trailing))
+                        .foregroundStyle(.black)
+                        .clipShape(Capsule())
+                }
+            }
+            .disabled(busy)
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var iapFallbackCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("StoreKit products not loaded")
+                .font(.subheadline.bold())
+                .foregroundStyle(.white)
+            Text("In Xcode: Scheme → Edit Scheme → Run → Options → StoreKit Configuration → Configuration.storekit")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.7))
+            #if DEBUG
+            Button {
+                store.grantDebugStars(60)
+                toast = "Debug: +60 ⭐"
+                SoundManager.shared.playExtend()
+            } label: {
+                Text("DEBUG: Grant 60 ⭐")
+                    .font(.caption.bold())
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.15))
+                    .foregroundStyle(.white)
+                    .clipShape(Capsule())
+            }
+            #endif
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.15))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func shopRow(_ item: ShopItem) -> some View {
