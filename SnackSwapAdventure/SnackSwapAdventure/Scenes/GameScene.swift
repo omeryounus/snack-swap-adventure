@@ -232,9 +232,16 @@ final class GameScene: SKScene {
             height: boardPixel + 12
         )
         let frame = SKShapeNode(rect: rect, cornerRadius: 18)
-        // Lighter bakery tray so dark snacks (and any dark frosting) pop forward
-        frame.fillColor = SKColor(red: 0.42, green: 0.34, blue: 0.40, alpha: 1)
-        frame.strokeColor = SKColor(red: 0.72, green: 0.55, blue: 0.48, alpha: 1)
+        // Elevated glass bakery tray: brighter wells, darker outer edge, and a
+        // warm rim make the board read as the primary play surface.
+        let frameShadow = SKShapeNode(rect: rect.offsetBy(dx: 0, dy: -7), cornerRadius: 18)
+        frameShadow.fillColor = SKColor(white: 0, alpha: 0.38)
+        frameShadow.strokeColor = .clear
+        frameShadow.zPosition = -1
+        addChild(frameShadow)
+
+        frame.fillColor = SKColor(red: 0.30, green: 0.21, blue: 0.30, alpha: 1)
+        frame.strokeColor = SKColor(red: 0.92, green: 0.66, blue: 0.48, alpha: 1)
         frame.lineWidth = 3
         frame.zPosition = 0
         addChild(frame)
@@ -262,23 +269,45 @@ final class GameScene: SKScene {
             addChild(rivet)
         }
 
-        // High-contrast checker slots — desaturated gray-lavender, clearly lighter than snacks
+        // Glossy wells with a soft inset shadow. The alternating colors keep the
+        // grid scannable without making the tray feel like a flat gray table.
         for row in 0..<boardSize {
             for col in 0..<boardSize {
+                let position = point(for: BoardPosition(row: row, col: col))
+                let wellShadow = SKShapeNode(
+                    rectOf: CGSize(width: tileSize - 2, height: tileSize - 2),
+                    cornerRadius: 10
+                )
+                wellShadow.fillColor = SKColor(white: 0, alpha: 0.24)
+                wellShadow.strokeColor = .clear
+                wellShadow.position = CGPoint(x: position.x, y: position.y - 2)
+                wellShadow.zPosition = 0.7
+                addChild(wellShadow)
+
                 let cell = SKShapeNode(
                     rectOf: CGSize(width: tileSize - 3, height: tileSize - 3),
                     cornerRadius: 10
                 )
                 let even = (row + col) % 2 == 0
-                // Light gray-purple slots (empty wells)
                 cell.fillColor = even
-                    ? SKColor(red: 0.58, green: 0.50, blue: 0.56, alpha: 1)
-                    : SKColor(red: 0.50, green: 0.43, blue: 0.50, alpha: 1)
-                cell.strokeColor = SKColor(white: 1, alpha: 0.12)
-                cell.lineWidth = 1
-                cell.position = point(for: BoardPosition(row: row, col: col))
+                    ? SKColor(red: 0.66, green: 0.56, blue: 0.66, alpha: 1)
+                    : SKColor(red: 0.57, green: 0.48, blue: 0.59, alpha: 1)
+                cell.strokeColor = SKColor(white: 1, alpha: 0.24)
+                cell.lineWidth = 1.2
+                cell.position = position
                 cell.zPosition = 1
                 addChild(cell)
+
+                let highlight = SKShapeNode(
+                    rectOf: CGSize(width: tileSize - 8, height: tileSize - 8),
+                    cornerRadius: 8
+                )
+                highlight.fillColor = .clear
+                highlight.strokeColor = SKColor(white: 1, alpha: 0.11)
+                highlight.lineWidth = 1
+                highlight.position = CGPoint(x: position.x, y: position.y + 1)
+                highlight.zPosition = 1.2
+                addChild(highlight)
             }
         }
     }
@@ -1348,9 +1377,8 @@ final class SnackNode: SKNode {
         self.special = cell.special
         self.tileSize = tileSize
 
-        let inset = tileSize * 0.05
-        let plateSize = tileSize - inset * 2
-        let snackSize = plateSize * 0.90
+        let plateSize = tileSize * 0.96
+        let snackSize = tileSize * 0.94
 
         // Soft ground shadow for depth
         shadow = SKShapeNode(ellipseOf: CGSize(width: snackSize * 0.72, height: snackSize * 0.22))
@@ -1365,7 +1393,7 @@ final class SnackNode: SKNode {
             cornerRadius: plateSize * 0.30
         )
         // Slightly brighter plate seat so snack sprites separate from board wells
-        plate.fillColor = SKColor(white: 1, alpha: cell.special != nil ? 0.20 : 0.14)
+        plate.fillColor = SKColor(white: 1, alpha: cell.special != nil ? 0.26 : 0.19)
         plate.strokeColor = cell.special != nil
             ? (cell.special?.accent.withAlphaComponent(0.95) ?? .white)
             : SKColor(white: 1, alpha: 0.28)
@@ -1413,14 +1441,14 @@ final class SnackNode: SKNode {
             badgeTex.filteringMode = .linear
             if badgeTex.size().width > 1 {
                 let badge = SKSpriteNode(texture: badgeTex)
-                badge.size = CGSize(width: tileSize * 0.36, height: tileSize * 0.36)
-                badge.position = CGPoint(x: tileSize * 0.30, y: tileSize * 0.30)
+                badge.size = CGSize(width: tileSize * 0.40, height: tileSize * 0.40)
+                badge.position = CGPoint(x: tileSize * 0.31, y: tileSize * 0.31)
                 badge.zPosition = 6
                 badgeSprite = badge
             } else {
                 badgeSprite = nil
             }
-            plate.fillColor = SKColor(white: 1, alpha: 0.18)
+            plate.fillColor = SKColor(white: 1, alpha: 0.26)
             rimLight.strokeColor = (cell.special?.accent ?? .white).withAlphaComponent(0.55)
             rimLight.glowWidth = 4
         } else {

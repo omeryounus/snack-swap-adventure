@@ -33,26 +33,32 @@ struct GameHUD: View {
                 hudIconButton(systemName: "pause.fill", action: onPause)
             }
 
-            // Row 2: score / moves / goal — cream labels, warm accent numbers
+            // Row 2: keep the action stats visually dominant over the score.
             HStack(spacing: 8) {
                 statChip(
                     title: "SCORE",
                     value: gameState.score.formatted(),
-                    valueColor: cookieGold
+                    valueColor: cookieGold,
+                    valueSize: 16,
+                    isPrimary: false
                 )
                 statChip(
                     title: "MOVES",
                     value: "\(gameState.movesLeft)",
-                    valueColor: caramel
+                    valueColor: cream,
+                    valueSize: 26,
+                    isPrimary: true
                 )
                 statChip(
                     title: "GOAL",
                     value: "\(gameState.goalProgressValue)/\(gameState.level.progressDenominator)",
-                    valueColor: frostingPink
+                    valueColor: frostingPink,
+                    valueSize: 22,
+                    isPrimary: true
                 )
             }
 
-            // Row 3: single progress bar (goal) + timer shown only as text badge above
+            // Row 3: objective progress stays focused; the top timer owns time.
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Text(gameState.level.worldEmoji)
@@ -90,51 +96,27 @@ struct GameHUD: View {
                 }
                 .frame(height: 14)
 
-                HStack(spacing: 8) {
-                    Image(systemName: gameState.isFeverActive ? "flame.fill" : "sparkles")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(gameState.isFeverActive ? frostingPink : cookieGold)
-                    Text(gameState.isFeverActive ? "Sugar Rush x2" : "Sugar Rush")
-                        .font(.caption2.weight(.heavy))
-                        .foregroundStyle(cream)
-                        .lineLimit(1)
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            Capsule()
-                                .fill(Color.white.opacity(0.10))
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [frostingPink, cookieGold],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .frame(width: max(gameState.feverProgress > 0 ? 8 : 0, geo.size.width * gameState.feverProgress))
-                                .animation(.easeOut(duration: 0.22), value: gameState.feverMeter)
-                        }
+                if gameState.isFeverActive {
+                    HStack(spacing: 8) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(frostingPink)
+                        Text("Sugar Rush x2")
+                            .font(.caption.weight(.heavy))
+                            .foregroundStyle(cream)
+                        Spacer()
+                        Text("\(gameState.feverDisplayTurnsRemaining) turns")
+                            .font(.caption2.monospacedDigit().weight(.heavy))
+                            .foregroundStyle(frostingPink)
                     }
-                    .frame(height: 7)
-                    Text(gameState.isFeverActive ? "\(gameState.feverDisplayTurnsRemaining)" : "\(gameState.streakCount)x")
-                        .font(.caption2.monospacedDigit().weight(.heavy))
-                        .foregroundStyle(gameState.isFeverActive ? frostingPink : creamMuted)
-                        .frame(minWidth: 24, alignment: .trailing)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(
+                        Capsule()
+                            .fill(frostingPink.opacity(0.14))
+                            .overlay(Capsule().stroke(frostingPink.opacity(0.35), lineWidth: 1))
+                    )
                 }
-
-                // Tiny timer remaining hint (not a second competing bar)
-                HStack(spacing: 6) {
-                    Image(systemName: "timer")
-                        .font(.system(size: 10, weight: .bold))
-                    Text("Time \(gameState.formattedTime)")
-                        .font(.caption2.monospacedDigit().weight(.semibold))
-                    Spacer()
-                    if gameState.isTimerUrgent {
-                        Text("Hurry!")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(Color(red: 1.0, green: 0.45, blue: 0.35))
-                    }
-                }
-                .foregroundStyle(gameState.isTimerUrgent ? Color(red: 1.0, green: 0.55, blue: 0.4) : creamMuted)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
@@ -243,17 +225,21 @@ struct GameHUD: View {
         )
     }
 
-    private func statChip(title: String, value: String, valueColor: Color) -> some View {
+    private func statChip(
+        title: String,
+        value: String,
+        valueColor: Color,
+        valueSize: CGFloat,
+        isPrimary: Bool
+    ) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            // Consistent cream labels — no neon headers
             Text(title)
                 .font(.system(size: 10, weight: .bold))
                 .tracking(0.8)
                 .foregroundStyle(creamMuted)
 
-            // Accent color ONLY on the big number
             Text(value)
-                .font(.system(size: 18, weight: .heavy, design: .rounded).monospacedDigit())
+                .font(.system(size: valueSize, weight: .heavy, design: .rounded).monospacedDigit())
                 .foregroundStyle(valueColor)
                 .shadow(color: valueColor.opacity(0.25), radius: 2, y: 1)
                 .lineLimit(1)
@@ -263,13 +249,18 @@ struct GameHUD: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(red: 0.18, green: 0.12, blue: 0.12).opacity(0.9))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    isPrimary
+                        ? Color(red: 0.27, green: 0.16, blue: 0.18).opacity(0.98)
+                        : Color(red: 0.18, green: 0.12, blue: 0.12).opacity(0.9)
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        .stroke(isPrimary ? valueColor.opacity(0.34) : Color.white.opacity(0.1), lineWidth: 1)
                 )
         )
+        .shadow(color: isPrimary ? valueColor.opacity(0.18) : .clear, radius: 8, y: 3)
     }
 
     private func hudIconButton(systemName: String, action: @escaping () -> Void) -> some View {
