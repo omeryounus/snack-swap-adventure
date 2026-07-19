@@ -43,6 +43,9 @@ final class GameScene: SKScene {
     }
 
     override func didMove(to view: SKView) {
+        view.ignoresSiblingOrder = true
+        view.shouldCullNonVisibleNodes = true
+        view.preferredFramesPerSecond = 60
         // Warm bakery night backdrop — less pure purple so snacks contrast better
         backgroundColor = SKColor(red: 0.16, green: 0.10, blue: 0.14, alpha: 1)
         rebuildBoard()
@@ -58,6 +61,7 @@ final class GameScene: SKScene {
         boardSize = state.level.boardSize
 
         layoutMetrics()
+        drawStageBackdrop()
         drawBoardFrame()
         buildTilesFromModel()
         buildHUD()
@@ -113,6 +117,44 @@ final class GameScene: SKScene {
     }
 
     // MARK: - Visual setup
+
+    private func drawStageBackdrop() {
+        let boardPixel = tileSize * CGFloat(boardSize)
+        let topY = boardOrigin.y + boardPixel
+
+        let glow = SKShapeNode(ellipseOf: CGSize(width: boardPixel * 0.95, height: boardPixel * 0.28))
+        glow.position = CGPoint(x: size.width / 2, y: boardOrigin.y - tileSize * 0.15)
+        glow.fillColor = SKColor(red: 0.92, green: 0.46, blue: 0.36, alpha: 0.10)
+        glow.strokeColor = .clear
+        glow.zPosition = -8
+        addChild(glow)
+
+        let stage = SKShapeNode(
+            rect: CGRect(
+                x: max(12, boardOrigin.x - 18),
+                y: max(76, boardOrigin.y - 18),
+                width: min(size.width - 24, boardPixel + 36),
+                height: boardPixel + 36
+            ),
+            cornerRadius: 24
+        )
+        stage.fillColor = SKColor(red: 0.24, green: 0.14, blue: 0.18, alpha: 0.52)
+        stage.strokeColor = SKColor(red: 0.95, green: 0.67, blue: 0.50, alpha: 0.22)
+        stage.lineWidth = 1
+        stage.zPosition = -6
+        addChild(stage)
+
+        let titlePlate = SKShapeNode(
+            rectOf: CGSize(width: min(size.width - 64, boardPixel * 0.82), height: 32),
+            cornerRadius: 16
+        )
+        titlePlate.position = CGPoint(x: size.width / 2, y: topY + 20)
+        titlePlate.fillColor = SKColor(red: 0.12, green: 0.07, blue: 0.10, alpha: 0.34)
+        titlePlate.strokeColor = SKColor(white: 1, alpha: 0.08)
+        titlePlate.lineWidth = 1
+        titlePlate.zPosition = -5
+        addChild(titlePlate)
+    }
 
     private func drawBoardFrame() {
         let boardPixel = tileSize * CGFloat(boardSize)
@@ -174,7 +216,8 @@ final class GameScene: SKScene {
         node.name = "snack_\(pos.row)_\(pos.col)"
         // Stagger idle so the board feels alive, not synchronized.
         let phase = Double((pos.row * 3 + pos.col * 5) % 17) * 0.07
-        node.startLiveEffects(phaseOffset: phase)
+        let featured = cell.special != nil || (pos.row + pos.col) % 5 == 0
+        node.startLiveEffects(phaseOffset: phase, featured: featured)
         return node
     }
 
@@ -184,6 +227,14 @@ final class GameScene: SKScene {
         movesLabel = nil
         scoreLabel = nil
         goalLabel = nil
+
+        let messagePlate = SKShapeNode(rectOf: CGSize(width: min(size.width - 72, 270), height: 34), cornerRadius: 17)
+        messagePlate.position = CGPoint(x: size.width / 2, y: 28)
+        messagePlate.fillColor = SKColor(red: 0.12, green: 0.07, blue: 0.10, alpha: 0.40)
+        messagePlate.strokeColor = SKColor(white: 1, alpha: 0.08)
+        messagePlate.lineWidth = 1
+        messagePlate.zPosition = 98
+        addChild(messagePlate)
 
         monsterLabel = SKLabelNode(text: "👾")
         monsterLabel?.fontSize = 52
@@ -645,7 +696,7 @@ final class GameScene: SKScene {
         }
 
         // Clear and rebuild node matrix from current physical nodes
-        var working: [[SnackNode?]] = tileNodes
+        let working: [[SnackNode?]] = tileNodes
         var next: [[SnackNode?]] = Array(
             repeating: Array(repeating: nil, count: boardSize),
             count: boardSize
@@ -996,55 +1047,38 @@ final class SnackNode: SKNode {
         fatalError("init(coder:) has not been implemented")
     }
 
-    /// Idle bob, gloss pulse, light sweep — makes tiles feel like real candy.
-    func startLiveEffects(phaseOffset: TimeInterval = 0) {
+    /// Lightweight idle effects. Only featured tiles and specials animate continuously.
+    func startLiveEffects(phaseOffset: TimeInterval = 0, featured: Bool) {
         guard !liveStarted else { return }
         liveStarted = true
 
-        let bobAmp = tileSize * 0.035
-        let bobUp = SKAction.moveBy(x: 0, y: bobAmp, duration: 0.9)
-        let bobDown = SKAction.moveBy(x: 0, y: -bobAmp * 2, duration: 1.1)
-        let bobBack = SKAction.moveBy(x: 0, y: bobAmp, duration: 0.9)
-        let bob = SKAction.sequence([bobUp, bobDown, bobBack])
+        guard featured || special != nil else {
+            gloss.alpha = 0.48
+            sheen.isHidden = true
+            return
+        }
 
-        let swayRight = SKAction.rotate(toAngle: 0.05, duration: 1.15)
-        let swayLeft = SKAction.rotate(toAngle: -0.05, duration: 1.25)
-        let swayCenter = SKAction.rotate(toAngle: 0, duration: 0.9)
-        let sway = SKAction.sequence([swayRight, swayLeft, swayCenter])
-
-        let breatheIn = SKAction.scale(to: 1.035, duration: 1.0)
-        let breatheOut = SKAction.scale(to: 0.985, duration: 1.05)
-        let breatheRest = SKAction.scale(to: 1.0, duration: 0.85)
-        let breathe = SKAction.sequence([breatheIn, breatheOut, breatheRest])
-
-        let idleGroup = SKAction.group([bob, sway, breathe])
-        contentRoot.run(SKAction.repeatForever(idleGroup), withKey: "idle")
-
-        // Shadow breathes opposite to bob for grounded feel
-        let shadowShrink = SKAction.group([
-            SKAction.scaleX(to: 0.92, duration: 0.9),
-            SKAction.fadeAlpha(to: 0.22, duration: 0.9)
-        ])
-        let shadowGrow = SKAction.group([
-            SKAction.scaleX(to: 1.08, duration: 1.1),
-            SKAction.fadeAlpha(to: 0.32, duration: 1.1)
-        ])
-        let shadowRest = SKAction.group([
-            SKAction.scaleX(to: 1.0, duration: 0.9),
-            SKAction.fadeAlpha(to: 0.28, duration: 0.9)
-        ])
-        shadow.run(SKAction.repeatForever(SKAction.sequence([shadowShrink, shadowGrow, shadowRest])), withKey: "shadowIdle")
+        let breatheIn = SKAction.scale(to: special == nil ? 1.018 : 1.035, duration: 1.15 + phaseOffset * 0.15)
+        let breatheOut = SKAction.scale(to: special == nil ? 0.992 : 0.985, duration: 1.1)
+        let breathe = SKAction.sequence([breatheIn, breatheOut])
+        contentRoot.run(SKAction.repeatForever(breathe), withKey: "idle")
 
         // Gloss twinkle
         let glossPulse = SKAction.sequence([
-            SKAction.fadeAlpha(to: 0.55, duration: 0.7),
-            SKAction.fadeAlpha(to: 0.95, duration: 0.55),
-            SKAction.fadeAlpha(to: 0.7, duration: 0.8)
+            SKAction.fadeAlpha(to: 0.52, duration: 0.9),
+            SKAction.fadeAlpha(to: special == nil ? 0.78 : 0.95, duration: 0.7),
+            SKAction.fadeAlpha(to: 0.62, duration: 0.9)
         ])
         gloss.run(SKAction.repeatForever(glossPulse), withKey: "gloss")
 
+        guard special != nil else {
+            sheen.isHidden = true
+            return
+        }
+
         // Light sheen sweep across candy surface
         let sweepWidth = tileSize * 0.9
+        sheen.isHidden = false
         sheen.position = CGPoint(x: -sweepWidth, y: 0)
         let waitIn = SKAction.wait(forDuration: 1.4 + phaseOffset.truncatingRemainder(dividingBy: 1.8))
         let sheenMove = SKAction.group([

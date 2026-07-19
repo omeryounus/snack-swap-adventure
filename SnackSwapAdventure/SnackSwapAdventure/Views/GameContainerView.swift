@@ -22,7 +22,10 @@ struct GameContainerView: View {
 
     var body: some View {
         ZStack {
-            SpriteView(scene: scene)
+            SpriteView(
+                scene: scene,
+                options: [.ignoresSiblingOrder, .shouldCullNonVisibleNodes]
+            )
                 .ignoresSafeArea()
                 .onAppear {
                     DispatchQueue.main.async {
@@ -301,33 +304,80 @@ struct PauseOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.55).ignoresSafeArea()
-            VStack(spacing: 16) {
-                Text("Paused").font(.title.bold()).foregroundStyle(.white)
+            Color.black.opacity(0.58).ignoresSafeArea()
+            VStack(spacing: 18) {
+                VStack(spacing: 6) {
+                    Image(systemName: "pause.circle.fill")
+                        .font(.system(size: 46, weight: .bold))
+                        .foregroundStyle(
+                            LinearGradient(colors: [.pink, .orange], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        )
+                    Text("Paused")
+                        .font(.system(size: 30, weight: .black, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+
                 Button { SoundManager.shared.playUITap(); onResume() } label: {
-                    Text("Resume").font(.headline.bold()).frame(maxWidth: .infinity)
-                        .padding().background(LinearGradient(colors: [.pink, .orange], startPoint: .leading, endPoint: .trailing))
-                        .foregroundStyle(.white).clipShape(RoundedRectangle(cornerRadius: 14))
+                    Label("Resume", systemImage: "play.fill")
+                        .font(.headline.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                        .background(LinearGradient(colors: [.pink, .orange], startPoint: .leading, endPoint: .trailing))
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
+                .buttonStyle(OverlayPressButtonStyle())
+
                 Button { SoundManager.shared.playUITap(); onToggleSound() } label: {
-                    Text(soundOn ? "Sound: On" : "Sound: Off").frame(maxWidth: .infinity).padding()
-                        .background(Color.white.opacity(0.12)).foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    Label(soundOn ? "Sound On" : "Sound Off", systemImage: soundOn ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(Color.white.opacity(0.12))
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
+                .buttonStyle(OverlayPressButtonStyle())
+
                 Button { SoundManager.shared.playUITap(); onToggleMusic() } label: {
-                    Text(musicOn ? "Music: On" : "Music: Off").frame(maxWidth: .infinity).padding()
-                        .background(Color.white.opacity(0.12)).foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    Label(musicOn ? "Music On" : "Music Off", systemImage: musicOn ? "music.note" : "music.note.slash")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(Color.white.opacity(0.12))
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
+                .buttonStyle(OverlayPressButtonStyle())
+
                 Button { SoundManager.shared.playUITap(); onQuit() } label: {
-                    Text("World Map").frame(maxWidth: .infinity).padding()
-                        .background(Color.white.opacity(0.08)).foregroundStyle(.white.opacity(0.85))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    Label("World Map", systemImage: "map.fill")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(Color.white.opacity(0.08))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
+                .buttonStyle(OverlayPressButtonStyle())
             }
             .padding(28)
-            .background(RoundedRectangle(cornerRadius: 24).fill(Color(red: 0.18, green: 0.12, blue: 0.28)))
-            .padding(32)
+            .background(
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.24, green: 0.13, blue: 0.19),
+                                Color(red: 0.12, green: 0.08, blue: 0.14)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 26, style: .continuous)
+                            .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                    )
+            )
+            .padding(30)
+            .shadow(color: .black.opacity(0.42), radius: 28, y: 12)
         }
     }
 }
@@ -349,9 +399,14 @@ struct LevelResultOverlay: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 18) {
-                Text(won ? "🎉" : "😿")
-                    .font(.system(size: 56))
-                    .scaleEffect(won ? 1.1 : 1.0)
+                ZStack {
+                    Circle()
+                        .fill((won ? Color.yellow : Color.pink).opacity(0.18))
+                        .frame(width: 96, height: 96)
+                    Text(won ? "🎉" : "😿")
+                        .font(.system(size: 58))
+                        .scaleEffect(won ? 1.1 : 1.0)
+                }
 
                 Text(won ? "Level Complete!" : "Out of Moves")
                     .font(.system(size: 28, weight: .heavy, design: .rounded))
@@ -391,7 +446,7 @@ struct LevelResultOverlay: View {
                         SoundManager.shared.playUITap()
                         onPrimary()
                     } label: {
-                        Text(won ? "Next Level" : "Try Again")
+                        Label(won ? "Next Level" : "Try Again", systemImage: won ? "arrow.right.circle.fill" : "arrow.clockwise")
                             .font(.headline.bold())
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -405,13 +460,14 @@ struct LevelResultOverlay: View {
                             .foregroundStyle(.white)
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
+                    .buttonStyle(OverlayPressButtonStyle())
 
                     HStack(spacing: 12) {
                         Button {
                             SoundManager.shared.playUITap()
                             onReplay()
                         } label: {
-                            Text("Replay")
+                            Label("Replay", systemImage: "arrow.counterclockwise")
                                 .font(.subheadline.weight(.semibold))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
@@ -419,11 +475,13 @@ struct LevelResultOverlay: View {
                                 .foregroundStyle(.white)
                                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
+                        .buttonStyle(OverlayPressButtonStyle())
+
                         Button {
                             SoundManager.shared.playUITap()
                             onMap()
                         } label: {
-                            Text("World Map")
+                            Label("Map", systemImage: "map.fill")
                                 .font(.subheadline.weight(.semibold))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
@@ -431,6 +489,7 @@ struct LevelResultOverlay: View {
                                 .foregroundStyle(.white)
                                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
+                        .buttonStyle(OverlayPressButtonStyle())
                     }
                 }
             }
@@ -455,5 +514,14 @@ struct LevelResultOverlay: View {
             .padding(.horizontal, 28)
             .shadow(color: .black.opacity(0.4), radius: 30, y: 12)
         }
+    }
+}
+
+private struct OverlayPressButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .brightness(configuration.isPressed ? 0.06 : 0)
+            .animation(.spring(response: 0.18, dampingFraction: 0.72), value: configuration.isPressed)
     }
 }

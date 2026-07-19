@@ -80,7 +80,7 @@ final class GameState: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 guard let self, !Task.isCancelled else { return }
-                await self.tick()
+                self.tick()
             }
         }
     }
