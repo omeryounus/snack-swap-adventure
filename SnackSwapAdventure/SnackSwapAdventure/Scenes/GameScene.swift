@@ -368,8 +368,11 @@ final class GameScene: SKScene {
         for row in 0..<boardSize {
             for col in 0..<boardSize {
                 guard let node = tileNodes[row][col] else { continue }
-                node.setScale(0.01)
-                node.alpha = 0
+                // Keep every well represented during the entrance animation;
+                // scaling from a readable size avoids a screenshot catching a
+                // fully empty slot while the scene is still settling.
+                node.setScale(0.86)
+                node.alpha = 1
                 let delay = Double(row + col) * 0.012
                 node.run(.sequence([
                     .wait(forDuration: delay),
@@ -826,140 +829,61 @@ final class GameScene: SKScene {
             return
         }
 
+        // Update the model first, then rebuild the visual matrix from it. The
+        // previous incremental source/destination mapping could assign a node
+        // twice during fast cascades, producing both holes and overlaps.
         let gravityMoves = state.board.applyGravity()
-        let fallDuration: TimeInterval = 0.18
-        let group = DispatchGroup()
-
-        // Update node grid after gravity
-        var newNodes: [[SnackNode?]] = Array(
-            repeating: Array(repeating: nil, count: boardSize),
-            count: boardSize
-        )
-
-        // Place remaining nodes at their pre-gravity positions first
-        for row in 0..<boardSize {
-            for col in 0..<boardSize {
-                if let node = tileNodes[row][col] {
-                    // Will be remapped via gravity moves
-                    newNodes[row][col] = node
-                }
-            }
-        }
-
-        // Apply moves in reverse order of distance so we don't overwrite
-        // Build destination map
-        var destMap: [BoardPosition: BoardPosition] = [:] // from -> to
-        for move in gravityMoves {
-            destMap[move.from] = move.to
-        }
-
-        // Clear and rebuild node matrix from current physical nodes
-        let working: [[SnackNode?]] = tileNodes
-        var next: [[SnackNode?]] = Array(
-            repeating: Array(repeating: nil, count: boardSize),
-            count: boardSize
-        )
-
-        for row in 0..<boardSize {
-            for col in 0..<boardSize {
-                let from = BoardPosition(row: row, col: col)
-                guard let node = working[row][col] else { continue }
-                if let to = destMap[from] {
-                    next[to.row][to.col] = node
-                    node.name = "snack_\(to.row)_\(to.col)"
-                    group.enter()
-                    let target = point(for: to)
-                    let distance = abs(to.row - from.row)
-                    let duration = fallDuration + Double(distance) * 0.03
-                    node.run(.sequence([
-                        .move(to: target, duration: duration),
-                        .scale(to: 1.08, duration: 0.05),
-                        .scale(to: 1.0, duration: 0.05)
-                    ])) { group.leave() }
-                } else {
-                    next[row][col] = node
-                }
-            }
-        }
-        tileNodes = next
-
-        // Refill empties from above
         let spawned = state.board.refill()
-        var maxFallDuration: TimeInterval = 0
-        for item in spawned {
-            let node = makeSnackNode(cell: item.cell, at: item.pos)
-            // Start above the board
-            let start = CGPoint(
-                x: point(for: item.pos).x,
-                y: boardOrigin.y + CGFloat(boardSize) * tileSize + tileSize
-            )
-            node.position = start
-            node.setScale(0.8)
-            addChild(node)
-            tileNodes[item.pos.row][item.pos.col] = node
 
-            group.enter()
-            let distance = boardSize - item.pos.row
-            let duration = fallDuration + Double(distance) * 0.025
-            maxFallDuration = max(maxFallDuration, duration)
-            node.run(.sequence([
-                .group([
-                    .move(to: point(for: item.pos), duration: duration),
-                    .scale(to: 1.0, duration: duration)
-                ]),
-                .scale(to: 1.06, duration: 0.05),
-                .scale(to: 1.0, duration: 0.05)
-            ])) { group.leave() }
+        // Purge every snack node attached to the scene, not only the nodes in
+        // the matrix. A completed pop or special animation can otherwise leave
+        // an orphan node behind for one frame, which is how overlaps persisted.
+        let oldNodes = children.compactMap { $0 as? SnackNode }
+        oldNodes.forEach { node in
+            node.removeAllActions()
+            node.removeFromParent()
         }
 
-        // Keep SpriteKit and the model in lockstep after a cascade. The model
-        // is authoritative; if a visual node was lost during a rapid special
-        // animation, restore it from above instead of leaving a visible hole.
+        tileNodes = Array(
+            repeating: Array(repeating: nil, count: boardSize),
+            count: boardSize
+        )
+
         for row in 0..<boardSize {
             for col in 0..<boardSize {
                 let pos = BoardPosition(row: row, col: col)
-                guard let cell = state.board.cell(at: pos), tileNodes[row][col] == nil else { continue }
+                guard let cell = state.board.cell(at: pos) else { continue }
                 let node = makeSnackNode(cell: cell, at: pos)
-                let start = CGPoint(
-                    x: point(for: pos).x,
-                    y: boardOrigin.y + CGFloat(boardSize) * tileSize + tileSize
-                )
-                node.position = start
-                node.setScale(0.8)
-                addChild(node)
+                node.position = point(for: pos)
+                // The model is already settled when this method runs. Keep the
+                // full matrix visible immediately so cascades never expose
+                // permanent-looking empty wells between animation frames.
+                node.setScale(1.0)
+                node.alpha = 1.0
                 tileNodes[row][col] = node
+                addChild(node)
 
-                group.enter()
-                let duration = fallDuration + Double(boardSize - pos.row) * 0.025
-                maxFallDuration = max(maxFallDuration, duration)
                 node.run(.sequence([
-                    .group([
-                        .move(to: point(for: pos), duration: duration),
-                        .scale(to: 1.0, duration: duration)
-                    ]),
-                    .scale(to: 1.06, duration: 0.05),
-                    .scale(to: 1.0, duration: 0.05)
-                ])) { group.leave() }
+                    .scale(to: 1.06, duration: 0.08),
+                    .scale(to: 0.98, duration: 0.06),
+                    .scale(to: 1.0, duration: 0.06)
+                ]))
             }
         }
 
-        // Soft land thud once pieces settle.
         if !gravityMoves.isEmpty || !spawned.isEmpty {
             run(.sequence([
-                .wait(forDuration: max(maxFallDuration, fallDuration) * 0.85),
+                .wait(forDuration: 0.32),
                 .run { SoundManager.shared.playLand() }
             ]))
         }
 
-        // Silence unused warning
-        _ = newNodes
-
-        group.notify(queue: .main) { [weak self] in
-            // Small delay then check for new matches
-            self?.run(.wait(forDuration: 0.05)) {
+        run(.sequence([
+            .wait(forDuration: 0.45),
+            .run { [weak self] in
                 self?.resolveMatches(cascadeDepth: cascadeDepth + 1)
             }
-        }
+        ]), withKey: "cascadeResolution")
     }
 
     // MARK: - Player guidance and dead-board recovery
