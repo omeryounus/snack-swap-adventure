@@ -108,6 +108,18 @@ struct ContentView: View {
         if extraTime > 0 {
             gameState.timeRemaining += extraTime
         }
+        if boosters.contains("hammer") {
+            // Apply the queued booster before the scene is rebuilt so the
+            // player starts with a real cleared snack, not just a toast.
+            let target = BoardPosition(row: config.boardSize / 2, col: config.boardSize / 2)
+            gameState.board.clear([target])
+            _ = gameState.board.applyGravity()
+            _ = gameState.board.refill()
+            if !gameState.board.findMatches().isEmpty {
+                _ = gameState.board.reshuffleToPlayable()
+            }
+            gameState.lastFeedMessage = "Snack Hammer bonus! One snack smashed!"
+        }
         if boosters.contains("shuffle") {
             gameState.board.fillWithoutInitialMatches()
         }

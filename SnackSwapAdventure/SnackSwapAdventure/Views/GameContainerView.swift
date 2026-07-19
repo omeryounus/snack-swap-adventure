@@ -392,20 +392,45 @@ struct LevelResultOverlay: View {
     let onPrimary: () -> Void
     let onReplay: () -> Void
     let onMap: () -> Void
+    @State private var showPrize = false
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.55)
+            Color.black.opacity(0.58)
                 .ignoresSafeArea()
+
+            if won {
+                RewardRain()
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
 
             VStack(spacing: 18) {
                 ZStack {
                     Circle()
                         .fill((won ? Color.yellow : Color.pink).opacity(0.18))
-                        .frame(width: 96, height: 96)
-                    Text(won ? "🎉" : "😿")
-                        .font(.system(size: 58))
-                        .scaleEffect(won ? 1.1 : 1.0)
+                        .frame(width: 108, height: 108)
+                    Circle()
+                        .stroke(
+                            LinearGradient(colors: won ? [.yellow, .orange, .pink] : [.pink, .purple], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            lineWidth: 3
+                        )
+                        .frame(width: 108, height: 108)
+                        .scaleEffect(showPrize ? 1.08 : 0.86)
+                        .opacity(showPrize ? 0.35 : 0.85)
+                    VStack(spacing: -2) {
+                        Text(won ? "🏆" : "😿")
+                            .font(.system(size: 54))
+                        if won {
+                            Text("+\(stars * 10)")
+                                .font(.caption.weight(.black))
+                                .foregroundStyle(.yellow)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Capsule().fill(Color.black.opacity(0.28)))
+                        }
+                    }
+                    .scaleEffect(showPrize ? 1.04 : 0.86)
                 }
 
                 Text(won ? "Level Complete!" : "Out of Moves")
@@ -415,11 +440,17 @@ struct LevelResultOverlay: View {
                 if won {
                     HStack(spacing: 8) {
                         ForEach(1...3, id: \.self) { i in
-                            Text(i <= stars ? "★" : "☆")
-                                .font(.system(size: 36))
-                                .foregroundStyle(i <= stars ? Color.yellow : Color.white.opacity(0.35))
-                                .scaleEffect(i <= stars ? 1.15 : 1.0)
-                                .animation(.spring(response: 0.4, dampingFraction: 0.5).delay(Double(i) * 0.08), value: stars)
+                            ZStack {
+                                Image(systemName: "star.fill")
+                                    .font(.system(size: 35, weight: .black))
+                                    .foregroundStyle(i <= stars ? LinearGradient(colors: [.yellow, .orange], startPoint: .top, endPoint: .bottom) : LinearGradient(colors: [.white.opacity(0.20)], startPoint: .top, endPoint: .bottom))
+                                Image(systemName: "sparkle")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.white.opacity(i <= stars ? 0.85 : 0))
+                                    .offset(x: 10, y: -9)
+                            }
+                            .scaleEffect(showPrize && i <= stars ? 1.16 : 0.94)
+                            .animation(.spring(response: 0.42, dampingFraction: 0.55).delay(Double(i) * 0.09), value: showPrize)
                         }
                     }
                 }
@@ -514,6 +545,12 @@ struct LevelResultOverlay: View {
             .padding(.horizontal, 28)
             .shadow(color: .black.opacity(0.4), radius: 30, y: 12)
         }
+        .onAppear {
+            showPrize = false
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.62).delay(0.08)) {
+                showPrize = true
+            }
+        }
     }
 }
 
@@ -523,5 +560,29 @@ private struct OverlayPressButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .brightness(configuration.isPressed ? 0.06 : 0)
             .animation(.spring(response: 0.18, dampingFraction: 0.72), value: configuration.isPressed)
+    }
+}
+
+private struct RewardRain: View {
+    private let snacks = ["🍪", "🍩", "🍬", "🍿", "⭐", "✨"]
+
+    var body: some View {
+        GeometryReader { geo in
+            TimelineView(.animation) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
+                ZStack {
+                    ForEach(0..<18, id: \.self) { index in
+                        let x = CGFloat((index * 53) % 100) / 100 * geo.size.width
+                        let speed = CGFloat(34 + (index % 5) * 14)
+                        let y = CGFloat((t * Double(speed) + Double(index * 41)).truncatingRemainder(dividingBy: Double(geo.size.height + 120))) - 70
+                        Text(snacks[index % snacks.count])
+                            .font(.system(size: CGFloat(16 + (index % 4) * 5)))
+                            .rotationEffect(.degrees(Double(index * 19) + t * 24))
+                            .position(x: x, y: y)
+                            .opacity(0.72)
+                    }
+                }
+            }
+        }
     }
 }

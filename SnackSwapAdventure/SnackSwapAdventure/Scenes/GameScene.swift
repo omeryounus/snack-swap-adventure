@@ -33,6 +33,7 @@ final class GameScene: SKScene {
     private var scoreLabel: SKLabelNode?
     private var messageLabel: SKLabelNode?
     private var monsterLabel: SKLabelNode?
+    private var monsterNode: MonsterMascotNode?
     private var levelLabel: SKLabelNode?
 
     // MARK: - Lifecycle
@@ -59,6 +60,9 @@ final class GameScene: SKScene {
 
         guard let state = gameState else { return }
         boardSize = state.level.boardSize
+        if state.board.findMatches().isEmpty, state.board.firstAvailableMove() == nil {
+            _ = state.board.reshuffleToPlayable()
+        }
 
         layoutMetrics()
         drawStageBackdrop()
@@ -67,6 +71,7 @@ final class GameScene: SKScene {
         buildHUD()
         refreshHUD()
         bounceInTiles()
+        scheduleHint()
     }
 
     // MARK: - Layout
@@ -122,9 +127,45 @@ final class GameScene: SKScene {
         let boardPixel = tileSize * CGFloat(boardSize)
         let topY = boardOrigin.y + boardPixel
 
+        let backdrop = SKShapeNode(rect: CGRect(origin: .zero, size: size))
+        backdrop.fillColor = SKColor(red: 0.17, green: 0.09, blue: 0.13, alpha: 1)
+        backdrop.strokeColor = .clear
+        backdrop.zPosition = -20
+        addChild(backdrop)
+
+        let worldColors = worldPalette()
+        for index in 0..<10 {
+            let radius = CGFloat(3 + (index % 3) * 2)
+            let crumb = SKShapeNode(circleOfRadius: radius)
+            crumb.position = CGPoint(
+                x: CGFloat((index * 47) % Int(max(size.width, 1))) + 8,
+                y: CGFloat((index * 83) % Int(max(size.height, 1))) + 18
+            )
+            crumb.fillColor = worldColors.accent.withAlphaComponent(index.isMultiple(of: 2) ? 0.26 : 0.16)
+            crumb.strokeColor = .clear
+            crumb.zPosition = -18
+            addChild(crumb)
+        }
+
+        for index in 0..<5 {
+            let ribbon = SKShapeNode(
+                rectOf: CGSize(width: size.width * 0.34, height: 5),
+                cornerRadius: 2.5
+            )
+            ribbon.position = CGPoint(
+                x: CGFloat(index) * size.width * 0.23 + 24,
+                y: size.height - CGFloat(index) * 112 - 86
+            )
+            ribbon.zRotation = index.isMultiple(of: 2) ? -0.18 : 0.15
+            ribbon.fillColor = worldColors.secondary.withAlphaComponent(0.10)
+            ribbon.strokeColor = .clear
+            ribbon.zPosition = -19
+            addChild(ribbon)
+        }
+
         let glow = SKShapeNode(ellipseOf: CGSize(width: boardPixel * 0.95, height: boardPixel * 0.28))
         glow.position = CGPoint(x: size.width / 2, y: boardOrigin.y - tileSize * 0.15)
-        glow.fillColor = SKColor(red: 0.92, green: 0.46, blue: 0.36, alpha: 0.10)
+        glow.fillColor = worldColors.accent.withAlphaComponent(0.14)
         glow.strokeColor = .clear
         glow.zPosition = -8
         addChild(glow)
@@ -139,7 +180,7 @@ final class GameScene: SKScene {
             cornerRadius: 24
         )
         stage.fillColor = SKColor(red: 0.24, green: 0.14, blue: 0.18, alpha: 0.52)
-        stage.strokeColor = SKColor(red: 0.95, green: 0.67, blue: 0.50, alpha: 0.22)
+        stage.strokeColor = worldColors.accent.withAlphaComponent(0.24)
         stage.lineWidth = 1
         stage.zPosition = -6
         addChild(stage)
@@ -154,6 +195,32 @@ final class GameScene: SKScene {
         titlePlate.lineWidth = 1
         titlePlate.zPosition = -5
         addChild(titlePlate)
+    }
+
+    private func worldPalette() -> (accent: SKColor, secondary: SKColor) {
+        guard let state = gameState else {
+            return (
+                SKColor(red: 1.0, green: 0.58, blue: 0.25, alpha: 1),
+                SKColor(red: 1.0, green: 0.34, blue: 0.55, alpha: 1)
+            )
+        }
+        switch state.level.levelNumber {
+        case 1...10:
+            return (
+                SKColor(red: 1.0, green: 0.66, blue: 0.34, alpha: 1),
+                SKColor(red: 0.62, green: 0.34, blue: 0.22, alpha: 1)
+            )
+        case 11...20:
+            return (
+                SKColor(red: 1.0, green: 0.84, blue: 0.30, alpha: 1),
+                SKColor(red: 0.54, green: 0.72, blue: 0.38, alpha: 1)
+            )
+        default:
+            return (
+                SKColor(red: 1.0, green: 0.35, blue: 0.72, alpha: 1),
+                SKColor(red: 0.48, green: 0.40, blue: 1.0, alpha: 1)
+            )
+        }
     }
 
     private func drawBoardFrame() {
@@ -172,6 +239,28 @@ final class GameScene: SKScene {
         frame.zPosition = 0
         addChild(frame)
         boardBackground = frame
+
+        let innerGlow = SKShapeNode(rect: rect.insetBy(dx: 8, dy: 8), cornerRadius: 14)
+        innerGlow.fillColor = .clear
+        innerGlow.strokeColor = SKColor(white: 1, alpha: 0.13)
+        innerGlow.lineWidth = 2
+        innerGlow.glowWidth = 2
+        innerGlow.zPosition = 0.5
+        addChild(innerGlow)
+
+        for index in 0..<12 {
+            let rivet = SKShapeNode(circleOfRadius: 2.2)
+            let t = CGFloat(index) / 11
+            let onTop = index < 6
+            rivet.position = CGPoint(
+                x: rect.minX + 22 + t * (rect.width - 44),
+                y: onTop ? rect.maxY - 9 : rect.minY + 9
+            )
+            rivet.fillColor = SKColor(red: 1.0, green: 0.79, blue: 0.54, alpha: 0.38)
+            rivet.strokeColor = .clear
+            rivet.zPosition = 2
+            addChild(rivet)
+        }
 
         // High-contrast checker slots — desaturated gray-lavender, clearly lighter than snacks
         for row in 0..<boardSize {
@@ -237,12 +326,18 @@ final class GameScene: SKScene {
         addChild(messagePlate)
 
         monsterLabel = SKLabelNode(text: "👾")
-        monsterLabel?.fontSize = 52
+        monsterLabel?.fontSize = 1
         monsterLabel?.verticalAlignmentMode = .center
         monsterLabel?.horizontalAlignmentMode = .center
-        monsterLabel?.position = CGPoint(x: size.width / 2, y: 70)
+        monsterLabel?.position = CGPoint(x: size.width / 2, y: 66)
         monsterLabel?.zPosition = 100
         if let monsterLabel { addChild(monsterLabel) }
+
+        let mascot = MonsterMascotNode(size: 58)
+        mascot.position = CGPoint(x: size.width / 2, y: 70)
+        mascot.zPosition = 101
+        addChild(mascot)
+        monsterNode = mascot
 
         messageLabel = makeLabel(fontSize: 13, color: SKColor(white: 0.92, alpha: 1))
         messageLabel?.horizontalAlignmentMode = .center
@@ -297,7 +392,8 @@ final class GameScene: SKScene {
         guard let state = gameState else { return }
         // Level / timer / score / goal are rendered by SwiftUI GameHUD.
         messageLabel?.text = state.lastFeedMessage
-        monsterLabel?.text = state.monsterMood.emoji
+        monsterLabel?.text = ""
+        monsterNode?.setMood(state.monsterMood)
 
         // Play win/lose once when outcome flips.
         if lastAnnouncedOutcome == .playing || lastAnnouncedOutcome == .timedOut {
@@ -325,6 +421,7 @@ final class GameScene: SKScene {
                 .scale(to: 1.0, duration: 0.18)
             ])
             monsterLabel?.run(pulse, withKey: "mood")
+            monsterNode?.celebrate()
         case .sad:
             let shake = SKAction.sequence([
                 .moveBy(x: -6, y: 0, duration: 0.04),
@@ -332,6 +429,7 @@ final class GameScene: SKScene {
                 .moveBy(x: -6, y: 0, duration: 0.04)
             ])
             monsterLabel?.run(shake, withKey: "mood")
+            monsterNode?.sadWobble()
         case .idle:
             break
         }
@@ -341,6 +439,7 @@ final class GameScene: SKScene {
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard !isBusy, gameState?.outcome == .playing, gameState?.isPaused != true, let touch = touches.first else { return }
+        scheduleHint()
         guard let pos = position(at: touch.location(in: self)) else {
             clearSelection()
             return
@@ -403,12 +502,17 @@ final class GameScene: SKScene {
         SoundManager.shared.playSwap()
         animateTapNudge(from: from, toward: to)
         animateTapNudge(from: to, toward: from)
+        let activatesSpecial = state.board.cell(at: from)?.special != nil
+            || state.board.cell(at: to)?.special != nil
         state.board.swap(from, to)
         animateSwap(from: from, to: to, duration: 0.15) { [weak self] in
             self?.swapNodeReferences(from, to)
             state.registerSuccessfulSwap()
             self?.refreshHUD()
-            self?.resolveMatches(cascadeDepth: 0)
+            self?.resolveMatches(
+                cascadeDepth: 0,
+                forcedPositions: activatesSpecial ? Set([from, to]) : []
+            )
         }
     }
 
@@ -501,7 +605,7 @@ final class GameScene: SKScene {
 
     // MARK: - Match resolution cascade
 
-    private func resolveMatches(cascadeDepth: Int) {
+    private func resolveMatches(cascadeDepth: Int, forcedPositions: Set<BoardPosition> = []) {
         guard let state = gameState else {
             isBusy = false
             return
@@ -509,12 +613,18 @@ final class GameScene: SKScene {
 
         let groups = state.board.matchGroups()
         var matched = state.board.findMatches()
+        matched.formUnion(forcedPositions)
 
         guard !matched.isEmpty else {
             state.finishMoveResolution()
             state.evaluateOutcome()
             refreshHUD()
+            if state.outcome == .playing, state.board.firstAvailableMove() == nil {
+                reshufflePlayableBoard()
+                return
+            }
             isBusy = false
+            scheduleHint()
             return
         }
 
@@ -576,6 +686,7 @@ final class GameScene: SKScene {
 
         // Particle juice
         spawnParticles(at: matched)
+        spawnSnackBurst(at: matched)
 
         // Pop matched tiles
         let popDuration: TimeInterval = 0.18
@@ -594,12 +705,7 @@ final class GameScene: SKScene {
         }
 
         if cascadeDepth >= 1 || specialsActivated > 0 {
-            let shake = SKAction.sequence([
-                .moveBy(x: 4, y: 0, duration: 0.03),
-                .moveBy(x: -8, y: 0, duration: 0.06),
-                .moveBy(x: 4, y: 0, duration: 0.03)
-            ])
-            boardBackground?.run(shake)
+            shakeBoard(strength: specialsActivated > 0 ? 8 : 4)
         }
 
         spawnScorePopup(reward.awardedPoints, near: matched)
@@ -660,6 +766,58 @@ final class GameScene: SKScene {
                 .removeFromParent()
             ]))
         }
+    }
+
+    private func spawnSnackBurst(at positions: Set<BoardPosition>) {
+        for pos in positions.prefix(10) {
+            let center = point(for: pos)
+            let snack = gameState?.board.snack(at: pos)
+            let color = snack?.color ?? SKColor(red: 1, green: 0.82, blue: 0.35, alpha: 1)
+            for index in 0..<5 {
+                let crumb = SKShapeNode(circleOfRadius: CGFloat.random(in: 2.0...4.0))
+                crumb.fillColor = index.isMultiple(of: 2) ? color : SKColor(white: 1, alpha: 0.95)
+                crumb.strokeColor = .clear
+                crumb.position = center
+                crumb.zPosition = 42
+                addChild(crumb)
+
+                let angle = CGFloat(index) / 5 * .pi * 2 + CGFloat.random(in: -0.25...0.25)
+                let distance = CGFloat.random(in: tileSize * 0.25...tileSize * 0.75)
+                crumb.run(.sequence([
+                    .group([
+                        .moveBy(x: cos(angle) * distance, y: sin(angle) * distance + 12, duration: 0.34),
+                        .scale(to: 0.2, duration: 0.34),
+                        .fadeOut(withDuration: 0.34)
+                    ]),
+                    .removeFromParent()
+                ]))
+            }
+
+            if let snack {
+                let emoji = SKLabelNode(text: snack.emoji)
+                emoji.fontSize = tileSize * 0.28
+                emoji.position = center
+                emoji.zPosition = 43
+                addChild(emoji)
+                emoji.run(.sequence([
+                    .group([
+                        .moveBy(x: CGFloat.random(in: -14...14), y: tileSize * 0.45, duration: 0.38),
+                        .rotate(byAngle: CGFloat.random(in: -0.8...0.8), duration: 0.38),
+                        .fadeOut(withDuration: 0.38)
+                    ]),
+                    .removeFromParent()
+                ]))
+            }
+        }
+    }
+
+    private func shakeBoard(strength: CGFloat) {
+        let shake = SKAction.sequence([
+            .moveBy(x: strength, y: 0, duration: 0.025),
+            .moveBy(x: -strength * 2, y: 0, duration: 0.05),
+            .moveBy(x: strength, y: 0, duration: 0.025)
+        ])
+        boardBackground?.run(shake)
     }
 
     private func applyGravityAndRefill(cascadeDepth: Int) {
@@ -773,6 +931,126 @@ final class GameScene: SKScene {
         }
     }
 
+    // MARK: - Player guidance and dead-board recovery
+
+    private func scheduleHint() {
+        removeAction(forKey: "hintTimer")
+        clearHint()
+        guard gameState?.outcome == .playing, gameState?.isPaused != true else { return }
+        run(.sequence([
+            .wait(forDuration: 6.0),
+            .run { [weak self] in self?.showHint() }
+        ]), withKey: "hintTimer")
+    }
+
+    private func showHint() {
+        guard !isBusy, let state = gameState, state.outcome == .playing,
+              let move = state.board.firstAvailableMove() else { return }
+
+        clearHint()
+        for pos in [move.from, move.to] {
+            tileNodes[pos.row][pos.col]?.hintPulse()
+
+            let ring = SKShapeNode(
+                rectOf: CGSize(width: tileSize - 8, height: tileSize - 8),
+                cornerRadius: 11
+            )
+            ring.name = "hintRing"
+            ring.position = point(for: pos)
+            ring.fillColor = .clear
+            ring.strokeColor = SKColor(red: 1.0, green: 0.86, blue: 0.32, alpha: 0.95)
+            ring.lineWidth = 2.5
+            ring.glowWidth = 4
+            ring.zPosition = 24
+            addChild(ring)
+            ring.run(.repeatForever(.sequence([
+                .group([
+                    .scale(to: 1.08, duration: 0.42),
+                    .fadeAlpha(to: 0.45, duration: 0.42)
+                ]),
+                .group([
+                    .scale(to: 1.0, duration: 0.42),
+                    .fadeAlpha(to: 0.95, duration: 0.42)
+                ])
+            ])))
+        }
+        SoundManager.shared.playSelect()
+    }
+
+    private func clearHint() {
+        enumerateChildNodes(withName: "hintRing") { node, _ in
+            node.removeAllActions()
+            node.removeFromParent()
+        }
+        let nodes = tileNodes.reduce(into: [SnackNode]()) { result, row in
+            result.append(contentsOf: row.compactMap { $0 })
+        }
+        nodes.forEach { $0.clearHintPulse() }
+    }
+
+    private func reshufflePlayableBoard() {
+        guard let state = gameState, state.outcome == .playing else {
+            isBusy = false
+            return
+        }
+
+        isBusy = true
+        clearSelection()
+        clearHint()
+        _ = state.board.reshuffleToPlayable()
+
+        let oldNodes = tileNodes.flatMap { $0 }.compactMap { $0 }
+        oldNodes.forEach { node in
+            node.run(.sequence([
+                .group([
+                    .scale(to: 0.72, duration: 0.16),
+                    .fadeOut(withDuration: 0.16)
+                ]),
+                .removeFromParent()
+            ]))
+        }
+
+        let banner = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        banner.text = "BOARD SHUFFLED!"
+        banner.fontSize = 19
+        banner.fontColor = SKColor(red: 1.0, green: 0.86, blue: 0.32, alpha: 1)
+        banner.position = CGPoint(x: size.width / 2, y: boardOrigin.y + tileSize * CGFloat(boardSize) * 0.5)
+        banner.zPosition = 60
+        banner.alpha = 0
+        addChild(banner)
+        banner.run(.sequence([
+            .wait(forDuration: 0.16),
+            .group([
+                .fadeIn(withDuration: 0.12),
+                .scale(to: 1.08, duration: 0.25)
+            ]),
+            .wait(forDuration: 0.20),
+            .group([
+                .moveBy(x: 0, y: 24, duration: 0.28),
+                .fadeOut(withDuration: 0.28)
+            ]),
+            .removeFromParent()
+        ]))
+
+        run(.sequence([
+            .wait(forDuration: 0.22),
+            .run { [weak self] in
+                guard let self else { return }
+                self.tileNodes = Array(
+                    repeating: Array(repeating: nil, count: self.boardSize),
+                    count: self.boardSize
+                )
+                self.buildTilesFromModel()
+                self.bounceInTiles()
+            },
+            .wait(forDuration: 0.65),
+            .run { [weak self] in
+                self?.isBusy = false
+                self?.scheduleHint()
+            }
+        ]), withKey: "reshuffle")
+    }
+
     private func spawnScorePopup(_ points: Int, near positions: Set<BoardPosition>) {
         guard !positions.isEmpty else { return }
         let avgRow = positions.map(\.row).reduce(0, +) / positions.count
@@ -795,6 +1073,25 @@ final class GameScene: SKScene {
             ]),
             .removeFromParent()
         ]))
+
+        for index in 0..<min(6, max(1, points / 60)) {
+            let chip = SKLabelNode(text: index.isMultiple(of: 2) ? "★" : "+")
+            chip.fontName = "AvenirNext-Heavy"
+            chip.fontSize = 12
+            chip.fontColor = SKColor(red: 1, green: 0.82, blue: 0.25, alpha: 1)
+            chip.position = anchor
+            chip.zPosition = 49
+            addChild(chip)
+            chip.run(.sequence([
+                .wait(forDuration: Double(index) * 0.025),
+                .group([
+                    .moveBy(x: CGFloat.random(in: -34...34), y: CGFloat.random(in: 18...58), duration: 0.42),
+                    .fadeOut(withDuration: 0.42),
+                    .scale(to: 0.4, duration: 0.42)
+                ]),
+                .removeFromParent()
+            ]))
+        }
     }
 
     private func spawnComboBanner(multiplier: Int, near positions: Set<BoardPosition>, prefix: String = "COMBO") {
@@ -910,6 +1207,164 @@ final class GameScene: SKScene {
             ]),
             .removeFromParent()
         ]))
+
+        for index in 0..<14 {
+            let spark = SKLabelNode(text: index.isMultiple(of: 3) ? "🍬" : "✨")
+            spark.fontSize = CGFloat.random(in: 13...19)
+            spark.position = CGPoint(x: size.width / 2, y: boardOrigin.y + tileSize * CGFloat(boardSize) + 22)
+            spark.zPosition = 96
+            addChild(spark)
+            spark.run(.sequence([
+                .group([
+                    .moveBy(x: CGFloat.random(in: -size.width * 0.42...size.width * 0.42), y: CGFloat.random(in: -30...90), duration: 0.55),
+                    .fadeOut(withDuration: 0.55),
+                    .rotate(byAngle: CGFloat.random(in: -1.8...1.8), duration: 0.55)
+                ]),
+                .removeFromParent()
+            ]))
+        }
+    }
+}
+
+// MARK: - Monster mascot
+
+final class MonsterMascotNode: SKNode {
+    private let body: SKShapeNode
+    private let belly: SKShapeNode
+    private let leftEye: SKShapeNode
+    private let rightEye: SKShapeNode
+    private let mouth: SKShapeNode
+    private let leftAntenna: SKShapeNode
+    private let rightAntenna: SKShapeNode
+    private let sizeValue: CGFloat
+
+    init(size: CGFloat) {
+        self.sizeValue = size
+        body = SKShapeNode(rectOf: CGSize(width: size, height: size * 0.78), cornerRadius: size * 0.16)
+        belly = SKShapeNode(ellipseOf: CGSize(width: size * 0.36, height: size * 0.20))
+        leftEye = SKShapeNode(circleOfRadius: size * 0.055)
+        rightEye = SKShapeNode(circleOfRadius: size * 0.055)
+        mouth = SKShapeNode(rectOf: CGSize(width: size * 0.24, height: size * 0.055), cornerRadius: size * 0.025)
+        leftAntenna = SKShapeNode(rectOf: CGSize(width: size * 0.08, height: size * 0.30), cornerRadius: size * 0.04)
+        rightAntenna = SKShapeNode(rectOf: CGSize(width: size * 0.08, height: size * 0.30), cornerRadius: size * 0.04)
+        super.init()
+
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: size * 0.88, height: size * 0.18))
+        shadow.fillColor = SKColor(white: 0, alpha: 0.28)
+        shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 0, y: -size * 0.48)
+        shadow.zPosition = -1
+        addChild(shadow)
+
+        body.fillColor = SKColor(red: 0.55, green: 0.40, blue: 0.95, alpha: 1)
+        body.strokeColor = SKColor(red: 0.22, green: 0.17, blue: 0.38, alpha: 1)
+        body.lineWidth = 3
+        body.zPosition = 1
+        addChild(body)
+
+        belly.fillColor = SKColor(red: 0.74, green: 0.58, blue: 1.0, alpha: 0.55)
+        belly.strokeColor = .clear
+        belly.position = CGPoint(x: 0, y: -size * 0.10)
+        belly.zPosition = 2
+        addChild(belly)
+
+        for eye in [leftEye, rightEye] {
+            eye.fillColor = SKColor(red: 0.08, green: 0.05, blue: 0.12, alpha: 1)
+            eye.strokeColor = .clear
+            eye.zPosition = 3
+            addChild(eye)
+        }
+        leftEye.position = CGPoint(x: -size * 0.16, y: size * 0.07)
+        rightEye.position = CGPoint(x: size * 0.16, y: size * 0.07)
+
+        mouth.fillColor = SKColor(red: 0.12, green: 0.06, blue: 0.12, alpha: 1)
+        mouth.strokeColor = .clear
+        mouth.position = CGPoint(x: 0, y: -size * 0.14)
+        mouth.zPosition = 3
+        addChild(mouth)
+
+        for (antenna, x, angle) in [(leftAntenna, -size * 0.28, -0.52), (rightAntenna, size * 0.28, 0.52)] {
+            antenna.fillColor = body.fillColor
+            antenna.strokeColor = body.strokeColor
+            antenna.lineWidth = 2
+            antenna.position = CGPoint(x: x, y: size * 0.43)
+            antenna.zRotation = angle
+            antenna.zPosition = 0
+            addChild(antenna)
+        }
+
+        let footY = -size * 0.45
+        for x in [-size * 0.22, size * 0.22] {
+            let foot = SKShapeNode(rectOf: CGSize(width: size * 0.16, height: size * 0.10), cornerRadius: size * 0.03)
+            foot.fillColor = body.fillColor
+            foot.strokeColor = body.strokeColor
+            foot.lineWidth = 2
+            foot.position = CGPoint(x: x, y: footY)
+            foot.zPosition = 0
+            addChild(foot)
+        }
+
+        runIdle()
+    }
+
+    @available(*, unavailable)
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func setMood(_ mood: MonsterMood) {
+        switch mood {
+        case .idle:
+            body.fillColor = SKColor(red: 0.55, green: 0.40, blue: 0.95, alpha: 1)
+            mouth.setScale(1)
+        case .happy:
+            body.fillColor = SKColor(red: 0.61, green: 0.45, blue: 1.0, alpha: 1)
+            mouth.setScale(1.25)
+        case .ecstatic:
+            body.fillColor = SKColor(red: 0.72, green: 0.46, blue: 1.0, alpha: 1)
+            mouth.setScale(1.45)
+        case .sad:
+            body.fillColor = SKColor(red: 0.38, green: 0.34, blue: 0.64, alpha: 1)
+            mouth.setScale(0.75)
+        }
+    }
+
+    func celebrate() {
+        removeAction(forKey: "celebrate")
+        run(.sequence([
+            .group([
+                .scale(to: 1.18, duration: 0.10),
+                .moveBy(x: 0, y: sizeValue * 0.10, duration: 0.10)
+            ]),
+            .group([
+                .scale(to: 1.0, duration: 0.14),
+                .moveBy(x: 0, y: -sizeValue * 0.10, duration: 0.14)
+            ])
+        ]), withKey: "celebrate")
+    }
+
+    func sadWobble() {
+        removeAction(forKey: "sad")
+        run(.sequence([
+            .rotate(toAngle: -0.10, duration: 0.06),
+            .rotate(toAngle: 0.10, duration: 0.10),
+            .rotate(toAngle: 0, duration: 0.06)
+        ]), withKey: "sad")
+    }
+
+    private func runIdle() {
+        run(.repeatForever(.sequence([
+            .moveBy(x: 0, y: 3, duration: 0.75),
+            .moveBy(x: 0, y: -3, duration: 0.75)
+        ])), withKey: "idle")
+        leftAntenna.run(.repeatForever(.sequence([
+            .rotate(toAngle: -0.64, duration: 0.9),
+            .rotate(toAngle: -0.46, duration: 0.9)
+        ])), withKey: "wiggle")
+        rightAntenna.run(.repeatForever(.sequence([
+            .rotate(toAngle: 0.64, duration: 0.9),
+            .rotate(toAngle: 0.46, duration: 0.9)
+        ])), withKey: "wiggle")
     }
 }
 
@@ -1141,6 +1596,19 @@ final class SnackNode: SKNode {
             SKAction.moveBy(x: 0, y: -tileSize * 0.015, duration: 0.08)
         ])
         contentRoot.run(SKAction.sequence([compress, rebound, settle]), withKey: "pressPulse")
+    }
+
+    func hintPulse() {
+        contentRoot.removeAction(forKey: "hintPulse")
+        contentRoot.run(.repeatForever(.sequence([
+            .scale(to: 1.08, duration: 0.32),
+            .scale(to: 1.0, duration: 0.32)
+        ])), withKey: "hintPulse")
+    }
+
+    func clearHintPulse() {
+        contentRoot.removeAction(forKey: "hintPulse")
+        contentRoot.run(.scale(to: 1.0, duration: 0.08))
     }
 
     func popAway(duration: TimeInterval, completion: @escaping () -> Void) {

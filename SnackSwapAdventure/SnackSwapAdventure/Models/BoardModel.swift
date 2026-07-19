@@ -74,11 +74,51 @@ final class BoardModel {
 
     func wouldCreateMatch(swapping a: BoardPosition, with b: BoardPosition) -> Bool {
         guard swap(a, b) else { return false }
-        // Rainbow special can always swap with any snack.
-        let rainbowSwap = cell(at: a)?.special == .rainbow || cell(at: b)?.special == .rainbow
-        let matched = rainbowSwap || !findMatches().isEmpty
+        // Any special can be intentionally activated by swapping it. Rainbow
+        // is not the only power-up that should work without a normal match.
+        let specialSwap = cell(at: a)?.special != nil || cell(at: b)?.special != nil
+        let matched = specialSwap || !findMatches().isEmpty
         swap(a, b)
         return matched
+    }
+
+    /// Returns the first legal move, including swaps that activate a special.
+    /// Keeping this in the model makes hints and dead-board recovery agree with
+    /// the same rules used by touch input.
+    func firstAvailableMove() -> (from: BoardPosition, to: BoardPosition)? {
+        guard size > 1 else { return nil }
+        for row in 0..<size {
+            for col in 0..<size {
+                let from = BoardPosition(row: row, col: col)
+                if col + 1 < size {
+                    let to = BoardPosition(row: row, col: col + 1)
+                    if wouldCreateMatch(swapping: from, with: to) {
+                        return (from, to)
+                    }
+                }
+                if row + 1 < size {
+                    let to = BoardPosition(row: row + 1, col: col)
+                    if wouldCreateMatch(swapping: from, with: to) {
+                        return (from, to)
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Rebuilds a clean, playable board without changing level progress.
+    /// This is used only after a cascade leaves no legal swap or when a queued
+    /// shuffle booster starts a level in an unlucky arrangement.
+    @discardableResult
+    func reshuffleToPlayable(maxAttempts: Int = 40) -> Bool {
+        for _ in 0..<maxAttempts {
+            fillWithoutInitialMatches()
+            if firstAvailableMove() != nil {
+                return true
+            }
+        }
+        return firstAvailableMove() != nil
     }
 
     // MARK: - Matches

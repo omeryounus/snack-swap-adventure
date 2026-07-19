@@ -229,6 +229,15 @@ struct WorldMapView: View {
                     levelButton(level)
                 }
             }
+            .background {
+                WorldPathOverlay(
+                    levels: Array(world.levels),
+                    maxUnlockedLevel: maxUnlockedLevel,
+                    gold: gold,
+                    cream: cream
+                )
+                .allowsHitTesting(false)
+            }
         }
         .padding(16)
         .background(
@@ -252,13 +261,18 @@ struct WorldMapView: View {
             onSelectLevel(level)
         } label: {
             VStack(spacing: 3) {
-                Text("\(level)")
-                    .font(.system(size: 16, weight: .black, design: .rounded).monospacedDigit())
-                Image(systemName: current ? "play.fill" : unlocked ? "star.fill" : "lock.fill")
-                    .font(.system(size: 10, weight: .bold))
+                ZStack {
+                    Circle()
+                        .fill(current ? gold.opacity(0.24) : Color.white.opacity(unlocked ? 0.10 : 0.03))
+                        .frame(width: 30, height: 30)
+                    Text("\(level)")
+                        .font(.system(size: 15, weight: .black, design: .rounded).monospacedDigit())
+                }
+                Image(systemName: current ? "play.fill" : unlocked ? "checkmark.seal.fill" : "lock.fill")
+                    .font(.system(size: 9, weight: .bold))
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 54)
+            .frame(height: 58)
             .foregroundStyle(unlocked ? .white : cream.opacity(0.35))
             .background(levelTileBackground(unlocked: unlocked, current: current))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -295,6 +309,61 @@ private struct WorldMapSection: Identifiable {
     let colors: [Color]
 
     var id: String { name }
+}
+
+private struct WorldPathOverlay: View {
+    let levels: [Int]
+    let maxUnlockedLevel: Int
+    let gold: Color
+    let cream: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            let columns = 5
+            let rows = max(1, Int(ceil(Double(levels.count) / Double(columns))))
+            let cellW = geo.size.width / CGFloat(columns)
+            let cellH = geo.size.height / CGFloat(rows)
+            let points = levels.enumerated().map { index, level in
+                let row = index / columns
+                let colInRow = index % columns
+                let serpentineCol = row.isMultiple(of: 2) ? colInRow : (columns - 1 - colInRow)
+                return (
+                    level: level,
+                    point: CGPoint(
+                        x: CGFloat(serpentineCol) * cellW + cellW / 2,
+                        y: CGFloat(row) * cellH + cellH / 2
+                    )
+                )
+            }
+
+            ZStack {
+                Path { path in
+                    guard let first = points.first else { return }
+                    path.move(to: first.point)
+                    for item in points.dropFirst() {
+                        path.addLine(to: item.point)
+                    }
+                }
+                .stroke(cream.opacity(0.12), style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
+
+                Path { path in
+                    let unlocked = points.filter { $0.level <= maxUnlockedLevel }
+                    guard let first = unlocked.first else { return }
+                    path.move(to: first.point)
+                    for item in unlocked.dropFirst() {
+                        path.addLine(to: item.point)
+                    }
+                }
+                .stroke(
+                    LinearGradient(colors: [.pink, .orange, gold], startPoint: .leading, endPoint: .trailing),
+                    style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+                )
+                .shadow(color: gold.opacity(0.28), radius: 8)
+            }
+            .padding(.horizontal, cellW * 0.36)
+            .padding(.vertical, cellH * 0.34)
+        }
+    }
 }
 
 private struct MapPressButtonStyle: ButtonStyle {
