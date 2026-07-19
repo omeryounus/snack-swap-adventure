@@ -14,6 +14,10 @@ final class SoundManager {
         case match
         case combo2
         case combo3
+        case combo4
+        case combo5
+        case combo6
+        case comboImpact = "combo_impact"
         case land
         case win
         case lose
@@ -95,15 +99,32 @@ final class SoundManager {
         player.play()
     }
 
-    /// Match / cascade SFX that steps up with combo depth.
+    /// Match / cascade SFX that steps up expressively with combo depth.
+    /// cascadeDepth 0 = first match, 1 = 2x, 2 = 3x, etc.
     func playMatch(cascadeDepth: Int) {
+        let wobble = Float.random(in: -0.03...0.05)
         switch cascadeDepth {
         case 0:
-            play(.match, volume: 0.9, rate: 1.0 + Float.random(in: -0.04...0.04))
+            // Base match pop
+            play(.match, volume: 0.88, rate: 1.0 + wobble)
         case 1:
-            play(.combo2, volume: 0.95, rate: 1.0 + Float.random(in: -0.03...0.05))
+            // 2x combo — bright double hit
+            play(.combo2, volume: 0.95, rate: 1.0 + wobble)
+        case 2:
+            // 3x combo — ascending fanfare
+            play(.combo3, volume: 1.0, rate: 1.0 + wobble)
+        case 3:
+            // 4x — bigger celebration + body impact
+            play(.comboImpact, volume: 0.55, rate: 1.0)
+            play(.combo4, volume: 1.0, rate: 1.0 + wobble)
+        case 4:
+            // 5x — sparkly cascade
+            play(.comboImpact, volume: 0.65, rate: 1.05)
+            play(.combo5, volume: 1.0, rate: 1.0 + Float.random(in: 0...0.06))
         default:
-            play(.combo3, volume: 1.0, rate: 1.0 + Float.random(in: 0...0.08))
+            // 6x+ mega celebration
+            play(.comboImpact, volume: 0.75, rate: 1.08)
+            play(.combo6, volume: 1.0, rate: 1.0 + Float.random(in: 0...0.08))
         }
     }
 

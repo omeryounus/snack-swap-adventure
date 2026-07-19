@@ -25,7 +25,7 @@ enum SnackType: Int, CaseIterable, Equatable, Hashable, Codable {
     var color: SKColor {
         switch self {
         case .cookie: return SKColor(red: 0.85, green: 0.55, blue: 0.25, alpha: 1)
-        case .donut: return SKColor(red: 1.00, green: 0.45, blue: 0.65, alpha: 1)
+        case .donut: return SKColor(red: 1.00, green: 0.55, blue: 0.72, alpha: 1) // bright strawberry pink
         case .candy: return SKColor(red: 0.35, green: 0.75, blue: 1.00, alpha: 1)
         case .popcorn: return SKColor(red: 1.00, green: 0.90, blue: 0.35, alpha: 1)
         case .lollipop: return SKColor(red: 0.70, green: 0.40, blue: 0.95, alpha: 1)

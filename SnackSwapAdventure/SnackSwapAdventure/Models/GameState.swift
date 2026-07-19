@@ -11,6 +11,10 @@ final class GameState: ObservableObject {
     @Published var outcome: GameOutcome = .playing
     @Published var comboCount: Int = 0
     @Published var maxComboThisLevel: Int = 0
+    @Published var streakCount: Int = 0
+    @Published var bestStreakThisLevel: Int = 0
+    @Published var feverMeter: Int = 0
+    @Published var feverTurnsRemaining: Int = 0
     @Published var lastFeedMessage: String = "Match snacks to feed the monsters!"
     @Published var monsterMood: MonsterMood = .idle
 
@@ -26,6 +30,7 @@ final class GameState: ObservableObject {
     let board: BoardModel
 
     private var timerTask: Task<Void, Never>?
+    private var feverActiveForCurrentMove = false
 
     init(level: LevelConfig = .prototype) {
         self.level = level
@@ -50,6 +55,11 @@ final class GameState: ObservableObject {
         outcome = .playing
         comboCount = 0
         maxComboThisLevel = 0
+        streakCount = 0
+        bestStreakThisLevel = 0
+        feverMeter = 0
+        feverTurnsRemaining = 0
+        feverActiveForCurrentMove = false
         collectedOfType = 0
         snacksCleared = 0
         combosMade = 0
@@ -130,10 +140,27 @@ final class GameState: ObservableObject {
     func registerSuccessfulSwap() {
         guard outcome == .playing else { return }
         movesLeft = max(0, movesLeft - 1)
+        streakCount += 1
+        bestStreakThisLevel = max(bestStreakThisLevel, streakCount)
+        feverActiveForCurrentMove = feverTurnsRemaining > 0
+        if feverTurnsRemaining > 0 {
+            feverTurnsRemaining -= 1
+        }
     }
 
-    func registerClear(positions: Set<BoardPosition>, cascadeDepth: Int, points: Int) {
-        score += points
+    @discardableResult
+    func registerClear(
+        positions: Set<BoardPosition>,
+        cascadeDepth: Int,
+        points: Int,
+        specialsActivated: Int
+    ) -> ClearReward {
+        let multiplier = feverActiveForCurrentMove ? 2 : 1
+        let streakBonus = streakCount >= 3 && cascadeDepth == 0
+            ? min(500, streakCount * 25)
+            : 0
+        let awardedPoints = points * multiplier + streakBonus
+        score += awardedPoints
         snacksCleared += positions.count
         comboCount = cascadeDepth + 1
         maxComboThisLevel = max(maxComboThisLevel, comboCount)
@@ -141,7 +168,22 @@ final class GameState: ObservableObject {
             combosMade += 1
         }
 
-        if cascadeDepth >= 2 {
+        let feverActivated = chargeFever(
+            matchedCount: positions.count,
+            cascadeDepth: cascadeDepth,
+            specialsActivated: specialsActivated
+        )
+
+        if feverActivated {
+            monsterMood = .ecstatic
+            lastFeedMessage = "SUGAR RUSH! x2 points for 3 moves!"
+        } else if feverActiveForCurrentMove {
+            monsterMood = .ecstatic
+            lastFeedMessage = "Sugar Rush x2! +\(awardedPoints)"
+        } else if streakBonus > 0 {
+            monsterMood = .ecstatic
+            lastFeedMessage = "\(streakCount)-streak! Bonus +\(streakBonus)"
+        } else if cascadeDepth >= 2 {
             monsterMood = .ecstatic
             lastFeedMessage = "COMBO x\(comboCount)! The monsters are thrilled!"
         } else if cascadeDepth >= 1 {
@@ -149,10 +191,17 @@ final class GameState: ObservableObject {
             lastFeedMessage = "Yummy chain reaction!"
         } else {
             monsterMood = .happy
-            lastFeedMessage = "Nom nom! +\(points)"
+            lastFeedMessage = "Nom nom! +\(awardedPoints)"
         }
 
         evaluateOutcome()
+        return ClearReward(
+            basePoints: points,
+            awardedPoints: awardedPoints,
+            multiplier: multiplier,
+            streakBonus: streakBonus,
+            feverActivated: feverActivated
+        )
     }
 
     func countCollected(type: SnackType, amount: Int) {
@@ -177,8 +226,17 @@ final class GameState: ObservableObject {
     }
 
     func registerInvalidSwap() {
+        streakCount = 0
+        feverActiveForCurrentMove = false
+        if feverTurnsRemaining == 0 {
+            feverMeter = max(0, feverMeter - 8)
+        }
         monsterMood = .sad
         lastFeedMessage = "Hmm… try a better swap!"
+    }
+
+    func finishMoveResolution() {
+        feverActiveForCurrentMove = false
     }
 
     var goalProgressValue: Int {
@@ -241,6 +299,39 @@ final class GameState: ObservableObject {
     var progress: Double {
         min(1.0, Double(goalProgressValue) / Double(level.progressDenominator))
     }
+
+    var feverProgress: Double {
+        min(1.0, Double(feverMeter) / 100.0)
+    }
+
+    var isFeverActive: Bool {
+        feverTurnsRemaining > 0 || feverActiveForCurrentMove
+    }
+
+    var feverDisplayTurnsRemaining: Int {
+        feverTurnsRemaining + (feverActiveForCurrentMove ? 1 : 0)
+    }
+
+    private func chargeFever(matchedCount: Int, cascadeDepth: Int, specialsActivated: Int) -> Bool {
+        guard !feverActiveForCurrentMove, feverTurnsRemaining == 0 else { return false }
+        let gain = matchedCount * 4 + cascadeDepth * 12 + specialsActivated * 18
+        feverMeter = min(100, feverMeter + gain)
+        guard feverMeter >= 100 else { return false }
+        feverMeter = 0
+        feverTurnsRemaining = 3
+        timeRemaining += 5
+        isTimerUrgent = timeRemaining <= 10
+        SoundManager.shared.playSpecial()
+        return true
+    }
+}
+
+struct ClearReward {
+    let basePoints: Int
+    let awardedPoints: Int
+    let multiplier: Int
+    let streakBonus: Int
+    let feverActivated: Bool
 }
 
 enum MonsterMood: Equatable {

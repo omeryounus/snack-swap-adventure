@@ -8,7 +8,7 @@ final class GameScene: SKScene {
 
     /// Top chrome is SwiftUI GameHUD — leave room for the full panel.
     private let boardPadding: CGFloat = 8
-    private let topHUDReserved: CGFloat = 172
+    private let topHUDReserved: CGFloat = 286
     private let bottomReserved: CGFloat = 118
     /// Grow tiles 10% vs the original padded layout.
     private let tileScaleBoost: CGFloat = 1.10
@@ -43,7 +43,8 @@ final class GameScene: SKScene {
     }
 
     override func didMove(to view: SKView) {
-        backgroundColor = SKColor(red: 0.12, green: 0.10, blue: 0.20, alpha: 1)
+        // Warm bakery night backdrop — less pure purple so snacks contrast better
+        backgroundColor = SKColor(red: 0.16, green: 0.10, blue: 0.14, alpha: 1)
         rebuildBoard()
     }
 
@@ -80,9 +81,14 @@ final class GameScene: SKScene {
         tileSize = min(targetTile, maxFit)
 
         let boardPixel = tileSize * CGFloat(boardSize)
+        let lowerAvailableY = bottomReserved
+        let upperAvailableY = size.height - topHUDReserved
+        let centeredY = lowerAvailableY + max(0, (usableHeight - boardPixel) / 2)
+        let highestNonOverlappingY = upperAvailableY - boardPixel
+
         boardOrigin = CGPoint(
             x: (size.width - boardPixel) / 2,
-            y: bottomReserved + max(0, (usableHeight - boardPixel) / 2)
+            y: min(centeredY, highestNonOverlappingY)
         )
     }
 
@@ -116,28 +122,32 @@ final class GameScene: SKScene {
             width: boardPixel + 12,
             height: boardPixel + 12
         )
-        let frame = SKShapeNode(rect: rect, cornerRadius: 16)
-        frame.fillColor = SKColor(red: 0.18, green: 0.15, blue: 0.28, alpha: 1)
-        frame.strokeColor = SKColor(red: 0.45, green: 0.35, blue: 0.70, alpha: 1)
+        let frame = SKShapeNode(rect: rect, cornerRadius: 18)
+        // Lighter bakery tray so dark snacks (and any dark frosting) pop forward
+        frame.fillColor = SKColor(red: 0.42, green: 0.34, blue: 0.40, alpha: 1)
+        frame.strokeColor = SKColor(red: 0.72, green: 0.55, blue: 0.48, alpha: 1)
         frame.lineWidth = 3
         frame.zPosition = 0
         addChild(frame)
         boardBackground = frame
 
-        // Subtle checkerboard
+        // High-contrast checker slots — desaturated gray-lavender, clearly lighter than snacks
         for row in 0..<boardSize {
             for col in 0..<boardSize {
-                if (row + col) % 2 == 0 {
-                    let cell = SKShapeNode(
-                        rectOf: CGSize(width: tileSize - 2, height: tileSize - 2),
-                        cornerRadius: 8
-                    )
-                    cell.fillColor = SKColor(white: 1, alpha: 0.04)
-                    cell.strokeColor = .clear
-                    cell.position = point(for: BoardPosition(row: row, col: col))
-                    cell.zPosition = 1
-                    addChild(cell)
-                }
+                let cell = SKShapeNode(
+                    rectOf: CGSize(width: tileSize - 3, height: tileSize - 3),
+                    cornerRadius: 10
+                )
+                let even = (row + col) % 2 == 0
+                // Light gray-purple slots (empty wells)
+                cell.fillColor = even
+                    ? SKColor(red: 0.58, green: 0.50, blue: 0.56, alpha: 1)
+                    : SKColor(red: 0.50, green: 0.43, blue: 0.50, alpha: 1)
+                cell.strokeColor = SKColor(white: 1, alpha: 0.12)
+                cell.lineWidth = 1
+                cell.position = point(for: BoardPosition(row: row, col: col))
+                cell.zPosition = 1
+                addChild(cell)
             }
         }
     }
@@ -162,6 +172,9 @@ final class GameScene: SKScene {
         node.position = point(for: pos)
         node.zPosition = 10
         node.name = "snack_\(pos.row)_\(pos.col)"
+        // Stagger idle so the board feels alive, not synchronized.
+        let phase = Double((pos.row * 3 + pos.col * 5) % 17) * 0.07
+        node.startLiveEffects(phaseOffset: phase)
         return node
     }
 
@@ -240,6 +253,7 @@ final class GameScene: SKScene {
             switch state.outcome {
             case .won:
                 SoundManager.shared.playWin()
+                VoiceAnnouncer.shared.praiseWin()
                 lastAnnouncedOutcome = state.outcome
             case .lost:
                 SoundManager.shared.playLose()
@@ -301,11 +315,9 @@ final class GameScene: SKScene {
         selectionRing?.position = point(for: pos)
         selectionRing?.isHidden = false
         SoundManager.shared.playSelect()
+        spawnTapRipple(at: pos, color: SKColor(red: 1.0, green: 0.78, blue: 0.86, alpha: 1))
         if let node = tileNodes[pos.row][pos.col] {
-            node.run(.sequence([
-                .scale(to: 1.12, duration: 0.08),
-                .scale(to: 1.0, duration: 0.08)
-            ]))
+            node.pressPulse()
         }
     }
 
@@ -322,9 +334,12 @@ final class GameScene: SKScene {
             // Visual bump then reject
             isBusy = true
             SoundManager.shared.playSwap()
+            animateTapNudge(from: from, toward: to)
+            animateTapNudge(from: to, toward: from)
             animateSwap(from: from, to: to, duration: 0.12) { [weak self] in
                 self?.animateSwap(from: to, to: from, duration: 0.12) {
                     SoundManager.shared.playInvalid()
+                    self?.spawnInvalidTapFeedback(at: to)
                     state.registerInvalidSwap()
                     self?.refreshHUD()
                     self?.isBusy = false
@@ -335,6 +350,8 @@ final class GameScene: SKScene {
 
         isBusy = true
         SoundManager.shared.playSwap()
+        animateTapNudge(from: from, toward: to)
+        animateTapNudge(from: to, toward: from)
         state.board.swap(from, to)
         animateSwap(from: from, to: to, duration: 0.15) { [weak self] in
             self?.swapNodeReferences(from, to)
@@ -383,6 +400,54 @@ final class GameScene: SKScene {
         group.notify(queue: .main, execute: completion)
     }
 
+    private func animateTapNudge(from: BoardPosition, toward: BoardPosition) {
+        guard let node = tileNodes[from.row][from.col] else { return }
+        let origin = point(for: from)
+        let target = point(for: toward)
+        let dx = target.x - origin.x
+        let dy = target.y - origin.y
+        let length = max(1, hypot(dx, dy))
+        let nudge = CGPoint(
+            x: origin.x + dx / length * tileSize * 0.09,
+            y: origin.y + dy / length * tileSize * 0.09
+        )
+        node.removeAction(forKey: "tapNudge")
+        node.run(.sequence([
+            .move(to: nudge, duration: 0.045),
+            .move(to: origin, duration: 0.07)
+        ]), withKey: "tapNudge")
+    }
+
+    private func spawnTapRipple(at pos: BoardPosition, color: SKColor) {
+        let ring = SKShapeNode(circleOfRadius: tileSize * 0.34)
+        ring.position = point(for: pos)
+        ring.strokeColor = color.withAlphaComponent(0.85)
+        ring.lineWidth = 2
+        ring.glowWidth = 3
+        ring.fillColor = .clear
+        ring.zPosition = 30
+        addChild(ring)
+        ring.run(.sequence([
+            .group([
+                .scale(to: 1.55, duration: 0.22),
+                .fadeOut(withDuration: 0.22)
+            ]),
+            .removeFromParent()
+        ]))
+    }
+
+    private func spawnInvalidTapFeedback(at pos: BoardPosition) {
+        spawnTapRipple(at: pos, color: SKColor(red: 1.0, green: 0.35, blue: 0.35, alpha: 1))
+        guard let node = tileNodes[pos.row][pos.col] else { return }
+        node.removeAction(forKey: "invalidWobble")
+        node.run(.sequence([
+            .rotate(toAngle: -0.13, duration: 0.045),
+            .rotate(toAngle: 0.13, duration: 0.07),
+            .rotate(toAngle: -0.08, duration: 0.055),
+            .rotate(toAngle: 0, duration: 0.045)
+        ]), withKey: "invalidWobble")
+    }
+
     // MARK: - Match resolution cascade
 
     private func resolveMatches(cascadeDepth: Int) {
@@ -395,6 +460,7 @@ final class GameScene: SKScene {
         var matched = state.board.findMatches()
 
         guard !matched.isEmpty else {
+            state.finishMoveResolution()
             state.evaluateOutcome()
             refreshHUD()
             isBusy = false
@@ -430,8 +496,32 @@ final class GameScene: SKScene {
             cascadeDepth: cascadeDepth,
             specialsActivated: max(specialsActivated, specialsBefore)
         )
-        state.registerClear(positions: matched, cascadeDepth: cascadeDepth, points: points)
+        let reward = state.registerClear(
+            positions: matched,
+            cascadeDepth: cascadeDepth,
+            points: points,
+            specialsActivated: max(specialsActivated, specialsBefore)
+        )
         SoundManager.shared.playMatch(cascadeDepth: cascadeDepth)
+        VoiceAnnouncer.shared.praiseMatch(
+            cascadeDepth: cascadeDepth,
+            matchedCount: matched.count,
+            specialsActivated: specialsActivated
+        )
+
+        // Expressive combo callout for 2x+
+        if cascadeDepth >= 1 {
+            spawnComboBanner(multiplier: cascadeDepth + 1, near: matched)
+        }
+        if reward.multiplier > 1 {
+            spawnComboBanner(multiplier: reward.multiplier, near: matched, prefix: "SUGAR RUSH")
+        }
+        if reward.streakBonus > 0 {
+            spawnStreakBadge(streak: state.streakCount, near: matched)
+        }
+        if reward.feverActivated {
+            spawnFeverCelebration()
+        }
 
         // Particle juice
         spawnParticles(at: matched)
@@ -461,7 +551,7 @@ final class GameScene: SKScene {
             boardBackground?.run(shake)
         }
 
-        spawnScorePopup(points, near: matched)
+        spawnScorePopup(reward.awardedPoints, near: matched)
         state.board.clear(matched, spawnSpecial: spawn)
 
         // Visual for planted special
@@ -655,16 +745,138 @@ final class GameScene: SKScene {
             .removeFromParent()
         ]))
     }
+
+    private func spawnComboBanner(multiplier: Int, near positions: Set<BoardPosition>, prefix: String = "COMBO") {
+        guard !positions.isEmpty else { return }
+        let avgRow = positions.map(\.row).reduce(0, +) / positions.count
+        let avgCol = positions.map(\.col).reduce(0, +) / positions.count
+        var anchor = point(for: BoardPosition(row: avgRow, col: avgCol))
+        anchor.y += tileSize * 0.6
+
+        let text: String
+        let color: SKColor
+        switch multiplier {
+        case 2:
+            text = "\(prefix) x2!"
+            color = SKColor(red: 1, green: 0.85, blue: 0.3, alpha: 1)
+        case 3:
+            text = "\(prefix) x3!!"
+            color = SKColor(red: 1, green: 0.55, blue: 0.2, alpha: 1)
+        case 4:
+            text = "\(prefix) x4!!!"
+            color = SKColor(red: 1, green: 0.35, blue: 0.55, alpha: 1)
+        case 5:
+            text = "INSANE x5!"
+            color = SKColor(red: 0.7, green: 0.4, blue: 1, alpha: 1)
+        default:
+            text = "MEGA x\(multiplier)!"
+            color = SKColor(red: 0.4, green: 1, blue: 0.75, alpha: 1)
+        }
+
+        let label = SKLabelNode(fontNamed: "AvenirNext-Black")
+        label.text = text
+        label.fontSize = multiplier >= 4 ? 28 : 24
+        label.fontColor = color
+        label.position = anchor
+        label.zPosition = 55
+        label.setScale(0.4)
+        addChild(label)
+
+        label.run(.sequence([
+            .group([
+                .scale(to: 1.25, duration: 0.14),
+                .moveBy(x: 0, y: 28, duration: 0.7)
+            ]),
+            .group([
+                .scale(to: 1.0, duration: 0.1),
+                .fadeOut(withDuration: 0.35)
+            ]),
+            .removeFromParent()
+        ]))
+    }
+
+    private func spawnStreakBadge(streak: Int, near positions: Set<BoardPosition>) {
+        guard !positions.isEmpty else { return }
+        let avgRow = positions.map(\.row).reduce(0, +) / positions.count
+        let avgCol = positions.map(\.col).reduce(0, +) / positions.count
+        var anchor = point(for: BoardPosition(row: avgRow, col: avgCol))
+        anchor.y -= tileSize * 0.35
+
+        let label = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        label.text = "\(streak) STREAK"
+        label.fontSize = 15
+        label.fontColor = SKColor(red: 1.0, green: 0.78, blue: 0.86, alpha: 1)
+        label.position = anchor
+        label.zPosition = 56
+        label.alpha = 0
+        addChild(label)
+
+        label.run(.sequence([
+            .group([
+                .fadeIn(withDuration: 0.08),
+                .scale(to: 1.18, duration: 0.12)
+            ]),
+            .wait(forDuration: 0.22),
+            .group([
+                .moveBy(x: 0, y: -20, duration: 0.35),
+                .fadeOut(withDuration: 0.35),
+                .scale(to: 0.9, duration: 0.35)
+            ]),
+            .removeFromParent()
+        ]))
+    }
+
+    private func spawnFeverCelebration() {
+        let flash = SKShapeNode(rect: CGRect(origin: .zero, size: size))
+        flash.fillColor = SKColor(red: 1.0, green: 0.46, blue: 0.62, alpha: 0.18)
+        flash.strokeColor = .clear
+        flash.zPosition = 90
+        addChild(flash)
+        flash.run(.sequence([
+            .fadeOut(withDuration: 0.35),
+            .removeFromParent()
+        ]))
+
+        let label = SKLabelNode(fontNamed: "AvenirNext-Black")
+        label.text = "SUGAR RUSH!"
+        label.fontSize = 32
+        label.fontColor = SKColor(red: 1.0, green: 0.9, blue: 0.25, alpha: 1)
+        label.position = CGPoint(x: size.width / 2, y: boardOrigin.y + tileSize * CGFloat(boardSize) + 28)
+        label.zPosition = 95
+        label.setScale(0.35)
+        addChild(label)
+
+        label.run(.sequence([
+            .group([
+                .scale(to: 1.16, duration: 0.18),
+                .moveBy(x: 0, y: 14, duration: 0.18)
+            ]),
+            .wait(forDuration: 0.38),
+            .group([
+                .fadeOut(withDuration: 0.35),
+                .moveBy(x: 0, y: 20, duration: 0.35),
+                .scale(to: 0.92, duration: 0.35)
+            ]),
+            .removeFromParent()
+        ]))
+    }
 }
 
-// MARK: - Snack visual node
+// MARK: - Snack visual node (live candy look)
 
 final class SnackNode: SKNode {
     let type: SnackType
     let special: SpecialKind?
-    private let sprite: SKSpriteNode
+    private let tileSize: CGFloat
+    private let contentRoot = SKNode()
+    private let shadow: SKShapeNode
     private let plate: SKShapeNode
+    private let sprite: SKSpriteNode
+    private let gloss: SKShapeNode
+    private let sheen: SKShapeNode
+    private let rimLight: SKShapeNode
     private let badgeSprite: SKSpriteNode?
+    private var liveStarted = false
 
     convenience init(type: SnackType, tileSize: CGFloat) {
         self.init(cell: BoardCell(snack: type), tileSize: tileSize)
@@ -673,59 +885,110 @@ final class SnackNode: SKNode {
     init(cell: BoardCell, tileSize: CGFloat) {
         self.type = cell.snack
         self.special = cell.special
+        self.tileSize = tileSize
 
-        let inset = tileSize * 0.06
+        let inset = tileSize * 0.05
         let plateSize = tileSize - inset * 2
+        let snackSize = plateSize * 0.90
+
+        // Soft ground shadow for depth
+        shadow = SKShapeNode(ellipseOf: CGSize(width: snackSize * 0.72, height: snackSize * 0.22))
+        shadow.fillColor = SKColor(white: 0, alpha: 0.28)
+        shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 0, y: -snackSize * 0.34)
+        shadow.zPosition = 0
+
+        // Subtle plate / tile seat
         plate = SKShapeNode(
             rectOf: CGSize(width: plateSize, height: plateSize),
-            cornerRadius: plateSize * 0.28
+            cornerRadius: plateSize * 0.30
         )
-        plate.fillColor = SKColor(white: 1, alpha: 0.10)
+        // Slightly brighter plate seat so snack sprites separate from board wells
+        plate.fillColor = SKColor(white: 1, alpha: cell.special != nil ? 0.20 : 0.14)
         plate.strokeColor = cell.special != nil
-            ? (cell.special?.accent ?? .white)
-            : SKColor(white: 1, alpha: 0.22)
-        plate.lineWidth = cell.special != nil ? 2.4 : 1.2
+            ? (cell.special?.accent.withAlphaComponent(0.95) ?? .white)
+            : SKColor(white: 1, alpha: 0.28)
+        plate.lineWidth = cell.special != nil ? 2.2 : 1.15
+        plate.zPosition = 1
 
         let texture = SKTexture(imageNamed: cell.snack.textureName)
+        texture.filteringMode = .linear
         let hasArt = texture.size().width > 1
         if hasArt {
             sprite = SKSpriteNode(texture: texture)
-            sprite.size = CGSize(width: plateSize * 0.86, height: plateSize * 0.86)
+            sprite.size = CGSize(width: snackSize, height: snackSize)
         } else {
-            // Fallback: solid color + emoji if texture missing
-            sprite = SKSpriteNode(color: cell.snack.color, size: CGSize(width: plateSize * 0.86, height: plateSize * 0.86))
+            sprite = SKSpriteNode(color: cell.snack.color, size: CGSize(width: snackSize, height: snackSize))
         }
+        sprite.zPosition = 2
+
+        // Specular oval highlight (candy glaze)
+        gloss = SKShapeNode(ellipseOf: CGSize(width: snackSize * 0.42, height: snackSize * 0.22))
+        gloss.fillColor = SKColor(white: 1, alpha: 0.38)
+        gloss.strokeColor = .clear
+        gloss.position = CGPoint(x: -snackSize * 0.12, y: snackSize * 0.22)
+        gloss.zPosition = 3
+        gloss.alpha = 0.85
+
+        // Moving sheen stripe for "live" light
+        sheen = SKShapeNode(rectOf: CGSize(width: snackSize * 0.18, height: snackSize * 0.95), cornerRadius: 6)
+        sheen.fillColor = SKColor(white: 1, alpha: 0.22)
+        sheen.strokeColor = .clear
+        sheen.zRotation = .pi / 7
+        sheen.position = CGPoint(x: -snackSize * 0.55, y: 0)
+        sheen.zPosition = 4
+        sheen.alpha = 0
+
+        // Soft rim light for volume
+        rimLight = SKShapeNode(circleOfRadius: snackSize * 0.48)
+        rimLight.fillColor = .clear
+        rimLight.strokeColor = SKColor(white: 1, alpha: 0.16)
+        rimLight.lineWidth = 2
+        rimLight.glowWidth = 1.5
+        rimLight.zPosition = 2.5
 
         if cell.special != nil {
             let badgeTex = SKTexture(imageNamed: "Snack_special_star")
+            badgeTex.filteringMode = .linear
             if badgeTex.size().width > 1 {
                 let badge = SKSpriteNode(texture: badgeTex)
-                badge.size = CGSize(width: tileSize * 0.34, height: tileSize * 0.34)
-                badge.position = CGPoint(x: tileSize * 0.28, y: tileSize * 0.28)
-                badge.zPosition = 2
+                badge.size = CGSize(width: tileSize * 0.36, height: tileSize * 0.36)
+                badge.position = CGPoint(x: tileSize * 0.30, y: tileSize * 0.30)
+                badge.zPosition = 6
                 badgeSprite = badge
             } else {
                 badgeSprite = nil
             }
-            plate.fillColor = SKColor(white: 1, alpha: 0.16)
+            plate.fillColor = SKColor(white: 1, alpha: 0.18)
+            rimLight.strokeColor = (cell.special?.accent ?? .white).withAlphaComponent(0.55)
+            rimLight.glowWidth = 4
         } else {
             badgeSprite = nil
         }
 
         super.init()
-        addChild(plate)
-        addChild(sprite)
-        sprite.zPosition = 1
-        if let badgeSprite { addChild(badgeSprite) }
+
+        addChild(shadow)
+        contentRoot.zPosition = 1
+        addChild(contentRoot)
+        contentRoot.addChild(plate)
+        contentRoot.addChild(sprite)
+        contentRoot.addChild(rimLight)
+        contentRoot.addChild(gloss)
+        contentRoot.addChild(sheen)
+        if let badgeSprite { contentRoot.addChild(badgeSprite) }
 
         if !hasArt {
             let fallback = SKLabelNode(text: cell.snack.emoji)
             fallback.fontSize = tileSize * 0.45
             fallback.verticalAlignmentMode = .center
             fallback.horizontalAlignmentMode = .center
-            fallback.zPosition = 3
-            addChild(fallback)
+            fallback.zPosition = 5
+            contentRoot.addChild(fallback)
         }
+
+        // Clip sheen roughly to snack area via crop is heavy; keep free-moving sheen subtle.
+        sheen.alpha = 0
     }
 
     @available(*, unavailable)
@@ -733,14 +996,130 @@ final class SnackNode: SKNode {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// Idle bob, gloss pulse, light sweep — makes tiles feel like real candy.
+    func startLiveEffects(phaseOffset: TimeInterval = 0) {
+        guard !liveStarted else { return }
+        liveStarted = true
+
+        let bobAmp = tileSize * 0.035
+        let bobUp = SKAction.moveBy(x: 0, y: bobAmp, duration: 0.9)
+        let bobDown = SKAction.moveBy(x: 0, y: -bobAmp * 2, duration: 1.1)
+        let bobBack = SKAction.moveBy(x: 0, y: bobAmp, duration: 0.9)
+        let bob = SKAction.sequence([bobUp, bobDown, bobBack])
+
+        let swayRight = SKAction.rotate(toAngle: 0.05, duration: 1.15)
+        let swayLeft = SKAction.rotate(toAngle: -0.05, duration: 1.25)
+        let swayCenter = SKAction.rotate(toAngle: 0, duration: 0.9)
+        let sway = SKAction.sequence([swayRight, swayLeft, swayCenter])
+
+        let breatheIn = SKAction.scale(to: 1.035, duration: 1.0)
+        let breatheOut = SKAction.scale(to: 0.985, duration: 1.05)
+        let breatheRest = SKAction.scale(to: 1.0, duration: 0.85)
+        let breathe = SKAction.sequence([breatheIn, breatheOut, breatheRest])
+
+        let idleGroup = SKAction.group([bob, sway, breathe])
+        contentRoot.run(SKAction.repeatForever(idleGroup), withKey: "idle")
+
+        // Shadow breathes opposite to bob for grounded feel
+        let shadowShrink = SKAction.group([
+            SKAction.scaleX(to: 0.92, duration: 0.9),
+            SKAction.fadeAlpha(to: 0.22, duration: 0.9)
+        ])
+        let shadowGrow = SKAction.group([
+            SKAction.scaleX(to: 1.08, duration: 1.1),
+            SKAction.fadeAlpha(to: 0.32, duration: 1.1)
+        ])
+        let shadowRest = SKAction.group([
+            SKAction.scaleX(to: 1.0, duration: 0.9),
+            SKAction.fadeAlpha(to: 0.28, duration: 0.9)
+        ])
+        shadow.run(SKAction.repeatForever(SKAction.sequence([shadowShrink, shadowGrow, shadowRest])), withKey: "shadowIdle")
+
+        // Gloss twinkle
+        let glossPulse = SKAction.sequence([
+            SKAction.fadeAlpha(to: 0.55, duration: 0.7),
+            SKAction.fadeAlpha(to: 0.95, duration: 0.55),
+            SKAction.fadeAlpha(to: 0.7, duration: 0.8)
+        ])
+        gloss.run(SKAction.repeatForever(glossPulse), withKey: "gloss")
+
+        // Light sheen sweep across candy surface
+        let sweepWidth = tileSize * 0.9
+        sheen.position = CGPoint(x: -sweepWidth, y: 0)
+        let waitIn = SKAction.wait(forDuration: 1.4 + phaseOffset.truncatingRemainder(dividingBy: 1.8))
+        let sheenMove = SKAction.group([
+            SKAction.fadeAlpha(to: 0.45, duration: 0.08),
+            SKAction.moveTo(x: sweepWidth, duration: 0.55)
+        ])
+        let sheenReset = SKAction.sequence([
+            SKAction.fadeOut(withDuration: 0.12),
+            SKAction.moveTo(x: -sweepWidth, duration: 0.01),
+            SKAction.wait(forDuration: 2.2 + Double.random(in: 0...1.2))
+        ])
+        let sweep = SKAction.sequence([waitIn, sheenMove, sheenReset])
+        sheen.run(SKAction.repeatForever(sweep), withKey: "sheen")
+
+        // Special power pulse ring
+        if special != nil {
+            let pulseUp = SKAction.group([
+                SKAction.scale(to: 1.08, duration: 0.45),
+                SKAction.fadeAlpha(to: 0.95, duration: 0.45)
+            ])
+            let pulseDown = SKAction.group([
+                SKAction.scale(to: 1.0, duration: 0.45),
+                SKAction.fadeAlpha(to: 0.55, duration: 0.45)
+            ])
+            rimLight.run(SKAction.repeatForever(SKAction.sequence([pulseUp, pulseDown])), withKey: "specialPulse")
+            if let badge = badgeSprite {
+                let badgePulse = SKAction.sequence([
+                    SKAction.scale(to: 1.12, duration: 0.4),
+                    SKAction.scale(to: 0.95, duration: 0.4)
+                ])
+                badge.run(SKAction.repeatForever(badgePulse), withKey: "badgeSpin")
+            }
+        }
+    }
+
+    func stopLiveEffects() {
+        contentRoot.removeAction(forKey: "idle")
+        shadow.removeAction(forKey: "shadowIdle")
+        gloss.removeAction(forKey: "gloss")
+        sheen.removeAction(forKey: "sheen")
+        rimLight.removeAction(forKey: "specialPulse")
+        badgeSprite?.removeAction(forKey: "badgeSpin")
+        liveStarted = false
+    }
+
+    func pressPulse() {
+        contentRoot.removeAction(forKey: "pressPulse")
+        let compress = SKAction.group([
+            SKAction.scaleX(to: 1.10, duration: 0.045),
+            SKAction.scaleY(to: 0.88, duration: 0.045),
+            SKAction.moveBy(x: 0, y: -tileSize * 0.025, duration: 0.045)
+        ])
+        let rebound = SKAction.group([
+            SKAction.scaleX(to: 0.96, duration: 0.07),
+            SKAction.scaleY(to: 1.08, duration: 0.07),
+            SKAction.moveBy(x: 0, y: tileSize * 0.04, duration: 0.07)
+        ])
+        let settle = SKAction.group([
+            SKAction.scale(to: 1.0, duration: 0.08),
+            SKAction.moveBy(x: 0, y: -tileSize * 0.015, duration: 0.08)
+        ])
+        contentRoot.run(SKAction.sequence([compress, rebound, settle]), withKey: "pressPulse")
+    }
+
     func popAway(duration: TimeInterval, completion: @escaping () -> Void) {
-        run(.sequence([
-            .group([
-                .scale(to: 1.28, duration: duration * 0.35),
-                .fadeAlpha(to: 0.0, duration: duration),
-                .rotate(byAngle: .pi / 8, duration: duration)
-            ]),
-            .run(completion)
-        ]))
+        stopLiveEffects()
+        let squashX = SKAction.scaleX(to: 1.2, duration: duration * 0.25)
+        let squashY = SKAction.scaleY(to: 0.75, duration: duration * 0.25)
+        let spin = SKAction.rotate(byAngle: .pi / 6, duration: duration)
+        let squash = SKAction.group([squashX, squashY, spin])
+        let expand = SKAction.scale(to: 1.35, duration: duration * 0.35)
+        let fade = SKAction.fadeAlpha(to: 0.0, duration: duration * 0.75)
+        let lift = SKAction.moveBy(x: 0, y: tileSize * 0.15, duration: duration * 0.75)
+        let burst = SKAction.group([expand, fade, lift])
+        let finish = SKAction.run(completion)
+        run(SKAction.sequence([squash, burst, finish]))
     }
 }
