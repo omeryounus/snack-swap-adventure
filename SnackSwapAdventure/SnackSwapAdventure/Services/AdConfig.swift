@@ -9,6 +9,10 @@ enum AdConfig {
     /// Google sample rewarded ad unit — replace for production.
     static let rewardedUnitID = "ca-app-pub-3940256099942544/1712485313"
 
-    /// When true, use a local simulated ad if the SDK fails (simulator-friendly).
+    /// Keep local simulated rewards out of TestFlight/App Store builds.
+    #if DEBUG
     static let allowSimulatedFallback = true
+    #else
+    static let allowSimulatedFallback = false
+    #endif
 }
