@@ -1,0 +1,52 @@
+# Xcode
+DerivedData/
+build/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+xcuserdata/
+*.xcworkspace
+!default.xcworkspace
+*.playground
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+
+# Node / Next.js / Vercel
+node_modules/
+.next/
+.vercel/
+out/
+dist/
+npm-debug.log*
+yarn-error.log*
+package-lock.json
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+*.swp
+*~
+
+# Local deploy payloads / temp
+**/payload.json
+**/.deploy_payload.json
+deploy_to_vercel.json
+vercel-mcp-payload.json

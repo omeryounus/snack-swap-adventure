@@ -1,107 +1,94 @@
 # Snack Swap Adventure
 
-**A colorful match-3 puzzle game for iOS** where players match snacks to feed cute, hungry little monsters.
+**A colorful match-3 puzzle game for iOS** — match snacks, feed monsters, climb the leaderboard.
 
-### Refined Concept
-Players swap snacks to feed adorable monsters that react with personality. The game combines classic match-3 mechanics with emotional feedback and light progression.
+## What’s included
 
-**Core Loop**
-- Swap neighboring snacks
-- Match 3+ to feed monsters or clear obstacles
-- Limited moves per level
-- Special snacks (bombs, line clears, rainbow)
-- Monsters react happily when fed well
+### Gameplay
+- 8×8 match-3 with 6 snack types
+- Cascades, gravity, refill, juicy SFX
+- **Specials**: row blaster, column blaster, bomb, rainbow (from 4+/5/L-T matches)
+- **30 levels** across Cookie Kingdom, Popcorn Plains, Candy Canyon
+- **Varied goals**: score, collect snack type, clear N snacks, make combos
+- Pause menu with sound/music toggles
+- Boosters shop + monster collection meta
 
-### Unique Twists
-- Monsters have emotions and react to combos
-- Themed power-ups (Monster Snacks)
-- Varied level goals (feed, break, rescue, clear)
-- Light meta progression (unlock worlds + collect monsters)
+### Backend (Vercel)
+- Live API: **https://backend-deploy-sepia.vercel.app**
+- Leaderboard, players, scores, global + player stats
+- Durable-ready store (Upstash Redis optional + `/tmp` mirror)
 
-## Tech Stack
-- Swift + SpriteKit (recommended for iOS quality)
-- SwiftUI for menus
+## Run the iOS app
 
-## UI Wireframes
-
-### 1. Title Screen
-```
-+------------------------------+
-|          [Cute Monster]      |
-|   Snack Swap Adventure       |
-|                              |
-|         [Play]               |
-|                              |
-|      [World Map]             |
-|                              |
-|   [Monsters]      [Shop]     |
-+------------------------------+
+```bash
+open SnackSwapAdventure/SnackSwapAdventure.xcodeproj
 ```
 
-### 2. World Map
-```
-+------------------------------+
-| Cookie Kingdom          →   |
-|                              |
-| [1] [2] [3] [4] [5]        |
-|  ★★★ ★★   ★★     ★     |
-|                              |
-| Popcorn Plains          →   |
-+------------------------------+
+Or:
+
+```bash
+cd SnackSwapAdventure
+xcodebuild -scheme SnackSwapAdventure \
+  -destination 'platform=iOS Simulator,name=iPhone 16' build
 ```
 
-### 3. Gameplay Screen (Core)
-```
-+----------------------------------+
-| Level 12     Moves: 15   Goal: 30 |
-| Feed Red Monster                 |
-|                                  |
-|   +----------------------+       |
-|   |                      |       |
-|   |     8x8 Snack Grid   |       |
-|   |                      |       |
-|   +----------------------+       |
-|                                  |
-| [Pause]   [Booster] [Booster]    |
-|                                  |
-|     [Happy Monster Face]         |
-+----------------------------------+
+## Backend
+
+### Deploy (CLI)
+
+```bash
+cd backend-deploy
+./deploy.sh
+# or:
+npx vercel@latest --prod --yes --scope omeryounus-projects
 ```
 
-### 4. Level Complete
+### Optional Redis durability
+
+Set on the Vercel project:
+
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+
+Without them, the API uses in-memory + `/tmp` mirroring (fine for demos; multi-instance needs Redis).
+
+### API
+
+| Method | Path |
+|--------|------|
+| GET | `/api/health` |
+| GET | `/api/leaderboard?sort=&limit=` |
+| GET/POST | `/api/players` |
+| GET/PATCH | `/api/players/:id` |
+| GET/POST | `/api/scores` |
+| GET | `/api/stats/global` |
+| GET | `/api/stats/:playerId` |
+
+## Project layout
+
 ```
-+----------------------------------+
-|         Level Complete!          |
-|                                  |
-|             ★ ★ ★             |
-|                                  |
-|         + 1,450 points           |
-|                                  |
-|         [Next Level]             |
-|                                  |
-|   [Replay]     [World Map]       |
-+----------------------------------+
+SnackSwapAdventure/     iOS (SwiftUI + SpriteKit)
+backend-deploy/         Production Vercel app (JS)
+backend/                TypeScript source / local Next dev
+DESIGN.md
 ```
 
-## Development Roadmap
+## How to play
 
-### Phase 1: Core Prototype
-- 8x8 grid + 6 snack types
-- Swap + match detection + gravity
-- Limited moves
-- Basic juicy animations
+1. **Play** or pick a level on the **World Map**
+2. Swap adjacent snacks to make matches of 3+
+3. Complete the **level goal** before moves run out
+4. Earn coins → **Shop** boosters; unlock **Monsters**
+5. Climb the online **Ranks** board
 
-### Phase 2: Special Tiles & Polish
-- Line blaster, bomb, rainbow
-- Monster reaction system
-- Combo celebrations
+## Roadmap status
 
-### Phase 3: Content
-- 30 levels with varied goals
-- 4 worlds
-- Monster collection
-
-## Getting Started
-See the detailed instructions in the previous version of this README or the DESIGN.md file.
-
-**Let's build something fun and original!**
+| Phase | Status |
+|-------|--------|
+| 1 Core prototype | ✅ |
+| 2 Specials & polish | ✅ |
+| 3 Content (30 levels, monsters, shop) | ✅ |
+| Online leaderboard + stats | ✅ |
+| Durable Redis (optional env) | ✅ wired |
+| Hand-painted art pack | Optional next |
+| App Store packaging | Optional next |
