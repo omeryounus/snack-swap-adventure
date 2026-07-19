@@ -512,12 +512,21 @@ final class GameScene: SKScene {
         guard let state = gameState else { return }
         clearSelection()
 
+        // A swap should never be allowed to start against a partially rebuilt
+        // visual matrix. Repair the renderer first instead of creating a move
+        // that can leave an empty well or a missing animation participant.
+        guard tileNodes[from.row][from.col] != nil,
+              tileNodes[to.row][to.col] != nil,
+              state.board.cell(at: from) != nil,
+              state.board.cell(at: to) != nil else {
+            rebuildBoard()
+            return
+        }
+
         guard state.board.wouldCreateMatch(swapping: from, with: to) else {
             // Visual bump then reject
             isBusy = true
             SoundManager.shared.playSwap()
-            animateTapNudge(from: from, toward: to)
-            animateTapNudge(from: to, toward: from)
             animateSwap(from: from, to: to, duration: 0.12) { [weak self] in
                 self?.animateSwap(from: to, to: from, duration: 0.12) {
                     SoundManager.shared.playInvalid()
@@ -532,11 +541,13 @@ final class GameScene: SKScene {
 
         isBusy = true
         SoundManager.shared.playSwap()
-        animateTapNudge(from: from, toward: to)
-        animateTapNudge(from: to, toward: from)
         let activatesSpecial = state.board.cell(at: from)?.special != nil
             || state.board.cell(at: to)?.special != nil
-        state.board.swap(from, to)
+        guard state.board.swap(from, to) else {
+            isBusy = false
+            rebuildBoard()
+            return
+        }
         animateSwap(from: from, to: to, duration: 0.15) { [weak self] in
             self?.swapNodeReferences(from, to)
             state.registerSuccessfulSwap()
@@ -565,6 +576,7 @@ final class GameScene: SKScene {
         let group = DispatchGroup()
         if let nodeA {
             group.enter()
+            nodeA.removeAction(forKey: "tapNudge")
             nodeA.zPosition = 15
             nodeA.run(.sequence([
                 .group([
@@ -572,17 +584,18 @@ final class GameScene: SKScene {
                     .sequence([.scale(to: 1.12, duration: duration * 0.45), .scale(to: 1.0, duration: duration * 0.55)])
                 ]),
                 .run { nodeA.zPosition = 10; group.leave() }
-            ]))
+            ]), withKey: "swapMotion")
         }
         if let nodeB {
             group.enter()
+            nodeB.removeAction(forKey: "tapNudge")
             nodeB.run(.sequence([
                 .group([
                     .move(to: posA, duration: duration),
                     .sequence([.scale(to: 0.92, duration: duration * 0.45), .scale(to: 1.0, duration: duration * 0.55)])
                 ]),
                 .run { group.leave() }
-            ]))
+            ]), withKey: "swapMotion")
         }
         group.notify(queue: .main, execute: completion)
     }
@@ -863,6 +876,8 @@ final class GameScene: SKScene {
         // twice during fast cascades, producing both holes and overlaps.
         let gravityMoves = state.board.applyGravity()
         let spawned = state.board.refill()
+        let movedDestinations = Set(gravityMoves.map(\.to))
+        let spawnedPositions = Set(spawned.map(\.pos))
 
         // Purge every snack node attached to the scene, not only the nodes in
         // the matrix. A completed pop or special animation can otherwise leave
@@ -883,7 +898,7 @@ final class GameScene: SKScene {
                 let pos = BoardPosition(row: row, col: col)
                 guard let cell = state.board.cell(at: pos) else { continue }
                 let node = makeSnackNode(cell: cell, at: pos)
-                node.position = point(for: pos)
+                let target = point(for: pos)
                 // The model is already settled when this method runs. Keep the
                 // full matrix visible immediately so cascades never expose
                 // permanent-looking empty wells between animation frames.
@@ -892,11 +907,29 @@ final class GameScene: SKScene {
                 tileNodes[row][col] = node
                 addChild(node)
 
-                node.run(.sequence([
-                    .scale(to: 1.06, duration: 0.08),
-                    .scale(to: 0.98, duration: 0.06),
-                    .scale(to: 1.0, duration: 0.06)
-                ]))
+                if spawnedPositions.contains(pos) {
+                    // New pieces enter from just above their final well. The
+                    // stagger is intentionally short so the board stays full
+                    // and readable throughout the cascade.
+                    node.position = CGPoint(x: target.x, y: target.y + tileSize * 0.34)
+                    node.run(.group([
+                        .move(to: target, duration: 0.16),
+                        .sequence([
+                            .scale(to: 1.06, duration: 0.10),
+                            .scale(to: 0.98, duration: 0.06),
+                            .scale(to: 1.0, duration: 0.06)
+                        ])
+                    ]), withKey: "settleMotion")
+                } else if movedDestinations.contains(pos) {
+                    node.position = target
+                    node.run(.sequence([
+                        .scale(to: 1.06, duration: 0.08),
+                        .scale(to: 0.98, duration: 0.06),
+                        .scale(to: 1.0, duration: 0.06)
+                    ]), withKey: "settleMotion")
+                } else {
+                    node.position = target
+                }
             }
         }
 
