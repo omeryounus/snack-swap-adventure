@@ -133,6 +133,7 @@ struct LeaderboardView: View {
                     .refreshable { await load() }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .task {
             await load()

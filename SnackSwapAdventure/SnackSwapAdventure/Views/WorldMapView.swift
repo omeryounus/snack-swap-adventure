@@ -237,6 +237,7 @@ struct WorldMapView: View {
                     cream: cream
                 )
                 .allowsHitTesting(false)
+                .zIndex(0)
             }
         }
         .padding(16)
@@ -281,6 +282,7 @@ struct WorldMapView: View {
                     .stroke(current ? gold.opacity(0.85) : cream.opacity(unlocked ? 0.18 : 0.07), lineWidth: current ? 2 : 1)
             )
             .shadow(color: current ? gold.opacity(0.32) : .clear, radius: 10, y: 3)
+            .zIndex(current ? 3 : 2)
         }
         .buttonStyle(MapPressButtonStyle())
         .disabled(!unlocked)
@@ -292,9 +294,18 @@ struct WorldMapView: View {
             return AnyShapeStyle(LinearGradient(colors: [pink, orange], startPoint: .topLeading, endPoint: .bottomTrailing))
         }
         if unlocked {
-            return AnyShapeStyle(LinearGradient(colors: [Color.white.opacity(0.18), Color.white.opacity(0.08)], startPoint: .top, endPoint: .bottom))
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.48, green: 0.30, blue: 0.34),
+                        Color(red: 0.35, green: 0.21, blue: 0.28)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
         }
-        return AnyShapeStyle(Color.black.opacity(0.18))
+        return AnyShapeStyle(Color(red: 0.18, green: 0.12, blue: 0.20).opacity(0.96))
     }
 
     private func unlockedWorldName(for level: Int) -> String {

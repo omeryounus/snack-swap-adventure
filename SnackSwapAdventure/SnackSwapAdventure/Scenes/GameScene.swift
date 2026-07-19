@@ -912,6 +912,37 @@ final class GameScene: SKScene {
             ])) { group.leave() }
         }
 
+        // Keep SpriteKit and the model in lockstep after a cascade. The model
+        // is authoritative; if a visual node was lost during a rapid special
+        // animation, restore it from above instead of leaving a visible hole.
+        for row in 0..<boardSize {
+            for col in 0..<boardSize {
+                let pos = BoardPosition(row: row, col: col)
+                guard let cell = state.board.cell(at: pos), tileNodes[row][col] == nil else { continue }
+                let node = makeSnackNode(cell: cell, at: pos)
+                let start = CGPoint(
+                    x: point(for: pos).x,
+                    y: boardOrigin.y + CGFloat(boardSize) * tileSize + tileSize
+                )
+                node.position = start
+                node.setScale(0.8)
+                addChild(node)
+                tileNodes[row][col] = node
+
+                group.enter()
+                let duration = fallDuration + Double(boardSize - pos.row) * 0.025
+                maxFallDuration = max(maxFallDuration, duration)
+                node.run(.sequence([
+                    .group([
+                        .move(to: point(for: pos), duration: duration),
+                        .scale(to: 1.0, duration: duration)
+                    ]),
+                    .scale(to: 1.06, duration: 0.05),
+                    .scale(to: 1.0, duration: 0.05)
+                ])) { group.leave() }
+            }
+        }
+
         // Soft land thud once pieces settle.
         if !gravityMoves.isEmpty || !spawned.isEmpty {
             run(.sequence([
