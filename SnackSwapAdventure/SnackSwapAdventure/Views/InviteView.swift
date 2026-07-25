@@ -7,34 +7,31 @@ struct InviteView: View {
     @State private var pulse = false
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.18, green: 0.08, blue: 0.32),
-                    Color(red: 0.4, green: 0.15, blue: 0.35),
-                    Color(red: 0.55, green: 0.25, blue: 0.2)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+        ZStack(alignment: .top) {
+            WorldBackgroundPlate(themeColor: SSATheme.candyPink)
 
             VStack(spacing: 0) {
+                // Header (AAA aligned)
                 HStack {
                     Button {
-                        SoundManager.shared.playUITap()
+                        SoundManager.shared.play(.uiTap)
                         onBack()
                     } label: {
                         Label("Back", systemImage: "chevron.left")
-                            .font(.headline)
-                            .foregroundStyle(.white)
+                            .font(Theme.fontBody().bold())
+                            .foregroundStyle(Theme.textPrimary)
                     }
                     Spacer()
-                    Text("🎁 Invite Friends")
-                        .font(.title3.bold())
-                        .foregroundStyle(.white)
+                    VStack(spacing: 2) {
+                        Text("Invite")
+                            .font(Theme.fontTitle().bold())
+                            .foregroundStyle(Theme.textPrimary)
+                        Text("Share & earn free stars")
+                            .font(Theme.fontCaption())
+                            .foregroundStyle(Theme.textSecondary)
+                    }
                     Spacer()
-                    Color.clear.frame(width: 54)
+                    Color.clear.frame(width: 54, height: 44)
                 }
                 .padding()
 
@@ -47,24 +44,25 @@ struct InviteView: View {
                             .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulse)
 
                         Text("Share & earn free stars")
-                            .font(.title2.bold())
-                            .foregroundStyle(.white)
+                            .font(Theme.fontTitle().bold())
+                            .foregroundStyle(Theme.textPrimary)
                             .multilineTextAlignment(.center)
 
                         Text("Invite friends to Snack Swap Adventure. Each share gives you **\(MetaProgress.inviteRewardStars) ⭐** (up to \(MetaProgress.maxInviteRewardsPerDay)/day).")
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.8))
+                            .font(Theme.fontBody())
+                            .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 8)
 
                         VStack(spacing: 10) {
                             Text("Your invite code")
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.65))
+                                .font(Theme.fontCaption())
+                                .foregroundStyle(Theme.textSecondary)
+                            
                             Text(meta.inviteCode)
                                 .font(.system(size: 28, weight: .heavy, design: .rounded))
                                 .foregroundStyle(
-                                    LinearGradient(colors: [.yellow, .orange], startPoint: .leading, endPoint: .trailing)
+                                    LinearGradient(colors: [Theme.accentGold, .orange], startPoint: .leading, endPoint: .trailing)
                                 )
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 12)
@@ -73,13 +71,12 @@ struct InviteView: View {
                                 .onTapGesture {
                                     UIPasteboard.general.string = meta.inviteCode
                                     toast = "Code copied!"
-                                    SoundManager.shared.playUITap()
+                                    SoundManager.shared.play(.uiTap)
                                 }
                         }
                         .padding(18)
                         .frame(maxWidth: .infinity)
-                        .background(Color.white.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .glassCard()
 
                         HStack(spacing: 12) {
                             statChip("Today", "\(meta.invitesToday)/\(MetaProgress.maxInviteRewardsPerDay)")
@@ -93,14 +90,12 @@ struct InviteView: View {
                             message: Text(meta.inviteShareMessage)
                         ) {
                             Label("Share invite", systemImage: "square.and.arrow.up")
-                                .font(.headline.bold())
+                                .font(Theme.fontBody().bold())
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(
-                                    LinearGradient(colors: [.pink, .orange, .yellow], startPoint: .leading, endPoint: .trailing)
-                                )
+                                .background(Theme.accentPrimary)
                                 .foregroundStyle(.white)
-                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: Theme.buttonCornerRadius, style: .continuous))
                                 .shadow(color: .orange.opacity(0.4), radius: 12, y: 6)
                         }
                         .simultaneousGesture(TapGesture().onEnded {
@@ -109,11 +104,10 @@ struct InviteView: View {
 
                         Button {
                             claimReward()
-                            // Also open system share if needed
                         } label: {
                             Text("I already shared — claim ⭐")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.9))
+                                .font(Theme.fontCaption().bold())
+                                .foregroundStyle(Theme.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(Color.white.opacity(0.12))
@@ -121,8 +115,8 @@ struct InviteView: View {
                         }
 
                         Text("Friends can enter your code in Stats (coming soon) or just play — you still earn stars for sharing.")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.55))
+                            .font(Theme.fontCaption())
+                            .foregroundStyle(Theme.textTertiary)
                             .multilineTextAlignment(.center)
                     }
                     .padding(20)
@@ -130,36 +124,41 @@ struct InviteView: View {
 
                 if let toast {
                     Text(toast)
-                        .font(.footnote.bold())
+                        .font(Theme.fontCaption().bold())
                         .foregroundStyle(.white)
                         .padding(12)
-                        .background(Color.black.opacity(0.55))
+                        .background(Color.black.opacity(0.65))
                         .clipShape(Capsule())
                         .padding(.bottom, 24)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
+                Spacer()
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear { pulse = true }
     }
 
     private func statChip(_ title: String, _ value: String) -> some View {
         VStack(spacing: 4) {
-            Text(value).font(.headline.bold()).foregroundStyle(.white)
-            Text(title).font(.caption2).foregroundStyle(.white.opacity(0.65))
+            Text(value)
+                .font(Theme.fontBody().bold())
+                .foregroundStyle(Theme.textPrimary)
+            Text(title)
+                .font(Theme.fontCaption())
+                .foregroundStyle(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color.white.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .glassCard()
     }
 
     private func claimReward() {
-        SoundManager.shared.playUITap()
+        SoundManager.shared.play(.uiTap)
         let gained = meta.claimInviteReward()
         if gained > 0 {
             toast = "+\(gained) ⭐ thanks for sharing!"
-            SoundManager.shared.playExtend()
+            SoundManager.shared.play(.extend)
         } else {
             toast = "Daily invite limit reached — come back tomorrow!"
         }

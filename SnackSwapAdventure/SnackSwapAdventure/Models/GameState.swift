@@ -72,6 +72,20 @@ final class GameState: ObservableObject {
         startTimer()
     }
 
+    func addMoves(_ count: Int) {
+        movesLeft += count
+    }
+
+    func plantRandomSpecial(_ special: SpecialKind) {
+        let size = board.size
+        let randomRow = Int.random(in: 0..<size)
+        let randomCol = Int.random(in: 0..<size)
+        let pos = BoardPosition(row: randomRow, col: randomCol)
+        if let snack = board.snack(at: pos) {
+            board.clear(Set([pos]), spawnSpecials: [pos: (special, snack)])
+        }
+    }
+
     // MARK: - Timer
 
     func startTimer() {
@@ -226,6 +240,8 @@ final class GameState: ObservableObject {
     }
 
     func registerInvalidSwap() {
+        guard outcome == .playing else { return }
+        movesLeft = max(0, movesLeft - 1)
         streakCount = 0
         feverActiveForCurrentMove = false
         if feverTurnsRemaining == 0 {
@@ -233,6 +249,7 @@ final class GameState: ObservableObject {
         }
         monsterMood = .sad
         lastFeedMessage = "Hmm… try a better swap!"
+        evaluateOutcome()
     }
 
     func finishMoveResolution() {
@@ -257,9 +274,7 @@ final class GameState: ObservableObject {
     }
 
     var formattedTime: String {
-        let m = timeRemaining / 60
-        let s = timeRemaining % 60
-        return String(format: "%d:%02d", m, s)
+        return "\(timeRemaining)s"
     }
 
     func evaluateOutcome() {

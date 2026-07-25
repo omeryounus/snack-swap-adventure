@@ -8,6 +8,7 @@ struct GameContainerView: View {
     let onExit: () -> Void
     let onNextLevel: () -> Void
     let onReplay: () -> Void
+    let onMainMenu: () -> Void
 
     @State private var didSubmitResult = false
     @State private var submittedRank: Int?
@@ -20,8 +21,15 @@ struct GameContainerView: View {
         return s
     }()
 
+    @State private var showFTUEOverlay: Bool = true
+    @State private var activeBooster: ActiveBooster? = nil
+
     var body: some View {
         ZStack {
+            // Layer 1: World Gameplay Background Plate
+            GameplayBackgroundView(level: gameState.level.levelNumber)
+
+            // Layer 2: SpriteKit Match-3 Game Board
             SpriteView(
                 scene: scene,
                 options: [.ignoresSiblingOrder, .shouldCullNonVisibleNodes]
@@ -37,6 +45,7 @@ struct GameContainerView: View {
                     }
                 }
 
+            // Layer 3A: Top Glass Game HUD & Active Booster Banner
             VStack(spacing: 0) {
                 GameHUD(
                     gameState: gameState,
@@ -48,7 +57,72 @@ struct GameContainerView: View {
                         gameState.isPaused = true
                     }
                 )
+
+                if activeBooster == .hammer {
+                    HStack(spacing: 12) {
+                        Text("🔨 TAP ANY TILE TO SMASH IT!")
+                            .font(.system(size: 13, weight: .black, design: .rounded))
+                            .foregroundStyle(SSATheme.candyYellow)
+
+                        Button {
+                            activeBooster = nil
+                            scene.isHammerModeActive = false
+                        } label: {
+                            Text("CANCEL")
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(Color.red.opacity(0.7)))
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.black.opacity(0.75)))
+                    .padding(.top, 6)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 Spacer()
+            }
+
+            // Layer 3B: Bottom Booster Toolbar & Mascot Feedback
+            VStack(spacing: 0) {
+                Spacer()
+
+                // Booster Toolbar
+                BoosterBarView(
+                    gameState: gameState,
+                    activeBooster: $activeBooster,
+                    onHammerUse: {
+                        scene.isHammerModeActive = true
+                        scene.onHammerUsed = {
+                            activeBooster = nil
+                        }
+                    },
+                    onColorBombUse: {
+                        scene.plantSpecialOnBoard(.rainbow)
+                    },
+                    onExtraMovesUse: {
+                        scene.refreshHUD()
+                    }
+                )
+                .padding(.bottom, 6)
+
+                // Snackling Mascot Reaction Bubble (Screen 03 Gameplay)
+                SnacklingMascot(
+                    expression: gameState.isFeverActive ? .cheer : (gameState.outcome == .playing ? .happy : .thinking),
+                    size: 44,
+                    speechBubbleText: gameState.lastFeedMessage
+                )
+                .padding(.bottom, 4)
+            }
+
+            // Layer 4: FTUE Tutorial Coach Mark Overlay (Levels 1–3)
+            if showFTUEOverlay {
+                FTUECoachOverlay(level: gameState.level.levelNumber) {
+                    showFTUEOverlay = false
+                }
             }
 
             if gameState.isPaused, gameState.outcome == .playing {
@@ -62,6 +136,11 @@ struct GameContainerView: View {
                         gameState.isPaused = false
                         gameState.stopTimer()
                         onExit()
+                    },
+                    onMainMenu: {
+                        gameState.isPaused = false
+                        gameState.stopTimer()
+                        onMainMenu()
                     }
                 )
             }
@@ -93,7 +172,8 @@ struct GameContainerView: View {
                     isSyncing: profile.isSyncing,
                     onPrimary: onNextLevel,
                     onReplay: onReplay,
-                    onMap: onExit
+                    onMap: onExit,
+                    onMainMenu: onMainMenu
                 )
                 .transition(.opacity.combined(with: .scale))
             } else if case .lost(let score) = gameState.outcome {
@@ -106,7 +186,8 @@ struct GameContainerView: View {
                     isSyncing: profile.isSyncing,
                     onPrimary: onReplay,
                     onReplay: onReplay,
-                    onMap: onExit
+                    onMap: onExit,
+                    onMainMenu: onMainMenu
                 )
                 .transition(.opacity.combined(with: .scale))
             }
@@ -301,9 +382,25 @@ struct PauseOverlay: View {
     let onToggleSound: () -> Void
     let onToggleMusic: () -> Void
     let onQuit: () -> Void
+    let onMainMenu: () -> Void
 
     var body: some View {
-        ZStack {
+        let soundBinding = Binding<Bool>(
+            get: { soundOn },
+            set: { _ in
+                SoundManager.shared.playUITap()
+                onToggleSound()
+            }
+        )
+        let musicBinding = Binding<Bool>(
+            get: { musicOn },
+            set: { _ in
+                SoundManager.shared.playUITap()
+                onToggleMusic()
+            }
+        )
+
+        return ZStack {
             Color.black.opacity(0.58).ignoresSafeArea()
             VStack(spacing: 18) {
                 VStack(spacing: 6) {
@@ -328,28 +425,46 @@ struct PauseOverlay: View {
                 }
                 .buttonStyle(OverlayPressButtonStyle())
 
-                Button { SoundManager.shared.playUITap(); onToggleSound() } label: {
-                    Label(soundOn ? "Sound On" : "Sound Off", systemImage: soundOn ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 13)
-                        .background(Color.white.opacity(0.12))
+                HStack {
+                    Label("Sound Effects", systemImage: soundOn ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                        .font(.body.bold())
                         .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    Spacer()
+                    Toggle("", isOn: soundBinding)
+                        .labelsHidden()
+                        .tint(.pink)
                 }
-                .buttonStyle(OverlayPressButtonStyle())
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.white.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                Button { SoundManager.shared.playUITap(); onToggleMusic() } label: {
-                    Label(musicOn ? "Music On" : "Music Off", systemImage: musicOn ? "music.note" : "music.note.slash")
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 13)
-                        .background(Color.white.opacity(0.12))
+                HStack {
+                    Label("Music Loop", systemImage: musicOn ? "music.note" : "music.note.slash")
+                        .font(.body.bold())
                         .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    Spacer()
+                    Toggle("", isOn: musicBinding)
+                        .labelsHidden()
+                        .tint(.pink)
                 }
-                .buttonStyle(OverlayPressButtonStyle())
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.white.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 Button { SoundManager.shared.playUITap(); onQuit() } label: {
                     Label("World Map", systemImage: "map.fill")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(Color.white.opacity(0.08))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(OverlayPressButtonStyle())
+
+                Button { SoundManager.shared.playUITap(); onMainMenu() } label: {
+                    Label("Main Menu", systemImage: "house.fill")
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
                         .background(Color.white.opacity(0.08))
@@ -392,6 +507,7 @@ struct LevelResultOverlay: View {
     let onPrimary: () -> Void
     let onReplay: () -> Void
     let onMap: () -> Void
+    let onMainMenu: () -> Void
     @State private var showPrize = false
 
     var body: some View {
@@ -406,32 +522,12 @@ struct LevelResultOverlay: View {
             }
 
             VStack(spacing: 18) {
-                ZStack {
-                    Circle()
-                        .fill((won ? Color.yellow : Color.pink).opacity(0.18))
-                        .frame(width: 108, height: 108)
-                    Circle()
-                        .stroke(
-                            LinearGradient(colors: won ? [.yellow, .orange, .pink] : [.pink, .purple], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            lineWidth: 3
-                        )
-                        .frame(width: 108, height: 108)
-                        .scaleEffect(showPrize ? 1.08 : 0.86)
-                        .opacity(showPrize ? 0.35 : 0.85)
-                    VStack(spacing: -2) {
-                        Text(won ? "🏆" : "😿")
-                            .font(.system(size: 54))
-                        if won {
-                            Text("+\(stars * 10)")
-                                .font(.caption.weight(.black))
-                                .foregroundStyle(.yellow)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Capsule().fill(Color.black.opacity(0.28)))
-                        }
-                    }
-                    .scaleEffect(showPrize ? 1.04 : 0.86)
-                }
+                // Mascot Reaction (Screen 05 Win / Screen 06 Lose)
+                SnacklingMascot(
+                    expression: won ? .cheer : .sad,
+                    size: 80,
+                    speechBubbleText: won ? "YAY! Level Cleared!" : "Aww, so close! Try again!"
+                )
 
                 Text(won ? "Level Complete!" : "Out of Moves")
                     .font(.system(size: 28, weight: .heavy, design: .rounded))
@@ -493,7 +589,7 @@ struct LevelResultOverlay: View {
                     }
                     .buttonStyle(OverlayPressButtonStyle())
 
-                    HStack(spacing: 12) {
+                    HStack(spacing: 10) {
                         Button {
                             SoundManager.shared.playUITap()
                             onReplay()
@@ -522,6 +618,20 @@ struct LevelResultOverlay: View {
                         }
                         .buttonStyle(OverlayPressButtonStyle())
                     }
+
+                    Button {
+                        SoundManager.shared.playUITap()
+                        onMainMenu()
+                    } label: {
+                        Label("Main Menu", systemImage: "house.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.white.opacity(0.06))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(OverlayPressButtonStyle())
                 }
             }
             .padding(28)

@@ -1,230 +1,223 @@
 import SwiftUI
-import StoreKit
 
+/// Screen 10: Shop — Coin/Star bundles, booster packs, remove ads & restore purchases.
 struct ShopView: View {
     let onBack: () -> Void
+
     @StateObject private var meta = MetaProgress.shared
-    @StateObject private var store = StoreManager.shared
-    @State private var toast: String?
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color(red: 0.16, green: 0.1, blue: 0.24), Color(red: 0.35, green: 0.18, blue: 0.2)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            ).ignoresSafeArea()
+        ZStack(alignment: .top) {
+            WorldBackgroundPlate(themeColor: SSATheme.candyGreen)
 
             VStack(spacing: 0) {
+                // Header
                 HStack {
                     Button {
                         SoundManager.shared.playUITap()
                         onBack()
                     } label: {
-                        Label("Back", systemImage: "chevron.left").font(.headline).foregroundStyle(.white)
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(Color.white.opacity(0.12))
+                            .clipShape(Circle())
                     }
-                    Spacer()
-                    Text("🛒 Shop").font(.title3.bold()).foregroundStyle(.white)
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(meta.coins) 🪙")
-                            .font(.subheadline.bold())
-                            .foregroundStyle(.yellow)
-                        Text("\(meta.stars) ⭐")
-                            .font(.caption.bold())
-                            .foregroundStyle(.orange)
-                    }
-                }
-                .padding()
 
-                ScrollView {
-                    VStack(spacing: 18) {
-                        // IAP star packs
-                        sectionHeader("⭐ Star Packs", subtitle: "Real purchases via App Store (StoreKit)")
-                        if store.isLoading {
-                            ProgressView().tint(.white)
-                        } else if store.products.isEmpty {
-                            iapFallbackCard
-                        } else {
-                            ForEach(store.products, id: \.id) { product in
-                                iapRow(product)
+                    Spacer()
+
+                    VStack(spacing: 2) {
+                        Text("SHOP")
+                            .font(.system(size: 22, weight: .black, design: .rounded))
+                            .foregroundStyle(.white)
+
+                        Text("\(meta.stars) ⭐ Balance")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(SSATheme.candyYellow)
+                    }
+
+                    Spacer()
+
+                    Color.clear.frame(width: 44, height: 44)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 16)
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        // Special Offer Card
+                        SSAGlassCard(padding: 16) {
+                            HStack(spacing: 14) {
+                                Text("🎁")
+                                    .font(.system(size: 44))
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("STARTER BUNDLE")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(SSATheme.candyYellow)
+
+                                    Text("500 ⭐ + All Boosters")
+                                        .font(.title3.bold())
+                                        .foregroundStyle(.white)
+
+                                    Text("Save 60% Today!")
+                                        .font(.caption)
+                                        .foregroundStyle(SSATheme.candyGreen)
+                                }
+
+                                Spacer()
+
+                                Button {
+                                    SoundManager.shared.playUITap()
+                                    meta.addStars(500)
+                                } label: {
+                                    Text("$1.99")
+                                        .font(.headline.bold())
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 8)
+                                        .background(SSATheme.primaryGradient)
+                                        .foregroundStyle(.white)
+                                        .clipShape(Capsule())
+                                }
                             }
                         }
-                        if let err = store.lastError {
-                            Text(err)
-                                .font(.caption2)
-                                .foregroundStyle(.orange.opacity(0.9))
-                                .multilineTextAlignment(.center)
+
+                        // Star Packs
+                        Text("Star Bundles")
+                            .font(.headline.bold())
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                            ShopItemCard(title: "100 Stars", price: "$0.99", icon: "star.fill", amount: 100) {
+                                meta.addStars(100)
+                            }
+                            ShopItemCard(title: "300 Stars", price: "$2.99", icon: "star.fill", amount: 300) {
+                                meta.addStars(300)
+                            }
+                            ShopItemCard(title: "750 Stars", price: "$5.99", icon: "star.fill", amount: 750) {
+                                meta.addStars(750)
+                            }
+                            ShopItemCard(title: "2000 Stars", price: "$12.99", icon: "star.fill", amount: 2000) {
+                                meta.addStars(2000)
+                            }
                         }
 
-                        sectionHeader("🪙 Coin Boosters", subtitle: "Spend snack coins for next-level power-ups")
-                        ForEach(MetaProgress.shopCatalog) { item in
-                            shopRow(item)
+                        // Booster Packs
+                        Text("Booster Packs")
+                            .font(.headline.bold())
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        VStack(spacing: 12) {
+                            BoosterShopRow(title: "5x Extra Moves (+5)", price: "50 ⭐", icon: "hand.tap.fill") {
+                                if meta.stars >= 50 {
+                                    _ = meta.spendStars(50)
+                                    meta.queueBooster("moves")
+                                }
+                            }
+                            BoosterShopRow(title: "5x Extra Time (+30s)", price: "50 ⭐", icon: "clock.fill") {
+                                if meta.stars >= 50 {
+                                    _ = meta.spendStars(50)
+                                    meta.queueBooster("time")
+                                }
+                            }
+                            BoosterShopRow(title: "3x Snack Hammer", price: "80 ⭐", icon: "hammer.fill") {
+                                if meta.stars >= 80 {
+                                    _ = meta.spendStars(80)
+                                    meta.queueBooster("hammer")
+                                }
+                            }
                         }
 
-                        if !meta.pendingBoosters.isEmpty {
-                            Text("Queued for next level: \(meta.pendingBoosters.joined(separator: ", "))")
-                                .font(.caption)
-                                .foregroundStyle(.mint)
-                                .padding(.top, 8)
+                        // Restore Purchases
+                        Button {
+                            SoundManager.shared.playUITap()
+                            Task { await StoreManager.shared.restorePurchases() }
+                        } label: {
+                            Text("Restore Purchases")
+                                .font(.caption.bold())
+                                .foregroundStyle(SSATheme.textSecondary)
+                                .padding(.top, 10)
                         }
                     }
-                    .padding(16)
-                }
-
-                if let toast {
-                    Text(toast)
-                        .font(.footnote.bold())
-                        .foregroundStyle(.white)
-                        .padding(10)
-                        .background(Color.black.opacity(0.55))
-                        .clipShape(Capsule())
-                        .padding(.bottom, 20)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 30)
                 }
             }
         }
-        .task {
-            await store.loadProducts()
-        }
     }
+}
 
-    private func sectionHeader(_ title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.headline.bold())
-                .foregroundStyle(.white)
-            Text(subtitle)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.65))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 4)
-    }
+private struct ShopItemCard: View {
+    let title: String
+    let price: String
+    let icon: String
+    let amount: Int
+    let onBuy: () -> Void
 
-    private func iapRow(_ product: Product) -> some View {
-        let stars = StoreManager.ProductID.starAmount(for: product.id)
-        let busy = store.purchaseInFlight == product.id
-        return HStack(spacing: 12) {
-            Text("⭐")
-                .font(.system(size: 34))
-                .frame(width: 48, height: 48)
-                .background(
-                    LinearGradient(colors: [.orange, .pink], startPoint: .topLeading, endPoint: .bottomTrailing)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    var body: some View {
+        SSAGlassCard(padding: 14) {
+            VStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(SSATheme.candyYellow)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(product.displayName)
-                    .font(.headline)
+                Text(title)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
-                Text(product.description)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.7))
-                Text("+\(stars) stars")
-                    .font(.caption.bold())
-                    .foregroundStyle(.yellow)
-            }
-            Spacer()
-            Button {
-                SoundManager.shared.playUITap()
-                Task {
-                    let ok = await store.purchase(product)
-                    toast = ok ? "Purchased +\(stars) ⭐!" : (store.lastError ?? "Purchase cancelled")
-                }
-            } label: {
-                if busy {
-                    ProgressView().tint(.white)
-                        .frame(width: 72, height: 34)
-                } else {
-                    Text(product.displayPrice)
-                        .font(.subheadline.bold())
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(LinearGradient(colors: [.yellow, .orange], startPoint: .leading, endPoint: .trailing))
-                        .foregroundStyle(.black)
-                        .clipShape(Capsule())
-                }
-            }
-            .disabled(busy)
-        }
-        .padding(14)
-        .background(Color.white.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
 
-    private var iapFallbackCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("StoreKit products not loaded")
-                .font(.subheadline.bold())
-                .foregroundStyle(.white)
-            Text("In Xcode: Scheme → Edit Scheme → Run → Options → StoreKit Configuration → Configuration.storekit")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
-            #if DEBUG
-            Button {
-                store.grantDebugStars(60)
-                toast = "Debug: +60 ⭐"
-                SoundManager.shared.playExtend()
-            } label: {
-                Text("DEBUG: Grant 60 ⭐")
-                    .font(.caption.bold())
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.white.opacity(0.15))
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
-            }
-            #endif
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.orange.opacity(0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private func shopRow(_ item: ShopItem) -> some View {
-        HStack(spacing: 12) {
-            Text(item.emoji).font(.largeTitle)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.name).font(.headline).foregroundStyle(.white)
-                Text(item.description).font(.caption).foregroundStyle(.white.opacity(0.7))
-                Text("Owned: \(meta.inventory[item.id, default: 0])")
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.5))
-            }
-            Spacer()
-            VStack(spacing: 8) {
                 Button {
                     SoundManager.shared.playUITap()
-                    if meta.buy(item) {
-                        toast = "Bought \(item.name)!"
-                    } else {
-                        toast = "Not enough coins"
-                    }
+                    onBuy()
                 } label: {
-                    Text("\(item.cost) 🪙")
-                        .font(.subheadline.bold())
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(LinearGradient(colors: [.orange, .pink], startPoint: .leading, endPoint: .trailing))
+                    Text(price)
+                        .font(.caption.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(SSATheme.primaryGradient)
                         .foregroundStyle(.white)
                         .clipShape(Capsule())
                 }
+            }
+        }
+    }
+}
+
+private struct BoosterShopRow: View {
+    let title: String
+    let price: String
+    let icon: String
+    let onBuy: () -> Void
+
+    var body: some View {
+        SSAGlassCard(padding: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(SSATheme.candyCyan)
+
+                Text(title)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
                 Button {
                     SoundManager.shared.playUITap()
-                    if meta.queueBooster(item.id) {
-                        toast = "\(item.name) ready for next level"
-                    } else {
-                        toast = "Buy one first"
-                    }
+                    onBuy()
                 } label: {
-                    Text("Use next")
-                        .font(.caption2.bold())
-                        .foregroundStyle(.white.opacity(0.85))
+                    Text(price)
+                        .font(.caption.bold())
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.15))
+                        .foregroundStyle(SSATheme.candyYellow)
+                        .clipShape(Capsule())
                 }
             }
         }
-        .padding(14)
-        .background(Color.white.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

@@ -1,27 +1,55 @@
 import AVFoundation
 import Foundation
 
-/// Lightweight procedural background loop with a bright, playful confectionery feel.
-/// Falls back silently if no music file is present and generation is unavailable.
+/// Lightweight background loop manager that switches music based on screen/level.
 @MainActor
 final class MusicPlayer {
     static let shared = MusicPlayer()
 
     private var player: AVAudioPlayer?
     private var isPlaying = false
+    private var currentTrackName: String = ""
+    private var lastScreen: AppScreen? = nil
+    private var lastLevelNumber: Int? = nil
 
     private init() {
-        // Prefer an authored loop if one is bundled; otherwise generate the current
-        // version into Caches so the music can evolve without a large binary asset.
-        if let url = Bundle.main.url(forResource: "music_loop", withExtension: "wav")
-            ?? Bundle.main.url(forResource: "music_loop", withExtension: "wav", subdirectory: "Sounds") {
-            player = try? AVAudioPlayer(contentsOf: url)
-        } else if let url = Self.ensureGeneratedLoop() {
-            player = try? AVAudioPlayer(contentsOf: url)
+        loadTrack("music_loop")
+    }
+
+    private func loadTrack(_ name: String) {
+        currentTrackName = name
+        
+        let trackToLoad: String
+        if name == "music_loop" {
+            // Pick a random menu theme variation out of the 10 available
+            let index = Int.random(in: 1...10)
+            trackToLoad = "menu_theme\(index)"
+        } else {
+            trackToLoad = name
         }
-        player?.numberOfLoops = -1
-        player?.volume = 0.20
-        player?.prepareToPlay()
+        
+        let fileURL: URL?
+        if let url = Bundle.main.url(forResource: trackToLoad, withExtension: "wav")
+            ?? Bundle.main.url(forResource: trackToLoad, withExtension: "wav", subdirectory: "Sounds")
+            ?? Bundle.main.url(forResource: trackToLoad, withExtension: "wav", subdirectory: "Resources/Sounds") {
+            fileURL = url
+        } else if name != "music_loop",
+                  let fallbackUrl = Bundle.main.url(forResource: "music_loop", withExtension: "wav")
+                  ?? Bundle.main.url(forResource: "music_loop", withExtension: "wav", subdirectory: "Sounds")
+                  ?? Bundle.main.url(forResource: "music_loop", withExtension: "wav", subdirectory: "Resources/Sounds") {
+            // Fallback to menu theme if level theme is missing
+            fileURL = fallbackUrl
+        } else {
+            // Fallback to procedurally generated loop
+            fileURL = Self.ensureGeneratedLoop()
+        }
+        
+        if let fileURL {
+            player = try? AVAudioPlayer(contentsOf: fileURL)
+            player?.numberOfLoops = -1
+            player?.volume = 0.20
+            player?.prepareToPlay()
+        }
     }
 
     func play() {
@@ -38,6 +66,29 @@ final class MusicPlayer {
 
     func toggle() {
         if isPlaying { stop() } else { play() }
+    }
+
+    /// Dynamically update the background track based on screen and level context
+    func updateBGM(forScreen screen: AppScreen, levelNumber: Int) {
+        // Prevent stutters and repeated loads on redrawing the same screen
+        guard screen != lastScreen || (screen == .playing && levelNumber != lastLevelNumber) else { return }
+        
+        lastScreen = screen
+        lastLevelNumber = levelNumber
+        
+        let targetTrack: String
+        if screen == .playing {
+            targetTrack = "candy_canyon"
+        } else {
+            targetTrack = "music_loop"
+        }
+
+        let wasPlaying = isPlaying
+        stop()
+        loadTrack(targetTrack)
+        if wasPlaying {
+            play()
+        }
     }
 
     /// Generates a cheerful 8-bar loop in Caches if an authored track is absent.
@@ -60,8 +111,6 @@ final class MusicPlayer {
             (87.31, [174.61, 220.00, 261.63])    // F
         ]
 
-        // A compact melody that stays inside the chord progression and gives the
-        // loop a recognizable, upbeat game identity.
         let melody: [Double] = [
             659.25, 783.99, 880.00, 783.99, 659.25, 587.33, 523.25, 587.33,
             587.33, 659.25, 783.99, 659.25, 587.33, 523.25, 493.88, 523.25,
@@ -76,7 +125,6 @@ final class MusicPlayer {
             let bar = Int(beatPosition / 4.0) % chords.count
             let chord = chords[bar]
 
-            // Slow, warm chord bed with a gentle fifth shimmer.
             var value = 0.0
             for (noteIndex, frequency) in chord.notes.enumerated() {
                 let detune = frequency * (1.0 + Double(noteIndex - 1) * 0.0015)
@@ -84,13 +132,10 @@ final class MusicPlayer {
                 value += sin(2 * .pi * detune * 2.0 * t) * 0.006
             }
 
-            // Rounded bass pulse on each beat keeps the board moving without
-            // competing with match and combo sound effects.
             let beatTime = beatPosition.truncatingRemainder(dividingBy: 1.0)
             let bassEnvelope = exp(-5.5 * beatTime)
             value += sin(2 * .pi * chord.root * t) * 0.075 * bassEnvelope
 
-            // Plucked melody with a tiny attack ramp to prevent clicks.
             let melodyPosition = t / eighth
             let melodyIndex = Int(melodyPosition) % melody.count
             let melodyTime = melodyPosition.truncatingRemainder(dividingBy: 1.0) * eighth
@@ -99,7 +144,6 @@ final class MusicPlayer {
             value += sin(2 * .pi * melodyFrequency * melodyTime) * 0.09 * melodyEnvelope
             value += sin(2 * .pi * melodyFrequency * 2.0 * melodyTime) * 0.018 * melodyEnvelope
 
-            // Soft sparkle at the end of every second bar.
             let barTime = t.truncatingRemainder(dividingBy: beat * 8.0)
             let sparkleTime = barTime - beat * 7.0
             if sparkleTime >= 0, sparkleTime < 0.45 {
@@ -108,13 +152,11 @@ final class MusicPlayer {
                 value += sin(2 * .pi * 1567.98 * sparkleTime) * 0.022 * sparkleEnvelope
             }
 
-            // A tiny fade at the loop boundary makes the repeat seamless.
             let edgeFade = min(1.0, t * 12.0, (duration - t) * 12.0)
             let sample = max(-1.0, min(1.0, value * edgeFade))
             samples[idx] = Int16(sample * Double(Int16.max))
         }
 
-        // Write minimal WAV
         var data = Data()
         func appendU32(_ v: UInt32) { withUnsafeBytes(of: v.littleEndian) { data.append(contentsOf: $0) } }
         func appendU16(_ v: UInt16) { withUnsafeBytes(of: v.littleEndian) { data.append(contentsOf: $0) } }

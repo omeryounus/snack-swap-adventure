@@ -79,6 +79,14 @@ final class StoreManager: ObservableObject {
         }
     }
 
+    func restorePurchases() async {
+        do {
+            try await AppStore.sync()
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
     /// Debug/local fallback when StoreKit products aren't configured yet.
     func grantDebugStars(_ amount: Int) {
         #if DEBUG

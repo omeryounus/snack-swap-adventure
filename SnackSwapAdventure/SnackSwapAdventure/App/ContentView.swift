@@ -1,6 +1,7 @@
 import SwiftUI
 
 enum AppScreen: Equatable {
+    case splash
     case title
     case worldMap
     case playing
@@ -9,18 +10,28 @@ enum AppScreen: Equatable {
     case monsters
     case shop
     case invite
+    case settings
 }
 
 struct ContentView: View {
-    @StateObject private var gameState = GameState(level: .level(1))
+    @StateObject private var gameState = GameState(level: LevelConfig.level(1))
     @StateObject private var profile = PlayerProfile.shared
     @StateObject private var meta = MetaProgress.shared
-    @State private var screen: AppScreen = .title
+    @State private var screen: AppScreen = .splash
     @State private var sceneID = UUID()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        Group {
+        ZStack(alignment: .top) {
             switch screen {
+            case .splash:
+                SplashView(onFinished: {
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        screen = .title
+                    }
+                })
+                .transition(.opacity)
+
             case .title:
                 TitleView(
                     onPlay: { startLevel(min(profile.maxUnlockedLevel, LevelConfig.totalLevels)) },
@@ -29,7 +40,8 @@ struct ContentView: View {
                     onStats: { screen = .stats },
                     onMonsters: { screen = .monsters },
                     onShop: { screen = .shop },
-                    onInvite: { screen = .invite }
+                    onInvite: { screen = .invite },
+                    onSettings: { screen = .settings }
                 )
                 .transition(.opacity)
 
@@ -55,6 +67,10 @@ struct ContentView: View {
                     },
                     onReplay: {
                         startLevel(gameState.level.levelNumber)
+                    },
+                    onMainMenu: {
+                        gameState.stopTimer()
+                        screen = .title
                     }
                 )
                 .id(sceneID)
@@ -62,25 +78,37 @@ struct ContentView: View {
 
             case .leaderboard:
                 LeaderboardView(onBack: { screen = .title })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
 
             case .stats:
                 StatsView(onBack: { screen = .title })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
 
             case .monsters:
                 MonstersView(onBack: { screen = .title })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
 
             case .shop:
                 ShopView(onBack: { screen = .title })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
 
             case .invite:
                 InviteView(onBack: { screen = .title })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+
+            case .settings:
+                SettingsView(onBack: { screen = .title })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(SSATheme.bgVoid.ignoresSafeArea())
         .animation(.easeInOut(duration: 0.28), value: screen)
         .task {
             await profile.ensureRegistered()
@@ -89,6 +117,24 @@ struct ContentView: View {
                 MusicPlayer.shared.play()
             }
             SoundManager.shared.setEnabled(meta.soundEnabled)
+        }
+        .onChange(of: screen) { _, newScreen in
+            MusicPlayer.shared.updateBGM(forScreen: newScreen, levelNumber: gameState.level.levelNumber)
+        }
+        .onChange(of: gameState.level.levelNumber) { _, newLevel in
+            MusicPlayer.shared.updateBGM(forScreen: screen, levelNumber: newLevel)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background || newPhase == .inactive {
+                if screen == .playing {
+                    gameState.isPaused = true
+                    gameState.stopTimer()
+                }
+            } else if newPhase == .active {
+                if screen == .playing && gameState.outcome == .playing && !gameState.isPaused {
+                    gameState.startTimer()
+                }
+            }
         }
     }
 
@@ -109,8 +155,6 @@ struct ContentView: View {
             gameState.timeRemaining += extraTime
         }
         if boosters.contains("hammer") {
-            // Apply the queued booster before the scene is rebuilt so the
-            // player starts with a real cleared snack, not just a toast.
             let target = BoardPosition(row: config.boardSize / 2, col: config.boardSize / 2)
             gameState.board.clear([target])
             _ = gameState.board.applyGravity()

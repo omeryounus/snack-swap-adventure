@@ -46,6 +46,23 @@ final class PlayerProfile: ObservableObject {
     @Published var localBestStreak: Int
     @Published var localCurrentStreak: Int
 
+    @Published var hammerCount: Int = 3
+    @Published var colorBombCount: Int = 3
+    @Published var extraMovesCount: Int = 3
+    @Published var selectedMascotSkin: String = "cosmic"
+
+    var stars: Int { localStars }
+
+    func deductStars(_ amount: Int) {
+        localStars = max(0, localStars - amount)
+        defaults.set(localStars, forKey: Keys.localStars)
+    }
+
+    func addStars(_ amount: Int) {
+        localStars += amount
+        defaults.set(localStars, forKey: Keys.localStars)
+    }
+
     private init() {
         if let existing = defaults.string(forKey: Keys.playerId), !existing.isEmpty {
             playerId = existing
@@ -63,7 +80,7 @@ final class PlayerProfile: ObservableObject {
         localTotalScore = defaults.integer(forKey: Keys.localTotalScore)
         localWins = defaults.integer(forKey: Keys.localWins)
         localLosses = defaults.integer(forKey: Keys.localLosses)
-        localStars = defaults.integer(forKey: Keys.localStars)
+        localStars = max(500, defaults.integer(forKey: Keys.localStars))
         localMaxCombo = defaults.integer(forKey: Keys.localMaxCombo)
         localGamesPlayed = defaults.integer(forKey: Keys.localGamesPlayed)
         localHighestLevel = defaults.integer(forKey: Keys.localHighestLevel)

@@ -1,72 +1,127 @@
 import SwiftUI
 
+/// Screen 09: Monsters / Snackling Dex — Snackling grid, feed meter, evolution progress & flavor stats.
 struct MonstersView: View {
     let onBack: () -> Void
-    @StateObject private var meta = MetaProgress.shared
+
     @StateObject private var profile = PlayerProfile.shared
+    @StateObject private var meta = MetaProgress.shared
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color(red: 0.14, green: 0.1, blue: 0.28), Color(red: 0.3, green: 0.12, blue: 0.3)],
-                startPoint: .top, endPoint: .bottom
-            ).ignoresSafeArea()
+        ZStack(alignment: .top) {
+            WorldBackgroundPlate(themeColor: SSATheme.candyPink)
 
             VStack(spacing: 0) {
-                header
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                        ForEach(MetaProgress.monsters) { monster in
-                            monsterCard(monster)
+                // Header
+                HStack {
+                    Button {
+                        SoundManager.shared.playUITap()
+                        onBack()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(Color.white.opacity(0.12))
+                            .clipShape(Circle())
+                    }
+
+                    Spacer()
+
+                    VStack(spacing: 2) {
+                        Text("SNACKLING DEX")
+                            .font(.system(size: 22, weight: .black, design: .rounded))
+                            .foregroundStyle(.white)
+
+                        Text("Monster Collection")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(SSATheme.candyPink)
+                    }
+
+                    Spacer()
+
+                    Color.clear.frame(width: 44, height: 44)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 16)
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        // Featured Active Mascot Card
+                        SSAGlassCard(padding: 16) {
+                            HStack(spacing: 16) {
+                                SnacklingMascot(expression: .happy, size: 70, speechBubbleText: nil, animateFloat: true)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Ghostie (Primary)")
+                                        .font(.system(size: 20, weight: .black, design: .rounded))
+                                        .foregroundStyle(.white)
+
+                                    Text("Favorite: Lollipop 🍭")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(SSATheme.candyPink)
+
+                                    Text("Full & Happy • Level 14 Buff: +10% Score")
+                                        .font(.caption2)
+                                        .foregroundStyle(SSATheme.textSecondary)
+                                }
+                                Spacer()
+                            }
+                        }
+
+                        // Snackling Grid
+                        Text("All Snacklings (\(meta.unlockedMonsterIDs.count)/6)")
+                            .font(.headline.bold())
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                            MonsterCard(name: "Ghostie", snack: "Lollipop 🍭", emoji: "👻", isUnlocked: true)
+                            MonsterCard(name: "Poppy", snack: "Popcorn 🍿", emoji: "🍿", isUnlocked: meta.unlockedMonsterIDs.contains("popcorn"))
+                            MonsterCard(name: "Chip", snack: "Cookie 🍪", emoji: "🍪", isUnlocked: meta.unlockedMonsterIDs.contains("cookie"))
+                            MonsterCard(name: "Donutty", snack: "Donut 🍩", emoji: "🍩", isUnlocked: meta.unlockedMonsterIDs.contains("donut"))
+                            MonsterCard(name: "Fizz", snack: "Soda 🥤", emoji: "🥤", isUnlocked: meta.unlockedMonsterIDs.contains("soda"))
+                            MonsterCard(name: "Sweetie", snack: "Candy 🍬", emoji: "🍬", isUnlocked: meta.unlockedMonsterIDs.contains("candy"))
                         }
                     }
-                    .padding(16)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 30)
                 }
             }
         }
-        .onAppear {
-            meta.refreshMonsterUnlocks(maxLevel: profile.maxUnlockedLevel)
-        }
     }
+}
 
-    private var header: some View {
-        HStack {
-            Button {
-                SoundManager.shared.playUITap()
-                onBack()
-            } label: {
-                Label("Back", systemImage: "chevron.left").font(.headline).foregroundStyle(.white)
+private struct MonsterCard: View {
+    let name: String
+    let snack: String
+    let emoji: String
+    let isUnlocked: Bool
+
+    var body: some View {
+        SSAGlassCard(padding: 14, cornerRadius: 18) {
+            VStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(isUnlocked ? SSATheme.candyPink.opacity(0.2) : Color.white.opacity(0.06))
+                        .frame(width: 60, height: 60)
+
+                    Text(isUnlocked ? emoji : "🔒")
+                        .font(.system(size: isUnlocked ? 32 : 24))
+                }
+
+                VStack(spacing: 2) {
+                    Text(name)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(isUnlocked ? .white : SSATheme.textMuted)
+
+                    Text(snack)
+                        .font(.caption2.bold())
+                        .foregroundStyle(isUnlocked ? SSATheme.candyYellow : SSATheme.textMuted)
+                }
             }
-            Spacer()
-            Text("👾 Monsters").font(.title3.bold()).foregroundStyle(.white)
-            Spacer()
-            Color.clear.frame(width: 54)
+            .frame(maxWidth: .infinity)
         }
-        .padding()
-    }
-
-    private func monsterCard(_ m: MonsterDef) -> some View {
-        let unlocked = meta.isMonsterUnlocked(m.id)
-        return VStack(spacing: 8) {
-            Text(unlocked ? m.emoji : "🔒")
-                .font(.system(size: 44))
-                .grayscale(unlocked ? 0 : 1)
-            Text(unlocked ? m.name : "???")
-                .font(.headline)
-                .foregroundStyle(.white)
-            Text(unlocked ? m.blurb : "Unlock at level \(m.unlockLevel)")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .frame(minHeight: 36)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity)
-        .background(Color.white.opacity(unlocked ? 0.12 : 0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(unlocked ? Color.pink.opacity(0.4) : Color.white.opacity(0.08), lineWidth: 1)
-        )
     }
 }

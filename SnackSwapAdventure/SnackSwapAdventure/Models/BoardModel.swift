@@ -180,9 +180,58 @@ final class BoardModel {
         return groups
     }
 
+    private func findBestCenter(for group: [BoardPosition]) -> BoardPosition {
+        guard !group.isEmpty else { return BoardPosition(row: 0, col: 0) }
+        
+        var maxScore = -1
+        var bestCandidates: [BoardPosition] = []
+        
+        for pos in group {
+            let rowCount = group.filter { $0.row == pos.row }.count
+            let colCount = group.filter { $0.col == pos.col }.count
+            let score = rowCount * colCount
+            if score > maxScore {
+                maxScore = score
+                bestCandidates = [pos]
+            } else if score == maxScore {
+                bestCandidates.append(pos)
+            }
+        }
+        
+        if bestCandidates.count == 1 {
+            return bestCandidates[0]
+        }
+        
+        // Tie-breaker: choose the one closest to the centroid of the group
+        let sumRow = group.map { $0.row }.reduce(0, +)
+        let sumCol = group.map { $0.col }.reduce(0, +)
+        let avgRow = Double(sumRow) / Double(group.count)
+        let avgCol = Double(sumCol) / Double(group.count)
+        
+        var minDistance = Double.infinity
+        var closest = bestCandidates[0]
+        for pos in bestCandidates {
+            let dist = abs(Double(pos.row) - avgRow) + abs(Double(pos.col) - avgCol)
+            if dist < minDistance {
+                minDistance = dist
+                closest = pos
+            }
+        }
+        return closest
+    }
+
     /// Detect specials to spawn for a match group. Returns (position, special).
-    func specialToSpawn(for group: [BoardPosition]) -> (BoardPosition, SpecialKind)? {
-        guard group.count >= 4, let anchor = group.first else { return nil }
+    func specialToSpawn(for group: [BoardPosition], swappedPositions: Set<BoardPosition> = []) -> (BoardPosition, SpecialKind)? {
+        guard group.count >= 4 else { return nil }
+
+        // Find the spawn position
+        let spawnPos: BoardPosition
+        let overlap = swappedPositions.intersection(group)
+        if let preferred = overlap.first {
+            spawnPos = preferred
+        } else {
+            spawnPos = findBestCenter(for: group)
+        }
 
         let rows = Set(group.map(\.row))
         let cols = Set(group.map(\.col))
@@ -190,18 +239,18 @@ final class BoardModel {
         let isStraightCol = cols.count == 1
 
         if group.count >= 5 && (isStraightRow || isStraightCol) {
-            return (anchor, .rainbow)
+            return (spawnPos, .rainbow)
         }
 
         // L / T shapes (not a single line)
         if !isStraightRow && !isStraightCol {
-            return (anchor, .bomb)
+            return (spawnPos, .bomb)
         }
 
         if group.count >= 4 {
-            if isStraightRow { return (anchor, .rowBlaster) }
-            if isStraightCol { return (anchor, .colBlaster) }
-            return (anchor, .bomb)
+            if isStraightRow { return (spawnPos, .rowBlaster) }
+            if isStraightCol { return (spawnPos, .colBlaster) }
+            return (spawnPos, .bomb)
         }
         return nil
     }
@@ -252,13 +301,13 @@ final class BoardModel {
         return result
     }
 
-    /// Clear matched cells, optionally planting a special at spawnPos.
-    func clear(_ positions: Set<BoardPosition>, spawnSpecial: (BoardPosition, SpecialKind, SnackType)? = nil) {
+    /// Clear matched cells, optionally planting specials.
+    func clear(_ positions: Set<BoardPosition>, spawnSpecials: [BoardPosition: (SpecialKind?, SnackType)] = [:]) {
         for pos in positions where isValid(pos) {
             grid[pos.row][pos.col] = nil
         }
-        if let spawn = spawnSpecial {
-            grid[spawn.0.row][spawn.0.col] = BoardCell(snack: spawn.2, special: spawn.1)
+        for (pos, (kind, snack)) in spawnSpecials where isValid(pos) {
+            grid[pos.row][pos.col] = BoardCell(snack: snack, special: kind)
         }
     }
 

@@ -6,16 +6,23 @@ final class GameScene: SKScene {
 
     // MARK: - Config
 
-    /// Top chrome is SwiftUI GameHUD — leave room for the full panel.
+    /// Top chrome is SwiftUI GameHUD — leave accurate room for top panel & bottom mascot.
     private let boardPadding: CGFloat = 8
-    private let topHUDReserved: CGFloat = 286
-    private let bottomReserved: CGFloat = 118
+    private var topHUDReserved: CGFloat {
+        LayoutMetrics.shared.isPad ? 180 : 155
+    }
+    private var bottomReserved: CGFloat {
+        LayoutMetrics.shared.isPad ? 120 : 90
+    }
     /// Grow tiles 10% vs the original padded layout.
     private let tileScaleBoost: CGFloat = 1.10
 
     // MARK: - State
 
-    private weak var gameState: GameState?
+    weak var gameState: GameState?
+    var isHammerModeActive: Bool = false
+    var onHammerUsed: (() -> Void)?
+
     private var boardSize = 8
     private var tileSize: CGFloat = 44
     private var boardOrigin: CGPoint = .zero
@@ -48,7 +55,7 @@ final class GameScene: SKScene {
         view.shouldCullNonVisibleNodes = true
         view.preferredFramesPerSecond = 60
         // Warm bakery night backdrop — less pure purple so snacks contrast better
-        backgroundColor = SKColor(red: 0.16, green: 0.10, blue: 0.14, alpha: 1)
+        backgroundColor = SKColor(red: 0.043, green: 0.024, blue: 0.078, alpha: 1)
         rebuildBoard()
     }
 
@@ -77,27 +84,18 @@ final class GameScene: SKScene {
     // MARK: - Layout
 
     private func layoutMetrics() {
-        let usableWidth = size.width - boardPadding * 2
-        let usableHeight = size.height - topHUDReserved - bottomReserved - boardPadding * 2
+        let boardHorizontalMargin: CGFloat = 20
+        let usableWidth = size.width - boardHorizontalMargin * 2
+        let usableHeight = size.height - topHUDReserved - bottomReserved
         let side = min(usableWidth, usableHeight)
 
-        // Original layout used 16pt padding + larger HUD chrome (~32 / 292).
-        // Target tiles 10% larger than that baseline, then clamp to what still fits.
-        let baselineSide = min(size.width - 32, size.height - 292)
-        let baselineTile = floor(baselineSide / CGFloat(boardSize))
-        let targetTile = max(1, floor(baselineTile * tileScaleBoost))
-        let maxFit = floor(side / CGFloat(boardSize))
-        tileSize = min(targetTile, maxFit)
+        tileSize = max(1, floor(side / CGFloat(boardSize)))
 
         let boardPixel = tileSize * CGFloat(boardSize)
-        let lowerAvailableY = bottomReserved
-        let upperAvailableY = size.height - topHUDReserved
-        let centeredY = lowerAvailableY + max(0, (usableHeight - boardPixel) / 2)
-        let highestNonOverlappingY = upperAvailableY - boardPixel
 
         boardOrigin = CGPoint(
             x: (size.width - boardPixel) / 2,
-            y: min(centeredY, highestNonOverlappingY)
+            y: bottomReserved + max(0, (usableHeight - boardPixel) / 2)
         )
     }
 
@@ -163,38 +161,6 @@ final class GameScene: SKScene {
             addChild(ribbon)
         }
 
-        let glow = SKShapeNode(ellipseOf: CGSize(width: boardPixel * 0.95, height: boardPixel * 0.28))
-        glow.position = CGPoint(x: size.width / 2, y: boardOrigin.y - tileSize * 0.15)
-        glow.fillColor = worldColors.accent.withAlphaComponent(0.14)
-        glow.strokeColor = .clear
-        glow.zPosition = -8
-        addChild(glow)
-
-        let stage = SKShapeNode(
-            rect: CGRect(
-                x: max(12, boardOrigin.x - 18),
-                y: max(76, boardOrigin.y - 18),
-                width: min(size.width - 24, boardPixel + 36),
-                height: boardPixel + 36
-            ),
-            cornerRadius: 24
-        )
-        stage.fillColor = SKColor(red: 0.24, green: 0.14, blue: 0.18, alpha: 0.52)
-        stage.strokeColor = worldColors.accent.withAlphaComponent(0.24)
-        stage.lineWidth = 1
-        stage.zPosition = -6
-        addChild(stage)
-
-        let titlePlate = SKShapeNode(
-            rectOf: CGSize(width: min(size.width - 64, boardPixel * 0.82), height: 32),
-            cornerRadius: 16
-        )
-        titlePlate.position = CGPoint(x: size.width / 2, y: topY + 20)
-        titlePlate.fillColor = SKColor(red: 0.12, green: 0.07, blue: 0.10, alpha: 0.34)
-        titlePlate.strokeColor = SKColor(white: 1, alpha: 0.08)
-        titlePlate.lineWidth = 1
-        titlePlate.zPosition = -5
-        addChild(titlePlate)
     }
 
     private func worldPalette() -> (accent: SKColor, secondary: SKColor) {
@@ -332,6 +298,25 @@ final class GameScene: SKScene {
         node.position = point(for: pos)
         node.zPosition = 10
         node.name = "snack_\(pos.row)_\(pos.col)"
+        
+        // Add ambient glow behind specials
+        if let special = cell.special {
+            let glowSize = tileSize * 1.3
+            let glow = SKShapeNode(circleOfRadius: glowSize / 2)
+            glow.fillColor = special.accent.withAlphaComponent(0.25)
+            glow.strokeColor = .clear
+            glow.glowWidth = 8
+            glow.blendMode = .add
+            glow.zPosition = -1
+            node.addChild(glow)
+            
+            // Pulse the glow
+            glow.run(.repeatForever(.sequence([
+                .fadeAlpha(to: 0.40, duration: 0.8),
+                .fadeAlpha(to: 0.15, duration: 0.8)
+            ])))
+        }
+        
         // Stagger idle so the board feels alive, not synchronized.
         let phase = Double((pos.row * 3 + pos.col * 5) % 17) * 0.07
         let featured = cell.special != nil || (pos.row + pos.col) % 5 == 0
@@ -340,39 +325,14 @@ final class GameScene: SKScene {
     }
 
     private func buildHUD() {
-        // Top stats live in SwiftUI GameHUD. SpriteKit only keeps bottom feedback + selection.
+        // Top stats and mascot feedback live in SwiftUI (GameHUD & GameContainerView).
         levelLabel = nil
         movesLabel = nil
         scoreLabel = nil
         goalLabel = nil
-
-        let messagePlate = SKShapeNode(rectOf: CGSize(width: min(size.width - 72, 270), height: 34), cornerRadius: 17)
-        messagePlate.position = CGPoint(x: size.width / 2, y: 28)
-        messagePlate.fillColor = SKColor(red: 0.12, green: 0.07, blue: 0.10, alpha: 0.40)
-        messagePlate.strokeColor = SKColor(white: 1, alpha: 0.08)
-        messagePlate.lineWidth = 1
-        messagePlate.zPosition = 98
-        addChild(messagePlate)
-
-        monsterLabel = SKLabelNode(text: "👾")
-        monsterLabel?.fontSize = 1
-        monsterLabel?.verticalAlignmentMode = .center
-        monsterLabel?.horizontalAlignmentMode = .center
-        monsterLabel?.position = CGPoint(x: size.width / 2, y: 66)
-        monsterLabel?.zPosition = 100
-        if let monsterLabel { addChild(monsterLabel) }
-
-        let mascot = MonsterMascotNode(size: 58)
-        mascot.position = CGPoint(x: size.width / 2, y: 70)
-        mascot.zPosition = 101
-        addChild(mascot)
-        monsterNode = mascot
-
-        messageLabel = makeLabel(fontSize: 13, color: SKColor(white: 0.92, alpha: 1))
-        messageLabel?.horizontalAlignmentMode = .center
-        messageLabel?.position = CGPoint(x: size.width / 2, y: 28)
-        messageLabel?.zPosition = 100
-        if let messageLabel { addChild(messageLabel) }
+        monsterLabel = nil
+        monsterNode = nil
+        messageLabel = nil
 
         let ring = SKShapeNode(rectOf: CGSize(width: tileSize - 4, height: tileSize - 4), cornerRadius: 10)
         ring.strokeColor = .white
@@ -420,7 +380,7 @@ final class GameScene: SKScene {
 
     // MARK: - HUD refresh
 
-    private func refreshHUD() {
+    func refreshHUD() {
         guard let state = gameState else { return }
         // Level / timer / score / goal are rendered by SwiftUI GameHUD.
         messageLabel?.text = state.lastFeedMessage
@@ -477,6 +437,13 @@ final class GameScene: SKScene {
             return
         }
 
+        if isHammerModeActive {
+            smashTile(at: pos)
+            isHammerModeActive = false
+            onHammerUsed?()
+            return
+        }
+
         if let selected = selectedPosition {
             if selected == pos {
                 clearSelection()
@@ -489,6 +456,73 @@ final class GameScene: SKScene {
             }
         } else {
             select(pos)
+        }
+    }
+
+    func smashTile(at pos: BoardPosition) {
+        guard let state = gameState, !isBusy, let _ = tileNodes[pos.row][pos.col] else { return }
+        isBusy = true
+        SoundManager.shared.playSpecial()
+        spawnParticles(at: Set([pos]))
+        spawnSnackBurst(at: Set([pos]))
+
+        if PlayerProfile.shared.hammerCount > 0 {
+            PlayerProfile.shared.hammerCount -= 1
+        } else {
+            PlayerProfile.shared.deductStars(30)
+        }
+
+        resolveMatches(cascadeDepth: 0, forcedPositions: Set([pos]))
+    }
+
+    func plantSpecialOnBoard(_ special: SpecialKind) {
+        guard let state = gameState, !isBusy else { return }
+        let size = state.board.size
+        let randomRow = Int.random(in: 0..<size)
+        let randomCol = Int.random(in: 0..<size)
+        let pos = BoardPosition(row: randomRow, col: randomCol)
+        if let snack = state.board.snack(at: pos) {
+            state.board.clear(Set([pos]), spawnSpecials: [pos: (special, snack)])
+            if let oldNode = tileNodes[pos.row][pos.col] {
+                oldNode.removeFromParent()
+            }
+            let cell = BoardCell(snack: snack, special: special)
+            let node = makeSnackNode(cell: cell, at: pos)
+            node.position = point(for: pos)
+            node.zPosition = 10
+            addChild(node)
+            tileNodes[pos.row][pos.col] = node
+            node.pressPulse()
+
+            spawnParticles(at: Set([pos]))
+            SoundManager.shared.playSpecial()
+        }
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard !isBusy, gameState?.outcome == .playing, gameState?.isPaused != true,
+              let touch = touches.first,
+              let selected = selectedPosition else { return }
+        
+        let startPt = point(for: selected)
+        let currentPt = touch.location(in: self)
+        
+        let dx = currentPt.x - startPt.x
+        let dy = currentPt.y - startPt.y
+        let distance = sqrt(dx*dx + dy*dy)
+        
+        // Threshold: 32% of tile size for quick swipe recognition
+        guard distance > tileSize * 0.32 else { return }
+        
+        let targetPos: BoardPosition
+        if abs(dx) > abs(dy) {
+            targetPos = selected.offset(col: dx > 0 ? 1 : -1)
+        } else {
+            targetPos = selected.offset(row: dy > 0 ? 1 : -1)
+        }
+        
+        if targetPos.row >= 0 && targetPos.row < boardSize && targetPos.col >= 0 && targetPos.col < boardSize {
+            attemptSwap(from: selected, to: targetPos)
         }
     }
 
@@ -528,12 +562,24 @@ final class GameScene: SKScene {
             isBusy = true
             SoundManager.shared.playSwap()
             animateSwap(from: from, to: to, duration: 0.12) { [weak self] in
-                self?.animateSwap(from: to, to: from, duration: 0.12) {
+                guard let self else { return }
+                
+                // Swap in local matrix so animateSwap finds them at their current visual positions
+                let temp = self.tileNodes[from.row][from.col]
+                self.tileNodes[from.row][from.col] = self.tileNodes[to.row][to.col]
+                self.tileNodes[to.row][to.col] = temp
+                
+                self.animateSwap(from: from, to: to, duration: 0.12) {
+                    // Swap back to restore logical state
+                    let temp2 = self.tileNodes[from.row][from.col]
+                    self.tileNodes[from.row][from.col] = self.tileNodes[to.row][to.col]
+                    self.tileNodes[to.row][to.col] = temp2
+                    
                     SoundManager.shared.playInvalid()
-                    self?.spawnInvalidTapFeedback(at: to)
+                    self.spawnInvalidTapFeedback(at: to)
                     state.registerInvalidSwap()
-                    self?.refreshHUD()
-                    self?.isBusy = false
+                    self.refreshHUD()
+                    self.isBusy = false
                 }
             }
             return
@@ -541,8 +587,16 @@ final class GameScene: SKScene {
 
         isBusy = true
         SoundManager.shared.playSwap()
-        let activatesSpecial = state.board.cell(at: from)?.special != nil
-            || state.board.cell(at: to)?.special != nil
+        let cellFrom = state.board.cell(at: from)
+        let cellTo = state.board.cell(at: to)
+        var rainbowTarget: SnackType? = nil
+        if cellFrom?.special == .rainbow {
+            rainbowTarget = cellTo?.snack
+        } else if cellTo?.special == .rainbow {
+            rainbowTarget = cellFrom?.snack
+        }
+
+        let activatesSpecial = cellFrom?.special != nil || cellTo?.special != nil
         guard state.board.swap(from, to) else {
             isBusy = false
             rebuildBoard()
@@ -554,7 +608,9 @@ final class GameScene: SKScene {
             self?.refreshHUD()
             self?.resolveMatches(
                 cascadeDepth: 0,
-                forcedPositions: activatesSpecial ? Set([from, to]) : []
+                forcedPositions: activatesSpecial ? Set([from, to]) : [],
+                rainbowTarget: rainbowTarget,
+                swappedPositions: Set([from, to])
             )
         }
     }
@@ -650,10 +706,14 @@ final class GameScene: SKScene {
 
     // MARK: - Match resolution cascade
 
-    private func resolveMatches(cascadeDepth: Int, forcedPositions: Set<BoardPosition> = []) {
+    private func resolveMatches(cascadeDepth: Int, forcedPositions: Set<BoardPosition> = [], rainbowTarget: SnackType? = nil, swappedPositions: Set<BoardPosition> = []) {
         guard let state = gameState else {
             isBusy = false
             return
+        }
+
+        if cascadeDepth == 0 {
+            VoiceAnnouncer.shared.resetCascadeTracking()
         }
 
         let groups = state.board.matchGroups()
@@ -661,6 +721,7 @@ final class GameScene: SKScene {
         matched.formUnion(forcedPositions)
 
         guard !matched.isEmpty else {
+            VoiceAnnouncer.shared.announceFinalCombo()
             state.finishMoveResolution()
             state.evaluateOutcome()
             refreshHUD()
@@ -674,18 +735,17 @@ final class GameScene: SKScene {
         }
 
         // Specials created by big groups (plant after clear on one cell)
-        var spawn: (BoardPosition, SpecialKind, SnackType)?
+        var spawns: [BoardPosition: (SpecialKind, SnackType)] = [:]
         for group in groups {
-            if let (pos, kind) = state.board.specialToSpawn(for: group),
+            if let (pos, kind) = state.board.specialToSpawn(for: group, swappedPositions: swappedPositions),
                let snack = state.board.snack(at: pos) {
-                spawn = (pos, kind, snack)
-                break
+                spawns[pos] = (kind, snack)
             }
         }
 
         // Expand with special activations
         let specialsBefore = matched.filter { state.board.cell(at: $0)?.special != nil }.count
-        matched = state.board.expandWithSpecials(matched)
+        matched = state.board.expandWithSpecials(matched, rainbowTarget: rainbowTarget)
         let specialsActivated = matched.filter { state.board.cell(at: $0)?.special != nil }.count
 
         // Count collect goals before clearing (after special expansion)
@@ -709,7 +769,7 @@ final class GameScene: SKScene {
             specialsActivated: max(specialsActivated, specialsBefore)
         )
         SoundManager.shared.playMatch(cascadeDepth: cascadeDepth)
-        VoiceAnnouncer.shared.praiseMatch(
+        VoiceAnnouncer.shared.trackCascadeStep(
             cascadeDepth: cascadeDepth,
             matchedCount: matched.count,
             specialsActivated: specialsActivated
@@ -739,7 +799,7 @@ final class GameScene: SKScene {
 
         for pos in matched {
             // Keep spawn cell if we're planting a special there
-            if let spawn, spawn.0 == pos { continue }
+            if spawns[pos] != nil { continue }
             guard let node = tileNodes[pos.row][pos.col] else { continue }
             tileNodes[pos.row][pos.col] = nil
             group.enter()
@@ -754,14 +814,14 @@ final class GameScene: SKScene {
         }
 
         spawnScorePopup(reward.awardedPoints, near: matched)
-        state.board.clear(matched, spawnSpecial: spawn)
+        state.board.clear(matched, spawnSpecials: spawns)
 
-        // Visual for planted special
-        if let spawn {
+        // Visual for planted specials
+        for (pos, (kind, snack)) in spawns {
             SoundManager.shared.playSpecial()
-            tileNodes[spawn.0.row][spawn.0.col]?.removeFromParent()
-            let node = makeSnackNode(cell: BoardCell(snack: spawn.2, special: spawn.1), at: spawn.0)
-            tileNodes[spawn.0.row][spawn.0.col] = node
+            tileNodes[pos.row][pos.col]?.removeFromParent()
+            let node = makeSnackNode(cell: BoardCell(snack: snack, special: kind), at: pos)
+            tileNodes[pos.row][pos.col] = node
             addChild(node)
             node.setScale(0.2)
             node.run(.sequence([
@@ -771,10 +831,10 @@ final class GameScene: SKScene {
             ]))
             // Burst ring
             let ring = SKShapeNode(circleOfRadius: tileSize * 0.55)
-            ring.strokeColor = spawn.1.accent
+            ring.strokeColor = kind.accent
             ring.lineWidth = 3
             ring.fillColor = .clear
-            ring.position = point(for: spawn.0)
+            ring.position = point(for: pos)
             ring.zPosition = 25
             ring.alpha = 0.9
             addChild(ring)
@@ -791,25 +851,53 @@ final class GameScene: SKScene {
         }
     }
 
+    private func createStarPath(size: CGFloat) -> CGPath {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: 0, y: size))
+        path.addLine(to: CGPoint(x: size * 0.2, y: size * 0.2))
+        path.addLine(to: CGPoint(x: size, y: 0))
+        path.addLine(to: CGPoint(x: size * 0.2, y: -size * 0.2))
+        path.addLine(to: CGPoint(x: 0, y: -size))
+        path.addLine(to: CGPoint(x: -size * 0.2, y: -size * 0.2))
+        path.addLine(to: CGPoint(x: -size, y: 0))
+        path.addLine(to: CGPoint(x: -size * 0.2, y: size * 0.2))
+        path.closeSubpath()
+        return path
+    }
+
     private func spawnParticles(at positions: Set<BoardPosition>) {
         guard !positions.isEmpty else { return }
         for pos in positions.prefix(12) {
-            let spark = SKLabelNode(text: "✨")
-            spark.fontSize = 14
-            spark.position = point(for: pos)
-            spark.zPosition = 40
-            spark.alpha = 0.9
-            addChild(spark)
-            let dx = CGFloat.random(in: -30...30)
-            let dy = CGFloat.random(in: 20...50)
-            spark.run(.sequence([
-                .group([
-                    .moveBy(x: dx, y: dy, duration: 0.4),
-                    .fadeOut(withDuration: 0.4),
-                    .scale(to: 0.3, duration: 0.4)
-                ]),
-                .removeFromParent()
-            ]))
+            let center = point(for: pos)
+            let snack = gameState?.board.snack(at: pos)
+            let color = snack?.color ?? SKColor(red: 1.0, green: 0.86, blue: 0.32, alpha: 1.0)
+            
+            // Spawn 4 rotating sparkle stars
+            for _ in 0..<4 {
+                let size = CGFloat.random(in: 6...10)
+                let star = SKShapeNode(path: createStarPath(size: size))
+                star.fillColor = .white
+                star.strokeColor = .clear
+                star.blendMode = .add
+                star.position = center
+                star.zPosition = 40
+                star.alpha = 0.95
+                addChild(star)
+                
+                let angle = CGFloat.random(in: 0...(.pi * 2))
+                let distance = CGFloat.random(in: tileSize * 0.2...tileSize * 0.6)
+                let duration = Double.random(in: 0.35...0.5)
+                
+                star.run(.sequence([
+                    .group([
+                        .moveBy(x: cos(angle) * distance, y: sin(angle) * distance, duration: duration),
+                        .rotate(byAngle: CGFloat.random(in: -2...2), duration: duration),
+                        .fadeOut(withDuration: duration),
+                        .scale(to: 0.1, duration: duration)
+                    ]),
+                    .removeFromParent()
+                ]))
+            }
         }
     }
 
@@ -818,21 +906,24 @@ final class GameScene: SKScene {
             let center = point(for: pos)
             let snack = gameState?.board.snack(at: pos)
             let color = snack?.color ?? SKColor(red: 1, green: 0.82, blue: 0.35, alpha: 1)
-            for index in 0..<5 {
-                let crumb = SKShapeNode(circleOfRadius: CGFloat.random(in: 2.0...4.0))
-                crumb.fillColor = index.isMultiple(of: 2) ? color : SKColor(white: 1, alpha: 0.95)
+            
+            for index in 0..<7 {
+                let crumb = SKShapeNode(circleOfRadius: CGFloat.random(in: 2.5...5.0))
+                crumb.fillColor = index.isMultiple(of: 2) ? color : SKColor(white: 1.0, alpha: 0.95)
                 crumb.strokeColor = .clear
                 crumb.position = center
                 crumb.zPosition = 42
                 addChild(crumb)
 
-                let angle = CGFloat(index) / 5 * .pi * 2 + CGFloat.random(in: -0.25...0.25)
-                let distance = CGFloat.random(in: tileSize * 0.25...tileSize * 0.75)
+                let angle = CGFloat(index) / 7 * .pi * 2 + CGFloat.random(in: -0.2...0.2)
+                let distance = CGFloat.random(in: tileSize * 0.3...tileSize * 0.8)
+                let duration = Double.random(in: 0.3...0.45)
+                
                 crumb.run(.sequence([
                     .group([
-                        .moveBy(x: cos(angle) * distance, y: sin(angle) * distance + 12, duration: 0.34),
-                        .scale(to: 0.2, duration: 0.34),
-                        .fadeOut(withDuration: 0.34)
+                        .moveBy(x: cos(angle) * distance, y: sin(angle) * distance + 8, duration: duration),
+                        .scale(to: 0.15, duration: duration),
+                        .fadeOut(withDuration: duration)
                     ]),
                     .removeFromParent()
                 ]))
@@ -840,15 +931,16 @@ final class GameScene: SKScene {
 
             if let snack {
                 let emoji = SKLabelNode(text: snack.emoji)
-                emoji.fontSize = tileSize * 0.28
+                emoji.fontSize = tileSize * 0.32
                 emoji.position = center
                 emoji.zPosition = 43
                 addChild(emoji)
                 emoji.run(.sequence([
                     .group([
-                        .moveBy(x: CGFloat.random(in: -14...14), y: tileSize * 0.45, duration: 0.38),
-                        .rotate(byAngle: CGFloat.random(in: -0.8...0.8), duration: 0.38),
-                        .fadeOut(withDuration: 0.38)
+                        .moveBy(x: CGFloat.random(in: -16...16), y: tileSize * 0.5, duration: 0.4),
+                        .rotate(byAngle: CGFloat.random(in: -1.0...1.0), duration: 0.4),
+                        .fadeOut(withDuration: 0.4),
+                        .scale(to: 0.6, duration: 0.4)
                     ]),
                     .removeFromParent()
                 ]))
@@ -876,8 +968,23 @@ final class GameScene: SKScene {
         // twice during fast cascades, producing both holes and overlaps.
         let gravityMoves = state.board.applyGravity()
         let spawned = state.board.refill()
-        let movedDestinations = Set(gravityMoves.map(\.to))
+        
+        NSLog("🤖 [GRAVITY] gravityMoves: \(gravityMoves.map { "(\($0.from.row),\($0.from.col)) -> (\($0.to.row),\($0.to.col))" })")
+        NSLog("🤖 [REFILL] spawned: \(spawned.map { "(\($0.pos.row),\($0.pos.col))" })")
+        
+        var gravitySources: [BoardPosition: BoardPosition] = [:]
+        for move in gravityMoves {
+            gravitySources[move.to] = move.from
+        }
+        
         let spawnedPositions = Set(spawned.map(\.pos))
+        var spawnedByCol: [Int: [BoardPosition]] = [:]
+        for spawnItem in spawned {
+            spawnedByCol[spawnItem.pos.col, default: []].append(spawnItem.pos)
+        }
+        for col in spawnedByCol.keys {
+            spawnedByCol[col]?.sort(by: { $0.row < $1.row })
+        }
 
         // Purge every snack node attached to the scene, not only the nodes in
         // the matrix. A completed pop or special animation can otherwise leave
@@ -896,39 +1003,65 @@ final class GameScene: SKScene {
         for row in 0..<boardSize {
             for col in 0..<boardSize {
                 let pos = BoardPosition(row: row, col: col)
-                guard let cell = state.board.cell(at: pos) else { continue }
+                guard let cell = state.board.cell(at: pos) else {
+                    NSLog("⚠️ [RENDER SKIP] position (\(row),\(col)) is nil in model grid!")
+                    continue
+                }
                 let node = makeSnackNode(cell: cell, at: pos)
                 let target = point(for: pos)
-                // The model is already settled when this method runs. Keep the
-                // full matrix visible immediately so cascades never expose
-                // permanent-looking empty wells between animation frames.
+                node.position = target
                 node.setScale(1.0)
                 node.alpha = 1.0
+                node.contentRoot.position = .zero
                 tileNodes[row][col] = node
                 addChild(node)
 
                 if spawnedPositions.contains(pos) {
-                    // New pieces enter from just above their final well. The
-                    // stagger is intentionally short so the board stays full
-                    // and readable throughout the cascade.
-                    node.position = CGPoint(x: target.x, y: target.y + tileSize * 0.34)
-                    node.run(.group([
-                        .move(to: target, duration: 0.16),
-                        .sequence([
-                            .scale(to: 1.06, duration: 0.10),
-                            .scale(to: 0.98, duration: 0.06),
-                            .scale(to: 1.0, duration: 0.06)
+                    let spawnIndex = spawnedByCol[pos.col]?.firstIndex(of: pos) ?? 0
+                    let spawnStartRow = boardSize + spawnIndex
+                    let startY = boardOrigin.y + CGFloat(spawnStartRow) * tileSize + tileSize / 2
+                    let offset = CGPoint(x: 0, y: startY - target.y)
+                    node.contentRoot.position = offset
+                    
+                    let fallDuration = 0.24
+                    node.contentRoot.run(.move(to: .zero, duration: fallDuration))
+                    node.run(.sequence([
+                        .wait(forDuration: fallDuration),
+                        .group([
+                            .scaleX(to: 1.15, duration: 0.08),
+                            .scaleY(to: 0.82, duration: 0.08)
+                        ]),
+                        .group([
+                            .scaleX(to: 0.94, duration: 0.06),
+                            .scaleY(to: 1.06, duration: 0.06)
+                        ]),
+                        .group([
+                            .scaleX(to: 1.0, duration: 0.06),
+                            .scaleY(to: 1.0, duration: 0.06)
                         ])
                     ]), withKey: "settleMotion")
-                } else if movedDestinations.contains(pos) {
-                    node.position = target
+                } else if let fromPos = gravitySources[pos] {
+                    let sourcePt = point(for: fromPos)
+                    let offset = CGPoint(x: sourcePt.x - target.x, y: sourcePt.y - target.y)
+                    node.contentRoot.position = offset
+                    
+                    let fallDuration = 0.22
+                    node.contentRoot.run(.move(to: .zero, duration: fallDuration))
                     node.run(.sequence([
-                        .scale(to: 1.06, duration: 0.08),
-                        .scale(to: 0.98, duration: 0.06),
-                        .scale(to: 1.0, duration: 0.06)
+                        .wait(forDuration: fallDuration),
+                        .group([
+                            .scaleX(to: 1.15, duration: 0.08),
+                            .scaleY(to: 0.82, duration: 0.08)
+                        ]),
+                        .group([
+                            .scaleX(to: 0.94, duration: 0.06),
+                            .scaleY(to: 1.06, duration: 0.06)
+                        ]),
+                        .group([
+                            .scaleX(to: 1.0, duration: 0.06),
+                            .scaleY(to: 1.0, duration: 0.06)
+                        ])
                     ]), withKey: "settleMotion")
-                } else {
-                    node.position = target
                 }
             }
         }
@@ -1391,7 +1524,7 @@ final class SnackNode: SKNode {
     let type: SnackType
     let special: SpecialKind?
     private let tileSize: CGFloat
-    private let contentRoot = SKNode()
+    let contentRoot = SKNode()
     private let shadow: SKShapeNode
     private let plate: SKShapeNode
     private let sprite: SKSpriteNode

@@ -50,3 +50,6 @@ package-lock.json
 **/.deploy_payload.json
 deploy_to_vercel.json
 vercel-mcp-payload.json
+screenshot_*.png
+*.log
+main.swift

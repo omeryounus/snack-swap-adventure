@@ -66,30 +66,65 @@ struct LevelConfig: Equatable {
     static func level(_ number: Int) -> LevelConfig {
         let n = max(1, min(30, number))
         let world = world(for: n)
-        let typeCount = min(6, 4 + ((n - 1) / 5))
-        let snacks = Array(SnackType.allCases.prefix(typeCount))
-        let moves = max(14, 30 - n)
-        // Early levels get more time; later levels get tighter clocks.
-        let timeLimit = max(45, 120 - n * 2)
-        let scoreTarget = 1_600 + n * 350
-
-        // Cycle goal types for variety.
-        let goal: LevelGoal
-        switch n % 4 {
-        case 1:
-            goal = .score(scoreTarget)
-        case 2:
-            let snack = snacks[n % snacks.count]
-            goal = .collect(snack, count: 12 + n * 2)
-        case 3:
-            goal = .clearSnacks(40 + n * 4)
+        
+        // Define board size and snack counts dynamically based on level progression
+        let boardSize: Int
+        let typeCount: Int
+        switch n {
+        case 1...5:
+            boardSize = 6
+            typeCount = 4
+        case 6...12:
+            boardSize = 7
+            typeCount = 5
+        case 13...22:
+            boardSize = 8
+            typeCount = 5
         default:
-            goal = .makeCombos(max(2, 1 + n / 4))
+            boardSize = 9
+            typeCount = 6
         }
-
+        
+        let snacks = Array(SnackType.allCases.prefix(typeCount))
+        let moves = max(12, 35 - n)
+        let timeLimit = max(40, 130 - n * 3)
+        
+        // Scale scores and goals relative to board cells
+        let totalCells = boardSize * boardSize
+        let scoreTarget: Int
+        let goal: LevelGoal
+        
+        switch n {
+        case 1:
+            scoreTarget = 300
+            goal = .clearSnacks(6)
+        case 2:
+            scoreTarget = 500
+            goal = .makeCombos(1)
+        case 3:
+            scoreTarget = 700
+            goal = .collect(.popcorn, count: 8)
+        case _ where n % 4 == 1:
+            scoreTarget = (500 + n * 250) * totalCells / 64
+            goal = .score(scoreTarget)
+        case _ where n % 4 == 2:
+            scoreTarget = (600 + n * 250) * totalCells / 64
+            let snack = snacks[n % snacks.count]
+            let collectCount = max(8, (8 + n * 2) * totalCells / 64)
+            goal = .collect(snack, count: collectCount)
+        case _ where n % 4 == 3:
+            scoreTarget = (600 + n * 250) * totalCells / 64
+            let clearCount = max(15, (25 + n * 3) * totalCells / 64)
+            goal = .clearSnacks(clearCount)
+        default:
+            scoreTarget = (700 + n * 250) * totalCells / 64
+            let combos = max(2, 2 + n / 5)
+            goal = .makeCombos(combos)
+        }
+        
         return LevelConfig(
             levelNumber: n,
-            boardSize: 8,
+            boardSize: boardSize,
             moves: moves,
             timeLimit: timeLimit,
             targetScore: scoreTarget,
