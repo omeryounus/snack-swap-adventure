@@ -104,6 +104,12 @@ jobs:
             AUTH_FLAGS="-allowProvisioningUpdates"
           fi
 
+          ARCHIVE_SIGNING_FLAGS="CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="
+          if security list-keychains | grep -q "app-signing.keychain-db"; then
+            echo "Using installed keychain certificate for archiving."
+            ARCHIVE_SIGNING_FLAGS=""
+          fi
+
           xcodebuild -project SnackSwapAdventure/SnackSwapAdventure.xcodeproj \
             -scheme SnackSwapAdventure \
             -configuration Release \
@@ -111,6 +117,7 @@ jobs:
             -archivePath ./build/SnackSwapAdventure.xcarchive \
             ENABLE_PREVIEWS=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
+            $ARCHIVE_SIGNING_FLAGS \
             $AUTH_FLAGS \
             archive
 
@@ -133,7 +140,7 @@ jobs:
             -exportPath ./build/output \
             ENABLE_PREVIEWS=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            $AUTH_FLAGS || echo "Export/Upload step complete."
+            $AUTH_FLAGS || echo "Export/Upload step completed."
 
       - name: Upload Build Artifacts to GitHub
         if: always()
