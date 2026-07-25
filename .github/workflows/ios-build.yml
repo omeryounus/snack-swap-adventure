@@ -109,6 +109,8 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath ./build/SnackSwapAdventure.xcarchive \
+            ENABLE_PREVIEWS=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
             $AUTH_FLAGS \
             archive
 
@@ -129,6 +131,8 @@ jobs:
             -archivePath ./build/SnackSwapAdventure.xcarchive \
             -exportOptionsPlist SnackSwapAdventure/ExportOptions-AppStoreConnect.plist \
             -exportPath ./build/output \
+            ENABLE_PREVIEWS=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
             $AUTH_FLAGS || echo "Export/Upload step complete."
 
       - name: Upload Build Artifacts to GitHub
