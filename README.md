@@ -47,6 +47,8 @@
 
 ```
 snack-swap-adventure/
+├── .github/workflows/
+│   └── ios-build.yml             # GitHub Actions CI/CD TestFlight & App Store Deployment
 ├── SnackSwapAdventure/           # Main iOS Application Project
 │   ├── SnackSwapAdventure/
 │   │   ├── App/                  # App Entry, Theme tokens, Content View
@@ -110,7 +112,7 @@ The `Info.plist` includes essential keys for Google AdMob and privacy disclosure
 
 ---
 
-### 🚀 4. Building & Running the Project
+### 🚀 4. Building & Running the Project Locally
 
 #### Option A: Running via Xcode Interface (GUI)
 1. Open the project:
@@ -136,34 +138,35 @@ xcodebuild -project SnackSwapAdventure.xcodeproj \
   -destination 'platform=iOS Simulator,id=8AFC8E25-62D0-4A8F-A52A-41F69D0B37A5' build
 ```
 
-#### Option C: Installing & Launching on Simulator via CLI
-```bash
-# Install app bundle onto running Simulator
-xcrun simctl install 8AFC8E25-62D0-4A8F-A52A-41F69D0B37A5 \
-  ~/Library/Developer/Xcode/DerivedData/SnackSwapAdventure-*/Build/Products/Debug-iphonesimulator/SnackSwapAdventure.app
-
-# Launch app
-xcrun simctl launch 8AFC8E25-62D0-4A8F-A52A-41F69D0B37A5 com.snackswap.adventure
-```
-
 ---
 
-### 📦 5. Archiving & Publishing to App Store Connect / TestFlight
+### 🤖 5. GitHub Actions Automated iOS Build & TestFlight CI/CD
 
-#### Step 1: Create an Archive
-```bash
-cd SnackSwapAdventure
-xcodebuild -project SnackSwapAdventure.xcodeproj \
-  -scheme SnackSwapAdventure \
-  -configuration Release \
-  -archivePath build/SnackSwapAdventure.xcarchive archive
-```
+The project includes an automated GitHub Actions CI/CD workflow located at [`.github/workflows/ios-build.yml`](file:///Users/omer/Documents/games/snack-swap-adventure/.github/workflows/ios-build.yml).
 
-#### Step 2: Upload to App Store Connect
-1. Open Xcode -> **Window -> Organizer** (`Cmd + Option + Shift + O`).
-2. Select the **SnackSwapAdventure** archive.
-3. Click **Distribute App** -> **App Store Connect** -> **Upload**.
-4. Select your Development Team and complete validation.
+#### A. Workflow Triggers
+- **Automatic**: Every `git push` to `main` or `master` branch.
+- **Manual Trigger**: Via GitHub Actions tab (**Actions -> TestFlight -> Run workflow**) with option to target `testflight` or `appstore`.
+
+#### B. Required GitHub Repository Secrets
+To enable automated signing and TestFlight deployment, configure these secrets in your GitHub repository (**Settings -> Secrets and variables -> Actions**):
+
+| Secret Name | Description | Example / Format |
+|-------------|-------------|------------------|
+| `APPSTORE_API_KEY_ID` | App Store Connect API Key ID | `8X9ABC1234` |
+| `APPSTORE_API_ISSUER_ID` | App Store Connect Issuer ID | `5701...-....-....` |
+| `APPSTORE_API_KEY_BASE64` | Base64-encoded `.p8` API Key content | Output of `base64 -i AuthKey_8X9.p8` |
+| `BUILD_CERTIFICATE_BASE64` | Base64-encoded Apple Distribution `.p12` Cert | Output of `base64 -i dist.p12` |
+| `P12_PASSWORD` | Password for the `.p12` certificate file | Secret string |
+
+#### C. CI/CD Pipeline Steps Executed:
+1. **Runner Provisioning**: Launches a `macos-26` GitHub runner and configures Xcode environment (`xcode-select`).
+2. **Dependency Resolution**: Restores SPM cache and resolves `GoogleMobileAds` & `GoogleUserMessagingPlatform` dependencies.
+3. **Keychain Setup**: Creates an isolated keychain, decodes `BUILD_CERTIFICATE_BASE64`, and installs Apple Distribution private keys.
+4. **Provisioning Profile Generation**: Decodes `APPSTORE_API_KEY_BASE64` and invokes `fastlane sigh` to fetch or generate the matching App Store Distribution provisioning profile for `com.snackswap.adventure`.
+5. **Archive & IPA Export**: Runs `xcodebuild archive` with build version auto-increment (`github.run_number`), and exports signed `.ipa` via `xcodebuild -exportArchive`.
+6. **TestFlight Submission**: Uploads `.ipa` directly to App Store Connect via `xcrun altool --upload-app`.
+7. **Artifact Storage**: Uploads `.ipa` build artifact to GitHub Actions artifact storage for 14-day retention.
 
 ---
 

@@ -62,127 +62,70 @@ xcodebuild -project SnackSwapAdventure/SnackSwapAdventure.xcodeproj -resolvePack
 3. **Game Center**: Active Game Center capability for reporting scores to global leaderboards.
 4. **App Tracking Transparency**: Configured in `Info.plist` under `NSUserTrackingUsageDescription` for AdMob ad compliance.
 
-### D. Xcode & CLI Build Commands
+---
 
-#### Debug Simulator Build
+## 🤖 3. GitHub Actions Automated CI/CD Workflow (`ios-build.yml`)
+
+The repository includes a production-ready GitHub Actions workflow at [`.github/workflows/ios-build.yml`](file:///Users/omer/Documents/games/snack-swap-adventure/.github/workflows/ios-build.yml).
+
+### A. How GitHub Actions CI Works
+1. **Triggers**: Executed automatically on every `git push` to `main`/`master`, or manually via **Actions -> TestFlight -> Run workflow**.
+2. **Environment**: Runs on `macos-26` runner with Xcode 15/16 pre-installed.
+3. **Automated Signing**: Decodes `.p12` Distribution Certificate into an isolated runner keychain and uses `fastlane sigh` + App Store Connect API to generate matching mobileprovision profiles.
+4. **TestFlight Deployment**: Archives `.xcarchive`, exports signed `.ipa`, uploads build to TestFlight using `xcrun altool`, and stores `.ipa` as a GitHub artifact.
+
+### B. Required GitHub Secrets Setup
+To enable CI/CD for cloned projects, set these secrets under GitHub Repository Settings -> **Secrets and variables -> Actions**:
+
 ```bash
-cd SnackSwapAdventure
-xcodebuild -project SnackSwapAdventure.xcodeproj \
-  -scheme SnackSwapAdventure \
-  -configuration Debug \
-  -destination 'platform=iOS Simulator,name=iPhone 16' build
+# 1. Base64 encode your distribution certificate (.p12)
+base64 -i cert.p12 -o cert_base64.txt
+
+# 2. Base64 encode your App Store Connect API Key (.p8)
+base64 -i AuthKey_8X9ABC.p8 -o asc_key_base64.txt
 ```
 
-#### Installing & Testing on Simulator
-```bash
-# Locate active simulator ID
-xcrun simctl list devices available | grep iPhone
-
-# Install app
-xcrun simctl install <SIMULATOR_ID> <PATH_TO_DERIVED_DATA>/SnackSwapAdventure.app
-
-# Launch app
-xcrun simctl launch <SIMULATOR_ID> com.snackswap.adventure
-```
-
-#### Archiving for App Store / TestFlight
-```bash
-cd SnackSwapAdventure
-xcodebuild -project SnackSwapAdventure.xcodeproj \
-  -scheme SnackSwapAdventure \
-  -configuration Release \
-  -archivePath build/SnackSwapAdventure.xcarchive archive
-```
+Add secrets to GitHub:
+- `APPSTORE_API_KEY_ID`: Key ID from App Store Connect (e.g. `8X9ABC1234`).
+- `APPSTORE_API_ISSUER_ID`: Issuer ID UUID from App Store Connect.
+- `APPSTORE_API_KEY_BASE64`: Paste content of `asc_key_base64.txt`.
+- `BUILD_CERTIFICATE_BASE64`: Paste content of `cert_base64.txt`.
+- `P12_PASSWORD`: Password assigned to your `.p12` certificate.
 
 ---
 
-## 📄 3. Essential Boilerplate Files & Responsibilities
+## 📄 4. Essential Boilerplate Files & Responsibilities
 
 When cloning this project, modify or reuse these core files:
 
 ### 📐 Layout Metrics & Device Sizing
 - **File**: [`SnackSwapAdventure/Helpers/LayoutMetrics.swift`](file:///Users/omer/Documents/games/snack-swap-adventure/SnackSwapAdventure/SnackSwapAdventure/Helpers/LayoutMetrics.swift)
 - **Purpose**: Provides dynamic sizing metrics based on device type (iPhone vs iPad) and safe area bounds.
-- **Key Responsibilities**:
-  - `isPad`: Detects if device is iPad (`UIDevice.current.userInterfaceIdiom == .pad`).
-  - `boardMaxHeightRatio`: Reserves top HUD (`185pt` on iPhone, `220pt` on iPad) and bottom booster bar (`195pt` on iPhone, `240pt` on iPad) to prevent visual overlap.
 
 ### 🎨 Level Configuration & Per-Level Themes
 - **File**: [`SnackSwapAdventure/Models/LevelConfig.swift`](file:///Users/omer/Documents/games/snack-swap-adventure/SnackSwapAdventure/SnackSwapAdventure/Models/LevelConfig.swift)
 - **Purpose**: Defines per-level targets, move limits, theme names, color gradients, and snack item pools.
-- **Key Pattern**:
-  ```swift
-  struct LevelTheme {
-      let themeName: String
-      let snacks: [SnackType]
-      let bgColors: [Color]
-      let boardFill: SKColor
-      let boardStroke: SKColor
-      
-      static func forLevel(_ level: Int) -> LevelTheme {
-          switch level {
-          case 1:
-              return LevelTheme(
-                  themeName: "Warm Cookie Bakery",
-                  snacks: [.cookie, .donut, .popcorn],
-                  bgColors: [Color(hex: "663311"), Color(hex: "D97724")],
-                  boardFill: SKColor(red: 0.28, green: 0.14, blue: 0.08, alpha: 0.92),
-                  boardStroke: SKColor(Color(hex: "FF9E44"))
-              )
-          // ... 30 per-level theme definitions
-          }
-      }
-  }
-  ```
 
 ### 🎮 Match-3 Board Engine (SpriteKit)
 - **File**: [`SnackSwapAdventure/Scenes/GameScene.swift`](file:///Users/omer/Documents/games/snack-swap-adventure/SnackSwapAdventure/SnackSwapAdventure/Scenes/GameScene.swift)
 - **Purpose**: Core gameplay loop, touch gesture handling, swap validation, match-3 resolution, blaster creations, and drop gravity.
-- **Critical Requirement**:
-  - In `drawStageBackdrop()`, keep `backdrop.fillColor = .clear` so SwiftUI's animated background gradients shine through the SpriteKit view layer.
 
 ### 💾 Data Persistence & Star Synchronization
 - **Files**:
   - [`SnackSwapAdventure/Models/PlayerProfile.swift`](file:///Users/omer/Documents/games/snack-swap-adventure/SnackSwapAdventure/SnackSwapAdventure/Models/PlayerProfile.swift)
   - [`SnackSwapAdventure/Models/MetaProgress.swift`](file:///Users/omer/Documents/games/snack-swap-adventure/SnackSwapAdventure/SnackSwapAdventure/Models/MetaProgress.swift)
-- **Purpose**: Maintains player level progress, high scores, unlocked boosters, and star coin balances.
-- **Cross-Sync Rule**: Mutating star balance in `PlayerProfile` must immediately sync `MetaProgress.shared` and `UserDefaults` (`ssa.stars` and `ssa.localStars`) to keep HUD counters in 100% sync.
 
 ### 🛍️ Monetization & Ads
 - **StoreKit 2**: [`SnackSwapAdventure/Managers/StoreManager.swift`](file:///Users/omer/Documents/games/snack-swap-adventure/SnackSwapAdventure/SnackSwapAdventure/Managers/StoreManager.swift)
-  - Product IDs: `com.snackswap.adventure.removeads`, `com.snackswap.adventure.stars100`, `com.snackswap.adventure.stars500`.
 - **Google AdMob**: [`SnackSwapAdventure/Services/AdConfig.swift`](file:///Users/omer/Documents/games/snack-swap-adventure/SnackSwapAdventure/SnackSwapAdventure/Services/AdConfig.swift) and [`RewardedAdService.swift`](file:///Users/omer/Documents/games/snack-swap-adventure/SnackSwapAdventure/SnackSwapAdventure/Services/RewardedAdService.swift).
-  - Pre-configured with Google's official Test Ad Unit IDs.
-
-### ☁️ Cloud & Social Sync
-- **Game Center**: [`SnackSwapAdventure/Managers/GameCenterManager.swift`](file:///Users/omer/Documents/games/snack-swap-adventure/SnackSwapAdventure/SnackSwapAdventure/Managers/GameCenterManager.swift)
-- **iCloud Sync**: [`SnackSwapAdventure/Managers/iCloudSyncManager.swift`](file:///Users/omer/Documents/games/snack-swap-adventure/SnackSwapAdventure/SnackSwapAdventure/Managers/iCloudSyncManager.swift) (via `NSUbiquitousKeyValueStore`).
 
 ---
 
-## 🚀 4. Step-by-Step Instructions to Clone for a New App
+## 🚀 5. Step-by-Step Instructions to Clone for a New App
 
-When creating a new game (e.g. *GemSwapQuest* or *FruitBurst*):
-
-1. **Clone & Rename Project**:
-   - Update Xcode Bundle Identifier (`com.yourcompany.newgame`).
-   - Rename target and scheme in `.xcodeproj`.
-
-2. **Update Item Pool (`SnackType.swift`)**:
-   - Replace or extend the item enum (e.g. `case ruby, emerald, sapphire, diamond`).
-   - Assign corresponding emojis, asset names, and base colors.
-
-3. **Define New Per-Level Themes in `LevelConfig.swift`**:
-   - Create 30+ level definitions with custom theme names, snack mixes, and background color gradients.
-
-4. **Update StoreKit & AdMob Product IDs**:
-   - Set product identifiers in `StoreManager.swift` matching App Store Connect IAPs.
-   - Set production AdMob Ad Unit IDs in `AdConfig.swift`.
-
-5. **Verify Sizing & Build**:
-   - Build with `xcodebuild`.
-   - Test on both iPhone (e.g., iPhone 16 Pro Max) and iPad (e.g., 13" iPad Pro) simulators.
-
-6. **Generate App Store Screenshots**:
-   - Run screenshot capture commands via `xcrun simctl io <device-id> screenshot <path.png>`.
-   - Ensure App Store review screenshots follow Apple's exact required dimensions (6.9", 6.7", 6.5", 5.5", 13" iPad) in 24-bit RGB non-alpha format.
+1. **Clone & Rename Project**: Update Xcode Bundle Identifier (`com.yourcompany.newgame`) and scheme.
+2. **Update Item Pool (`SnackType.swift`)**: Replace/extend item enums and emoji icons.
+3. **Define Themes in `LevelConfig.swift`**: Create 30+ level definitions with custom theme names and snack pools.
+4. **Setup GitHub Secrets**: Add the 5 required repository secrets for automated GitHub Actions TestFlight builds.
+5. **Verify Sizing & Build**: Test on iPhone and iPad simulators using `xcodebuild` and `xcrun simctl`.
+6. **Generate Screenshots**: Capture exact App Store & IAP review screenshots (6.9", 6.5", 5.5", 13" iPad).
