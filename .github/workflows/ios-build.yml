@@ -138,6 +138,8 @@ jobs:
           if [ -n "${{ env.PROFILE_UUID }}" ]; then
             echo "Using manual signing with provisioning profile UUID: ${{ env.PROFILE_UUID }}"
             SIGNING_FLAGS="CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=\"Apple Distribution\" PROVISIONING_PROFILE_SPECIFIER=\"${{ env.PROFILE_UUID }}\""
+          else
+            SIGNING_FLAGS="CODE_SIGN_IDENTITY=\"Apple Distribution\""
           fi
 
           xcodebuild -project SnackSwapAdventure/SnackSwapAdventure.xcodeproj \
@@ -170,6 +172,8 @@ jobs:
           	<string>app-store</string>
           	<key>signingStyle</key>
           	<string>manual</string>
+          	<key>signingCertificate</key>
+          	<string>Apple Distribution</string>
           	<key>teamID</key>
           	<string>Z2RB57KVQ5</string>
           	<key>provisioningProfiles</key>
