@@ -56,11 +56,13 @@ final class PlayerProfile: ObservableObject {
     func deductStars(_ amount: Int) {
         localStars = max(0, localStars - amount)
         defaults.set(localStars, forKey: Keys.localStars)
+        iCloudSyncManager.shared.pushToiCloud()
     }
 
     func addStars(_ amount: Int) {
         localStars += amount
         defaults.set(localStars, forKey: Keys.localStars)
+        iCloudSyncManager.shared.pushToiCloud()
     }
 
     private init() {
@@ -87,9 +89,12 @@ final class PlayerProfile: ObservableObject {
         localBestStreak = defaults.integer(forKey: Keys.localBestStreak)
         localCurrentStreak = defaults.integer(forKey: Keys.localCurrentStreak)
 
-        // Persist defaults for first launch name/avatar
         defaults.set(displayName, forKey: Keys.displayName)
         defaults.set(avatarEmoji, forKey: Keys.avatarEmoji)
+
+        // Initialize Game Center and iCloud Sync
+        GameCenterManager.shared.authenticatePlayer()
+        iCloudSyncManager.shared.startSync()
     }
 
     var localWinRate: Double {
@@ -113,10 +118,11 @@ final class PlayerProfile: ObservableObject {
         if level > maxUnlockedLevel {
             maxUnlockedLevel = level
             defaults.set(level, forKey: Keys.maxUnlockedLevel)
+            iCloudSyncManager.shared.pushToiCloud()
         }
     }
 
-    /// Record a finished level locally, then push to the Vercel backend.
+    /// Record a finished level locally, then push to Vercel, Game Center, and iCloud.
     func recordLevelResult(
         level: Int,
         score: Int,
@@ -143,6 +149,11 @@ final class PlayerProfile: ObservableObject {
         }
 
         persistLocal()
+
+        // Sync with iCloud & Game Center
+        iCloudSyncManager.shared.pushToiCloud()
+        GameCenterManager.shared.reportScore(score: localHighScore, level: maxUnlockedLevel, totalStars: localStars)
+        GameCenterManager.shared.checkAchievements(level: level, won: won, maxCombo: maxCombo, hammerCount: hammerCount)
 
         await submitToServer(
             level: level,
@@ -182,7 +193,6 @@ final class PlayerProfile: ObservableObject {
                 displayName = response.displayName
             }
         } catch {
-            // First-time players may 404 — register then retry once.
             do {
                 _ = try await APIClient.shared.registerPlayer(
                     id: playerId,
@@ -207,7 +217,6 @@ final class PlayerProfile: ObservableObject {
             )
             applyRemote(player)
         } catch {
-            // Register if patch fails (new player)
             await ensureRegistered()
         }
     }
@@ -249,9 +258,6 @@ final class PlayerProfile: ObservableObject {
         if let rank = player.rank {
             remoteRank = rank
         }
-        if player.displayName != displayName {
-            // Prefer local name unless remote is newer registration
-        }
     }
 
     private func persistLocal() {
@@ -267,7 +273,6 @@ final class PlayerProfile: ObservableObject {
         defaults.set(localCurrentStreak, forKey: Keys.localCurrentStreak)
         defaults.set(maxUnlockedLevel, forKey: Keys.maxUnlockedLevel)
     }
-
 
     func awardLevelWin(level: Int, stars: Int, score: Int, coins: Int) {
         unlockLevel(level + 1)

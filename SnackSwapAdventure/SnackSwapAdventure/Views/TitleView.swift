@@ -13,6 +13,8 @@ struct TitleView: View {
 
     @StateObject private var profile = PlayerProfile.shared
     @StateObject private var meta = MetaProgress.shared
+    @StateObject private var rewardsManager = DailyRewardsManager.shared
+    @State private var showDailyRewardsModal = false
 
     var currentLevelConfig: LevelConfig {
         LevelConfig.level(min(profile.maxUnlockedLevel, LevelConfig.totalLevels))
@@ -23,7 +25,7 @@ struct TitleView: View {
             WorldBackgroundPlate(themeColor: SSATheme.candyPurple)
 
             VStack(spacing: 0) {
-                // Top Header Bar: Profile Chip + Settings Gear
+                // Top Header Bar: Profile Chip + Daily Rewards + Settings Gear
                 HStack {
                     // Player Profile Chip
                     Button {
@@ -39,7 +41,7 @@ struct TitleView: View {
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
                                     .foregroundStyle(.white)
 
-                                Text("\(meta.stars) ⭐")
+                                Text("\(profile.stars) ⭐")
                                     .font(.system(size: 11, weight: .bold, design: .rounded))
                                     .foregroundStyle(SSATheme.candyYellow)
                             }
@@ -52,6 +54,29 @@ struct TitleView: View {
                     }
 
                     Spacer()
+
+                    // Daily Rewards Button with Notification Badge
+                    Button {
+                        SoundManager.shared.playUITap()
+                        showDailyRewardsModal = true
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Text("🎁")
+                                .font(.system(size: 22))
+                                .frame(width: 44, height: 44)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+
+                            if rewardsManager.isRewardAvailable {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 12, height: 12)
+                                    .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
+                                    .offset(x: 2, y: -2)
+                            }
+                        }
+                    }
 
                     // Settings Button
                     Button {
@@ -74,7 +99,7 @@ struct TitleView: View {
                     VStack(spacing: 20) {
                         Spacer(minLength: 16)
 
-                        // Hero Ghost Mascot Section (Wavy ghost shape + speech bubble)
+                        // Hero Ghost Mascot Section
                         TitleHeroSnacklingSection(playerName: profile.displayName)
 
                         // Title Block & Refined Tagline
@@ -105,7 +130,6 @@ struct TitleView: View {
                                 onPlay()
                             }
 
-                            // Level Subtitle context (Saved game progress continuation)
                             Text(profile.maxUnlockedLevel > 1 ? "Continue Level \(currentLevelConfig.levelNumber) • \(currentLevelConfig.worldName)" : "Start Level 1 • \(currentLevelConfig.worldName)")
                                 .font(.system(size: 13, weight: .bold, design: .rounded))
                                 .foregroundStyle(SSATheme.candyYellow)
@@ -113,7 +137,6 @@ struct TitleView: View {
                                 .minimumScaleFactor(0.82)
                                 .padding(.horizontal, 4)
 
-                            // Glass Chip Secondary World Map Button
                             Button {
                                 SoundManager.shared.playUITap()
                                 onWorldMap()
@@ -135,7 +158,7 @@ struct TitleView: View {
                         .padding(.horizontal, 10)
                         .padding(.top, 4)
 
-                        // Bottom Navigation Cards Grid (Ranks, Dex, Stats, Shop)
+                        // Bottom Navigation Cards Grid
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
                             NavCard(title: "Ranks", subtitle: "Global Top 10", icon: "trophy.fill", color: SSATheme.candyYellow) {
                                 onLeaderboard()
@@ -188,6 +211,11 @@ struct TitleView: View {
                     }
                     .padding(.horizontal, 20)
                 }
+            }
+
+            if showDailyRewardsModal {
+                DailyRewardModalView()
+                    .transition(.scale.combined(with: .opacity))
             }
         }
     }

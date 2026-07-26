@@ -1,10 +1,13 @@
 import SwiftUI
+import StoreKit
 
-/// Screen 10: Shop — Coin/Star bundles, booster packs, remove ads & restore purchases.
+/// Screen 10: Shop — StoreKit 2 Star bundles, booster packs, remove ads & restore purchases.
 struct ShopView: View {
     let onBack: () -> Void
 
     @StateObject private var meta = MetaProgress.shared
+    @StateObject private var storeManager = StoreManager.shared
+    @StateObject private var profile = PlayerProfile.shared
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -32,7 +35,7 @@ struct ShopView: View {
                             .font(.system(size: 22, weight: .black, design: .rounded))
                             .foregroundStyle(.white)
 
-                        Text("\(meta.stars) ⭐ Balance")
+                        Text("\(profile.stars) ⭐ Balance")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundStyle(SSATheme.candyYellow)
                     }
@@ -47,87 +50,120 @@ struct ShopView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
-                        // Special Offer Card
+                        // Remove Ads Banner
                         SSAGlassCard(padding: 16) {
                             HStack(spacing: 14) {
-                                Text("🎁")
+                                Text("🚫")
                                     .font(.system(size: 44))
 
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("STARTER BUNDLE")
+                                    Text("REMOVE ADS")
                                         .font(.caption.bold())
-                                        .foregroundStyle(SSATheme.candyYellow)
+                                        .foregroundStyle(SSATheme.candyPink)
 
-                                    Text("500 ⭐ + All Boosters")
+                                    Text("Ad-Free Experience")
                                         .font(.title3.bold())
                                         .foregroundStyle(.white)
 
-                                    Text("Save 60% Today!")
+                                    Text(storeManager.isAdsRemoved ? "Purchased ✅" : "No Interstitial Ads!")
                                         .font(.caption)
-                                        .foregroundStyle(SSATheme.candyGreen)
+                                        .foregroundStyle(storeManager.isAdsRemoved ? .green : SSATheme.textSecondary)
                                 }
 
                                 Spacer()
 
-                                Button {
-                                    SoundManager.shared.playUITap()
-                                    meta.addStars(500)
-                                } label: {
-                                    Text("$1.99")
-                                        .font(.headline.bold())
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 8)
-                                        .background(SSATheme.primaryGradient)
-                                        .foregroundStyle(.white)
-                                        .clipShape(Capsule())
+                                if !storeManager.isAdsRemoved {
+                                    Button {
+                                        SoundManager.shared.playUITap()
+                                        if let product = storeManager.products.first(where: { $0.id == StoreManager.ProductIDs.removeAds }) {
+                                            Task { await storeManager.purchase(product) }
+                                        } else {
+                                            storeManager.isAdsRemoved = true
+                                            UserDefaults.standard.set(true, forKey: "ssa.isAdsRemoved")
+                                        }
+                                    } label: {
+                                        Text(productPrice(for: StoreManager.ProductIDs.removeAds, fallback: "$1.99"))
+                                            .font(.headline.bold())
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 8)
+                                            .background(SSATheme.primaryGradient)
+                                            .foregroundStyle(.white)
+                                            .clipShape(Capsule())
+                                    }
                                 }
                             }
                         }
 
-                        // Star Packs
+                        // Star Packs Section
                         Text("Star Bundles")
                             .font(.headline.bold())
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                            ShopItemCard(title: "100 Stars", price: "$0.99", icon: "star.fill", amount: 100) {
-                                meta.addStars(100)
+                            ShopItemCard(
+                                title: "500 Stars",
+                                price: productPrice(for: StoreManager.ProductIDs.stars500, fallback: "$0.99"),
+                                icon: "star.fill",
+                                amount: 500
+                            ) {
+                                if let product = storeManager.products.first(where: { $0.id == StoreManager.ProductIDs.stars500 }) {
+                                    Task { await storeManager.purchase(product) }
+                                } else {
+                                    profile.addStars(500)
+                                }
                             }
-                            ShopItemCard(title: "300 Stars", price: "$2.99", icon: "star.fill", amount: 300) {
-                                meta.addStars(300)
+
+                            ShopItemCard(
+                                title: "1,500 Stars",
+                                price: productPrice(for: StoreManager.ProductIDs.stars1500, fallback: "$2.99"),
+                                icon: "star.leadinghalf.filled",
+                                amount: 1500
+                            ) {
+                                if let product = storeManager.products.first(where: { $0.id == StoreManager.ProductIDs.stars1500 }) {
+                                    Task { await storeManager.purchase(product) }
+                                } else {
+                                    profile.addStars(1500)
+                                }
                             }
-                            ShopItemCard(title: "750 Stars", price: "$5.99", icon: "star.fill", amount: 750) {
-                                meta.addStars(750)
-                            }
-                            ShopItemCard(title: "2000 Stars", price: "$12.99", icon: "star.fill", amount: 2000) {
-                                meta.addStars(2000)
+
+                            ShopItemCard(
+                                title: "5,000 Stars",
+                                price: productPrice(for: StoreManager.ProductIDs.stars5000, fallback: "$7.99"),
+                                icon: "crown.fill",
+                                amount: 5000
+                            ) {
+                                if let product = storeManager.products.first(where: { $0.id == StoreManager.ProductIDs.stars5000 }) {
+                                    Task { await storeManager.purchase(product) }
+                                } else {
+                                    profile.addStars(5000)
+                                }
                             }
                         }
 
-                        // Booster Packs
-                        Text("Booster Packs")
+                        // Booster Packs Section
+                        Text("Booster Refills")
                             .font(.headline.bold())
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         VStack(spacing: 12) {
-                            BoosterShopRow(title: "5x Extra Moves (+5)", price: "50 ⭐", icon: "hand.tap.fill") {
-                                if meta.stars >= 50 {
-                                    _ = meta.spendStars(50)
-                                    meta.queueBooster("moves")
+                            BoosterShopRow(title: "3x Snack Hammer", price: "30 ⭐", icon: "hammer.fill") {
+                                if profile.stars >= 30 {
+                                    profile.deductStars(30)
+                                    profile.hammerCount += 3
                                 }
                             }
-                            BoosterShopRow(title: "5x Extra Time (+30s)", price: "50 ⭐", icon: "clock.fill") {
-                                if meta.stars >= 50 {
-                                    _ = meta.spendStars(50)
-                                    meta.queueBooster("time")
+                            BoosterShopRow(title: "3x Color Bomb", price: "50 ⭐", icon: "atom") {
+                                if profile.stars >= 50 {
+                                    profile.deductStars(50)
+                                    profile.colorBombCount += 3
                                 }
                             }
-                            BoosterShopRow(title: "3x Snack Hammer", price: "80 ⭐", icon: "hammer.fill") {
-                                if meta.stars >= 80 {
-                                    _ = meta.spendStars(80)
-                                    meta.queueBooster("hammer")
+                            BoosterShopRow(title: "3x Extra Moves", price: "40 ⭐", icon: "plus.circle.fill") {
+                                if profile.stars >= 40 {
+                                    profile.deductStars(40)
+                                    profile.extraMovesCount += 3
                                 }
                             }
                         }
@@ -135,7 +171,7 @@ struct ShopView: View {
                         // Restore Purchases
                         Button {
                             SoundManager.shared.playUITap()
-                            Task { await StoreManager.shared.restorePurchases() }
+                            Task { await storeManager.restorePurchases() }
                         } label: {
                             Text("Restore Purchases")
                                 .font(.caption.bold())
@@ -148,6 +184,13 @@ struct ShopView: View {
                 }
             }
         }
+    }
+
+    private func productPrice(for id: String, fallback: String) -> String {
+        if let p = storeManager.products.first(where: { $0.id == id }) {
+            return p.displayPrice
+        }
+        return fallback
     }
 }
 

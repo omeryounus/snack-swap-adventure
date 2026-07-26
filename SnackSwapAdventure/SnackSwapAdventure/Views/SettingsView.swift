@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// Screen 12: Settings screen with audio, haptics, profile editor, and system links.
+/// Screen 12: Settings screen with audio, haptics, profile editor, Game Center link, and Restore Purchases.
 struct SettingsView: View {
     let onBack: () -> Void
 
     @StateObject private var profile = PlayerProfile.shared
     @StateObject private var meta = MetaProgress.shared
+    @StateObject private var gameCenter = GameCenterManager.shared
 
     @State private var editedName: String = ""
     @State private var hapticsEnabled: Bool = true
@@ -93,6 +94,42 @@ struct SettingsView: View {
                             }
                         }
 
+                        // Game Center Integration Card
+                        SSAGlassCard {
+                            VStack(alignment: .leading, spacing: 14) {
+                                Label("Apple Game Center", systemImage: "trophy.fill")
+                                    .font(.headline.bold())
+                                    .foregroundStyle(SSATheme.candyYellow)
+
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(gameCenter.isAuthenticated ? "Connected as \(gameCenter.localPlayerName)" : "Game Center Sign In")
+                                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                                            .foregroundStyle(.white)
+
+                                        Text("Global Leaderboards & Achievements")
+                                            .font(.caption)
+                                            .foregroundStyle(SSATheme.textSecondary)
+                                    }
+
+                                    Spacer()
+
+                                    Button {
+                                        SoundManager.shared.playUITap()
+                                        gameCenter.showDashboard()
+                                    } label: {
+                                        Text("Open 🏆")
+                                            .font(.subheadline.bold())
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 8)
+                                            .background(SSATheme.goldGradient)
+                                            .foregroundStyle(.black)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                            }
+                        }
+
                         // Audio Settings Section
                         SSAGlassCard {
                             VStack(alignment: .leading, spacing: 16) {
@@ -136,7 +173,7 @@ struct SettingsView: View {
                             }
                         }
 
-                        // Game Info & Account Section
+                        // Game Info & Support Section
                         SSAGlassCard {
                             VStack(alignment: .leading, spacing: 16) {
                                 Label("Game & Support", systemImage: "gearshape.fill")
@@ -170,7 +207,7 @@ struct SettingsView: View {
                             Text("Snack Swap Adventure v2.0.0")
                                 .font(.caption.bold())
                                 .foregroundStyle(SSATheme.textSecondary)
-                            Text("Game Center Connected • All Rights Reserved")
+                            Text("Game Center & iCloud Connected • All Rights Reserved")
                                 .font(.caption2)
                                 .foregroundStyle(SSATheme.textMuted)
                         }
