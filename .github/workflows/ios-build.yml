@@ -53,51 +53,66 @@ jobs:
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 || secrets.BUILD_PROVISION_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: 'temporary_keychain_password'
         run: |
-          # Create variables
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
           PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
-          # Import certificate and provisioning profile from secrets cleanly (stripping whitespace/newlines)
-          echo "$BUILD_CERTIFICATE_BASE64" | tr -d '\r\n ' | base64 --decode > $CERTIFICATE_PATH
-          echo "$BUILD_PROVISION_PROFILE_BASE64" | tr -d '\r\n ' | base64 --decode > $PP_PATH
+          if [ -n "$BUILD_CERTIFICATE_BASE64" ]; then
+            echo "Installing signing certificate..."
+            echo "$BUILD_CERTIFICATE_BASE64" | tr -d '\r\n ' | base64 --decode > $CERTIFICATE_PATH
 
-          # Create temporary keychain
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+            security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+            security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # Import certificate to keychain
-          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+            security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+            security list-keychains -d user -s $KEYCHAIN_PATH $(security list-keychains -d user | xargs)
+            security default-keychain -s $KEYCHAIN_PATH
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # Add keychain to search path (appending existing ones to avoid losing system root certs)
-          security list-keychains -d user -s $KEYCHAIN_PATH $(security list-keychains -d user | xargs)
+            echo "=== DIAGNOSTICS: KEYCHAINS SEARCH LIST ==="
+            security list-keychains -d user
+            echo "=== DIAGNOSTICS: CODE SIGNING IDENTITIES ==="
+            security find-identity -v -p codesigning
+          fi
 
-          # Set default keychain
-          security default-keychain -s $KEYCHAIN_PATH
+          if [ -n "$BUILD_PROVISION_PROFILE_BASE64" ]; then
+            echo "$BUILD_PROVISION_PROFILE_BASE64" | tr -d '\r\n ' | base64 --decode > $PP_PATH
+            UUID=$(security cms -D -i $PP_PATH 2>/dev/null | grep -A1 "<key>UUID</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' || true)
+            PROFILE_NAME=$(security cms -D -i $PP_PATH 2>/dev/null | grep -A1 "<key>Name</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' || true)
+            
+            if [ -n "$UUID" ]; then
+              echo "Extracted Provisioning Profile Name: $PROFILE_NAME"
+              echo "Extracted Provisioning Profile UUID: $UUID"
+              mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+              cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+              echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
+              echo "PROFILE_UUID=$UUID" >> $GITHUB_ENV
+            fi
+          fi
 
-          # Partition keychain to allow headless codesigning
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+      - name: Setup App Store Connect API Key (if provided)
+        env:
+          RAW_KEY_SECRET: ${{ secrets.APPSTORE_API_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_KEY_BASE64 || secrets.APPSTORE_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_KEY || secrets.APPSTORE_API_KEY }}
+          KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID || secrets.APP_STORE_CONNECT_KEY_ID || secrets.APPSTORE_KEY_ID || secrets.APPLE_KEY_ID }}
+        run: |
+          if [ -n "$RAW_KEY_SECRET" ] && [ -n "$KEY_ID" ]; then
+            echo "Setting up App Store Connect API Key for Key ID: $KEY_ID..."
+            mkdir -p ~/.private_keys
+            mkdir -p ~/.appstoreconnect/private_keys
 
-          # Print diagnostics to check if the certificate and private key were successfully imported
-          echo "=== DIAGNOSTICS: KEYCHAINS SEARCH LIST ==="
-          security list-keychains -d user
-          echo "=== DIAGNOSTICS: CODE SIGNING IDENTITIES ==="
-          security find-identity -v -p codesigning
+            KEY_FILE1=~/.private_keys/AuthKey_${KEY_ID}.p8
+            KEY_FILE2=~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
 
-          # Extract UUID and Profile Name using safe parsing
-          UUID=$(security cms -D -i $PP_PATH 2>/dev/null | grep -A1 "<key>UUID</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' || true)
-          PROFILE_NAME=$(security cms -D -i $PP_PATH 2>/dev/null | grep -A1 "<key>Name</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' || true)
-          
-          if [ -n "$UUID" ]; then
-            echo "Extracted Provisioning Profile Name: $PROFILE_NAME"
-            echo "Extracted Provisioning Profile UUID: $UUID"
-            mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-            cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
-            echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
-            echo "PROFILE_UUID=$UUID" >> $GITHUB_ENV
-          else
-            echo "Warning: Provisioning profile decoding skipped/failed. Fallback to API Key cloud signing."
+            if echo "$RAW_KEY_SECRET" | grep -q "BEGIN PRIVATE KEY"; then
+              echo "$RAW_KEY_SECRET" > "$KEY_FILE1"
+              echo "$RAW_KEY_SECRET" > "$KEY_FILE2"
+            else
+              echo "$RAW_KEY_SECRET" | tr -d '\r\n ' | base64 --decode > "$KEY_FILE1"
+              echo "$RAW_KEY_SECRET" | tr -d '\r\n ' | base64 --decode > "$KEY_FILE2"
+            fi
+            chmod 600 "$KEY_FILE1" "$KEY_FILE2"
+            echo "API Key AuthKey_${KEY_ID}.p8 prepared in ~/.private_keys and ~/.appstoreconnect/private_keys."
           fi
 
       - name: Build & Archive App
@@ -161,9 +176,18 @@ jobs:
           else
             echo "Exporting using App Store Connect API Key automatic signing."
             AUTH_FLAGS=""
-            if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -f "$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8" ]; then
-              AUTH_FLAGS="-allowProvisioningUpdates -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID -authenticationKeyPath $HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
+            KEY_PATH=""
+            if [ -f "$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8" ]; then
+              KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
+            elif [ -f "$HOME/.private_keys/AuthKey_${KEY_ID}.p8" ]; then
+              KEY_PATH="$HOME/.private_keys/AuthKey_${KEY_ID}.p8"
+            fi
+
+            if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -n "$KEY_PATH" ]; then
+              echo "Found API Key at $KEY_PATH. Using authentication flags for export."
+              AUTH_FLAGS="-allowProvisioningUpdates -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID -authenticationKeyPath $KEY_PATH"
             else
+              echo "Warning: API Key parameters incomplete. Falling back to basic allowProvisioningUpdates."
               AUTH_FLAGS="-allowProvisioningUpdates"
             fi
 
@@ -180,25 +204,22 @@ jobs:
       - name: Upload to TestFlight
         if: ${{ inputs.track == 'testflight' || inputs.track == '' || github.event_name == 'push' }}
         env:
-          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APPSTORE_API_KEY_BASE64 }}
+          KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID || secrets.APP_STORE_CONNECT_KEY_ID || secrets.APPSTORE_KEY_ID || secrets.APPLE_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID || secrets.APP_STORE_CONNECT_ISSUER_ID || secrets.APPSTORE_ISSUER_ID || secrets.APPLE_ISSUER_ID }}
         run: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          
-          if echo "$APP_STORE_CONNECT_API_KEY_BASE64" | grep -q "BEGIN PRIVATE KEY"; then
-            echo "$APP_STORE_CONNECT_API_KEY_BASE64" > ~/.appstoreconnect/private_keys/AuthKey_$APP_STORE_CONNECT_API_KEY_ID.p8
-          else
-            echo "$APP_STORE_CONNECT_API_KEY_BASE64" | tr -d '\r\n ' | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_$APP_STORE_CONNECT_API_KEY_ID.p8
-          fi
-          
           IPA_FILE=$(find ./build/output -name "*.ipa" | head -n 1)
           
-          xcrun altool --upload-app \
-            --type ios \
-            --file "$IPA_FILE" \
-            --apiKey $APP_STORE_CONNECT_API_KEY_ID \
-            --apiIssuer $APP_STORE_CONNECT_ISSUER_ID
+          if [ -f "$IPA_FILE" ] && [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ]; then
+            echo "Uploading $IPA_FILE to TestFlight via altool..."
+            xcrun altool --upload-app \
+              --type ios \
+              --file "$IPA_FILE" \
+              --apiKey "$KEY_ID" \
+              --apiIssuer "$ISSUER_ID"
+            echo "App uploaded to TestFlight successfully!"
+          else
+            echo "IPA file or API Key not found. Skipping altool upload."
+          fi
 
       - name: Upload Build Artifacts to GitHub
         if: always()
@@ -215,4 +236,4 @@ jobs:
         run: |
           security delete-keychain $RUNNER_TEMP/app-signing.keychain-db || true
           rm -f ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision
-          rm -rf ~/.appstoreconnect/private_keys
+          rm -rf ~/.private_keys ~/.appstoreconnect/private_keys
