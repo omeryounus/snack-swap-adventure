@@ -8,95 +8,124 @@ struct DailyRewardModalView: View {
 
     var body: some View {
         ZStack {
-            // Dark Backdrop
             Color.black.opacity(0.7)
                 .ignoresSafeArea()
 
             VStack(spacing: 20) {
-                // Header
-                HStack {
-                    Spacer()
-                    Text("DAILY REWARDS 🎁")
-                        .font(.system(size: 22, weight: .black, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.yellow, .orange],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                    Spacer()
-
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.8))
-                    }
-                }
-
-                Text("Log in every day to claim bonus Stars & Boosters!")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .multilineTextAlignment(.center)
-
-                // 7-Day Grid
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 12) {
-                    ForEach(rewardsManager.rewardSchedule) { item in
-                        dayCard(for: item)
-                    }
-                }
-
-                if let msg = claimedRewardMessage {
-                    Text(msg)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundStyle(.green)
-                        .padding(.vertical, 6)
-                        .transition(.scale.combined(with: .opacity))
-                }
-
-                // Claim Button
-                Button(action: {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                        let reward = rewardsManager.rewardSchedule[(rewardsManager.currentStreak - 1) % 7]
-                        rewardsManager.claimDailyReward()
-                        claimedRewardMessage = "Claimed \(reward.title): +\(reward.stars) ⭐!"
-                    }
-                }) {
-                    Text(rewardsManager.isRewardAvailable ? "CLAIM REWARD! 🎁" : "COME BACK TOMORROW! ⏳")
-                        .font(.system(size: 16, weight: .black, design: .rounded))
-                        .foregroundStyle(rewardsManager.isRewardAvailable ? .black : .white.opacity(0.6))
-                        .padding(.horizontal, 32)
-                        .padding(.vertical, 14)
-                        .background(
-                            rewardsManager.isRewardAvailable ?
-                                LinearGradient(colors: [.yellow, .orange], startPoint: .top, endPoint: .bottom) :
-                                LinearGradient(colors: [Color.gray.opacity(0.4), Color.gray.opacity(0.3)], startPoint: .top, endPoint: .bottom)
-                        )
-                        .clipShape(Capsule())
-                        .shadow(color: rewardsManager.isRewardAvailable ? .orange.opacity(0.5) : .clear, radius: 8, y: 4)
-                }
-                .disabled(!rewardsManager.isRewardAvailable)
+                headerView
+                subtitleView
+                rewardGrid
+                rewardToast
+                claimButton
             }
             .padding(24)
-            .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(LinearGradient(colors: [Color(hex: "2D1854"), Color(hex: "180C34")], startPoint: .top, endPoint: .bottom))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24)
-                            .stroke(LinearGradient(colors: [.purple.opacity(0.6), .yellow.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 2)
-                    )
-            )
+            .background(modalBackground)
             .padding(.horizontal, 20)
         }
     }
 
-    private func dayCard(for item: DailyRewardItem) -> some View {
-        let isCurrentDay = item.day == rewardsManager.currentStreak
-        let isPastDay = item.day < rewardsManager.currentStreak
+    // MARK: - Header
+    private var headerView: some View {
+        HStack {
+            Spacer()
+            Text("DAILY REWARDS 🎁")
+                .font(.system(size: 22, weight: .black, design: .rounded))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [.yellow, .orange],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+            Spacer()
 
-        return VStack(spacing: 6) {
+            Button(action: { dismiss() }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+        }
+    }
+
+    private var subtitleView: some View {
+        Text("Log in every day to claim bonus Stars & Boosters!")
+            .font(.system(size: 13, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white.opacity(0.8))
+            .multilineTextAlignment(.center)
+    }
+
+    // MARK: - Reward Grid
+    private var rewardGrid: some View {
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
+        return LazyVGrid(columns: columns, spacing: 12) {
+            ForEach(rewardsManager.rewardSchedule) { item in
+                DayCardView(item: item, currentStreak: rewardsManager.currentStreak, isAvailable: rewardsManager.isRewardAvailable)
+            }
+        }
+    }
+
+    // MARK: - Toast
+    @ViewBuilder
+    private var rewardToast: some View {
+        if let msg = claimedRewardMessage {
+            Text(msg)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(.green)
+                .padding(.vertical, 6)
+                .transition(.scale.combined(with: .opacity))
+        }
+    }
+
+    // MARK: - Claim Button
+    private var claimButton: some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                let reward = rewardsManager.rewardSchedule[(rewardsManager.currentStreak - 1) % 7]
+                rewardsManager.claimDailyReward()
+                claimedRewardMessage = "Claimed \(reward.title): +\(reward.stars) ⭐!"
+            }
+        }) {
+            Text(rewardsManager.isRewardAvailable ? "CLAIM REWARD! 🎁" : "COME BACK TOMORROW! ⏳")
+                .font(.system(size: 16, weight: .black, design: .rounded))
+                .foregroundStyle(rewardsManager.isRewardAvailable ? .black : .white.opacity(0.6))
+                .padding(.horizontal, 32)
+                .padding(.vertical, 14)
+                .background(claimGradient)
+                .clipShape(Capsule())
+        }
+        .disabled(!rewardsManager.isRewardAvailable)
+    }
+
+    private var claimGradient: LinearGradient {
+        if rewardsManager.isRewardAvailable {
+            return LinearGradient(colors: [.yellow, .orange], startPoint: .top, endPoint: .bottom)
+        } else {
+            return LinearGradient(colors: [Color.gray.opacity(0.4), Color.gray.opacity(0.3)], startPoint: .top, endPoint: .bottom)
+        }
+    }
+
+    private var modalBackground: some View {
+        RoundedRectangle(cornerRadius: 24)
+            .fill(LinearGradient(colors: [Color(hex: "2D1854"), Color(hex: "180C34")], startPoint: .top, endPoint: .bottom))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(LinearGradient(colors: [.purple.opacity(0.6), .yellow.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 2)
+            )
+    }
+}
+
+private struct DayCardView: View {
+    let item: DailyRewardItem
+    let currentStreak: Int
+    let isAvailable: Bool
+
+    var isCurrentDay: Bool { item.day == currentStreak }
+    var isPastDay: Bool { item.day < currentStreak }
+
+    var body: some View {
+        VStack(spacing: 6) {
             Text(item.title)
-                .font(.system(size: 11, weight: .extrabold, design: .rounded))
+                .font(.system(size: 11, weight: .heavy, design: .rounded))
                 .foregroundStyle(isCurrentDay ? .yellow : (isPastDay ? .green : .white.opacity(0.7)))
 
             Text(item.icon)
@@ -110,7 +139,7 @@ struct DailyRewardModalView: View {
                 Text("CLAIMED ✅")
                     .font(.system(size: 8, weight: .black, design: .rounded))
                     .foregroundStyle(.green)
-            } else if isCurrentDay && rewardsManager.isRewardAvailable {
+            } else if isCurrentDay && isAvailable {
                 Text("READY! ✨")
                     .font(.system(size: 8, weight: .black, design: .rounded))
                     .foregroundStyle(.yellow)

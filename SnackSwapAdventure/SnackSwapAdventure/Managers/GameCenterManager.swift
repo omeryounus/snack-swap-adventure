@@ -28,6 +28,10 @@ final class GameCenterManager: NSObject, ObservableObject, GKGameCenterControlle
         super.init()
     }
 
+    func authenticateLocalPlayer() {
+        authenticatePlayer()
+    }
+
     /// Authenticate the local Game Center player
     func authenticatePlayer() {
         GKLocalPlayer.local.authenticateHandler = { [weak self] vc, error in
@@ -39,7 +43,6 @@ final class GameCenterManager: NSObject, ObservableObject, GKGameCenterControlle
                 }
 
                 if let vc = vc {
-                    // Present authentication view controller if needed
                     if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                        let rootVC = windowScene.windows.first?.rootViewController {
                         rootVC.present(vc, animated: true)
@@ -127,6 +130,8 @@ final class GameCenterManager: NSObject, ObservableObject, GKGameCenterControlle
     }
 
     nonisolated func gameCenterViewControllerDidFinish(_ gameCenterViewController: GKGameCenterViewController) {
-        gameCenterViewController.dismiss(animated: true)
+        Task { @MainActor in
+            gameCenterViewController.dismiss(animated: true)
+        }
     }
 }

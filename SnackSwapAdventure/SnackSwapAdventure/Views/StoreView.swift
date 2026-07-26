@@ -138,7 +138,7 @@ struct StoreView: View {
 
                     if storeManager.isAdsRemoved {
                         Text("PURCHASED ✅")
-                            .font(.system(size: 11, weight: .extrabold, design: .rounded))
+                            .font(.system(size: 11, weight: .heavy, design: .rounded))
                             .foregroundStyle(.green)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -214,7 +214,7 @@ struct StoreView: View {
 
                     if let badge = badge {
                         Text(badge)
-                            .font(.system(size: 9, weight: .extrabold, design: .rounded))
+                            .font(.system(size: 9, weight: .heavy, design: .rounded))
                             .foregroundStyle(.black)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)

@@ -36,6 +36,10 @@ final class StoreManager: ObservableObject {
         transactionTask?.cancel()
     }
 
+    func loadProducts() async {
+        await fetchProducts()
+    }
+
     /// Fetch products using StoreKit 2
     func fetchProducts() async {
         do {
@@ -57,7 +61,7 @@ final class StoreManager: ObservableObject {
             switch result {
             case .success(let verification):
                 let transaction = try checkVerified(verification)
-                await handleSuccessfulPurchase(transaction)
+                handleSuccessfulPurchase(transaction)
                 await transaction.finish()
             case .userCancelled:
                 break
@@ -86,10 +90,12 @@ final class StoreManager: ObservableObject {
     /// Listen to background transactions (e.g. Family Sharing, external renewals)
     private func listenForTransactions() -> Task<Void, Error> {
         Task.detached {
-            for await result in Transaction.updates {
+            for await result in StoreKit.Transaction.updates {
                 do {
                     let transaction = try self.checkVerified(result)
-                    await self.handleSuccessfulPurchase(transaction)
+                    await MainActor.run {
+                        self.handleSuccessfulPurchase(transaction)
+                    }
                     await transaction.finish()
                 } catch {
                     print("[StoreManager] Transaction verification failed: \(error)")
@@ -102,7 +108,7 @@ final class StoreManager: ObservableObject {
     func updatePurchasedStatus() async {
         var purchased: Set<String> = []
 
-        for await result in Transaction.currentEntitlements {
+        for await result in StoreKit.Transaction.currentEntitlements {
             do {
                 let transaction = try checkVerified(result)
                 if transaction.revocationDate == nil {
@@ -118,7 +124,7 @@ final class StoreManager: ObservableObject {
         UserDefaults.standard.set(isAdsRemoved, forKey: "ssa.isAdsRemoved")
     }
 
-    private func handleSuccessfulPurchase(_ transaction: Transaction) async {
+    private func handleSuccessfulPurchase(_ transaction: StoreKit.Transaction) {
         purchasedProductIDs.insert(transaction.productID)
 
         switch transaction.productID {
@@ -136,7 +142,7 @@ final class StoreManager: ObservableObject {
         }
     }
 
-    private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
+    private nonisolated func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
         switch result {
         case .unverified(_, let error):
             throw error
