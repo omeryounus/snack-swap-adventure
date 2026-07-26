@@ -151,8 +151,12 @@ final class GameScene: SKScene {
     // MARK: - Visual setup
 
     private func drawStageBackdrop() {
+        // Tinted per level, but kept translucent so the SwiftUI world plate
+        // behind the SpriteView still reads through.
+        let levelTheme = LevelTheme.forLevel(gameState?.level.levelNumber ?? 1)
+
         let backdrop = SKShapeNode(rect: CGRect(origin: .zero, size: size))
-        backdrop.fillColor = SKColor(red: 0.08, green: 0.04, blue: 0.10, alpha: 0.18)
+        backdrop.fillColor = levelTheme.backdropColor.withAlphaComponent(0.18)
         backdrop.strokeColor = .clear
         backdrop.zPosition = -20
         addChild(backdrop)
@@ -196,23 +200,8 @@ final class GameScene: SKScene {
                 SKColor(red: 1.0, green: 0.34, blue: 0.55, alpha: 1)
             )
         }
-        switch state.level.levelNumber {
-        case 1...10:
-            return (
-                SKColor(red: 1.0, green: 0.66, blue: 0.34, alpha: 1),
-                SKColor(red: 0.62, green: 0.34, blue: 0.22, alpha: 1)
-            )
-        case 11...20:
-            return (
-                SKColor(red: 1.0, green: 0.84, blue: 0.30, alpha: 1),
-                SKColor(red: 0.54, green: 0.72, blue: 0.38, alpha: 1)
-            )
-        default:
-            return (
-                SKColor(red: 1.0, green: 0.35, blue: 0.72, alpha: 1),
-                SKColor(red: 0.48, green: 0.40, blue: 1.0, alpha: 1)
-            )
-        }
+        let theme = LevelTheme.forLevel(state.level.levelNumber)
+        return (theme.boardStroke, SKColor(white: 1.0, alpha: 0.3))
     }
 
     private func drawBoardFrame() {
@@ -224,16 +213,15 @@ final class GameScene: SKScene {
             height: boardPixel + 12
         )
         let frame = SKShapeNode(rect: rect, cornerRadius: 18)
-        // Elevated glass bakery tray: brighter wells, darker outer edge, and a
-        // warm rim make the board read as the primary play surface.
         let frameShadow = SKShapeNode(rect: rect.offsetBy(dx: 0, dy: -7), cornerRadius: 18)
         frameShadow.fillColor = SKColor(white: 0, alpha: 0.38)
         frameShadow.strokeColor = .clear
         frameShadow.zPosition = -1
         addChild(frameShadow)
 
-        frame.fillColor = SKColor(red: 0.30, green: 0.21, blue: 0.30, alpha: 1)
-        frame.strokeColor = SKColor(red: 0.92, green: 0.66, blue: 0.48, alpha: 1)
+        let levelTheme = LevelTheme.forLevel(gameState?.level.levelNumber ?? 1)
+        frame.fillColor = levelTheme.boardFill
+        frame.strokeColor = levelTheme.boardStroke
         frame.lineWidth = 3
         frame.zPosition = 0
         addChild(frame)

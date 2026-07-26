@@ -272,6 +272,9 @@ struct GameplayBackgroundView: View {
     let level: Int
 
     private var world: GameplayWorldTheme { GameplayWorldTheme.forLevel(level) }
+    /// Per-level palette (30 distinct themes). Colors only — the old plate
+    /// imagesets were UI mockups and were removed from the catalog.
+    private var theme: LevelTheme { LevelTheme.forLevel(level) }
 
     var body: some View {
         GeometryReader { geo in
@@ -281,7 +284,13 @@ struct GameplayBackgroundView: View {
                 SSATheme.bgVoid
 
                 LinearGradient(
-                    colors: [world.deep.opacity(0.92), SSATheme.bgVoid, world.deep.opacity(0.62)],
+                    colors: theme.bgColors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                LinearGradient(
+                    colors: [world.deep.opacity(0.62), .clear, world.deep.opacity(0.48)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -308,7 +317,7 @@ struct GameplayBackgroundView: View {
                 )
 
                 ForEach(0..<12, id: \.self) { i in
-                    Text(world.snacks[i % world.snacks.count])
+                    Text(themeSnackEmojis[i % themeSnackEmojis.count])
                         .font(.system(size: CGFloat((i * 5 + 14) % 18 + 16)))
                         .opacity(0.10)
                         .rotationEffect(.degrees(Double(i * 29 % 360)))
@@ -329,6 +338,12 @@ struct GameplayBackgroundView: View {
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
+    }
+
+    /// Falls back to the world band when a level has no themed snacks.
+    private var themeSnackEmojis: [String] {
+        let emojis = theme.snacks.map(\.emoji)
+        return emojis.isEmpty ? world.snacks : emojis
     }
 }
 
