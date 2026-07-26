@@ -34,7 +34,69 @@ The app follows a **hybrid SwiftUI + SpriteKit architecture**:
 
 ---
 
-## 📄 2. Essential Boilerplate Files & Responsibilities
+## 🛠️ 2. Comprehensive iOS Build & Required Setup Guide
+
+When setting up or building the project from scratch, follow this exact environment setup checklist:
+
+### A. Environment & Tools Checklist
+| Component | Required Version | Notes / Installation Command |
+|-----------|------------------|------------------------------|
+| **macOS** | Sonoma 14.0+ / Sequoia 15.0+ | Mandatory for Xcode 15/16 |
+| **Xcode** | Xcode 15.0+ / 16.0+ | Install from Mac App Store or Apple Developer Portal |
+| **iOS SDK** | iOS 17.0+ | Include iPhone & iPad Simulator Runtimes |
+| **CLI Tools** | Current | Run `xcode-select --install` in terminal |
+
+### B. SPM Dependency Management
+The project uses Swift Package Manager (SPM) integrated into `SnackSwapAdventure.xcodeproj`. The SPM dependencies are:
+- `GoogleMobileAds`: `https://github.com/googleads/swift-package-manager-google-mobile-ads.git` (v11.13.0+)
+- `GoogleUserMessagingPlatform`: `https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git` (v2.7.0+)
+
+**Command to resolve packages in headless CI or script mode**:
+```bash
+xcodebuild -project SnackSwapAdventure/SnackSwapAdventure.xcodeproj -resolvePackageDependencies
+```
+
+### C. Entitlements & Capabilities Configuration
+1. **In-App Purchase**: StoreKit 2 configuration (`com.snackswap.adventure.removeads`, `com.snackswap.adventure.stars100`).
+2. **iCloud Key-Value Store**: Enabled via `NSUbiquitousKeyValueStore` for syncing star balance, booster inventory, and completed levels across player devices.
+3. **Game Center**: Active Game Center capability for reporting scores to global leaderboards.
+4. **App Tracking Transparency**: Configured in `Info.plist` under `NSUserTrackingUsageDescription` for AdMob ad compliance.
+
+### D. Xcode & CLI Build Commands
+
+#### Debug Simulator Build
+```bash
+cd SnackSwapAdventure
+xcodebuild -project SnackSwapAdventure.xcodeproj \
+  -scheme SnackSwapAdventure \
+  -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 16' build
+```
+
+#### Installing & Testing on Simulator
+```bash
+# Locate active simulator ID
+xcrun simctl list devices available | grep iPhone
+
+# Install app
+xcrun simctl install <SIMULATOR_ID> <PATH_TO_DERIVED_DATA>/SnackSwapAdventure.app
+
+# Launch app
+xcrun simctl launch <SIMULATOR_ID> com.snackswap.adventure
+```
+
+#### Archiving for App Store / TestFlight
+```bash
+cd SnackSwapAdventure
+xcodebuild -project SnackSwapAdventure.xcodeproj \
+  -scheme SnackSwapAdventure \
+  -configuration Release \
+  -archivePath build/SnackSwapAdventure.xcarchive archive
+```
+
+---
+
+## 📄 3. Essential Boilerplate Files & Responsibilities
 
 When cloning this project, modify or reuse these core files:
 
@@ -98,7 +160,7 @@ When cloning this project, modify or reuse these core files:
 
 ---
 
-## 🚀 3. Step-by-Step Instructions to Clone for a New App
+## 🚀 4. Step-by-Step Instructions to Clone for a New App
 
 When creating a new game (e.g. *GemSwapQuest* or *FruitBurst*):
 

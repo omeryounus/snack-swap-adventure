@@ -65,24 +65,105 @@ snack-swap-adventure/
 
 ---
 
-## 🛠️ Build & Run Instructions
+## 🛠️ Comprehensive iOS Build & Required Setup Guide
 
-### Prerequisites
-- macOS Sonoma or later
-- Xcode 15+ with iOS 17+ SDK installed
-- CocoaPods / Swift Package Manager (Google Mobile Ads & Google UMP SPM packages included)
+### 📋 1. System & Developer Prerequisites
+- **macOS**: macOS Sonoma 14.0 or macOS Sequoia 15.0+
+- **Xcode**: Xcode 15.0+ or Xcode 16.0+ (with iOS 17.0+ Simulator SDKs)
+- **Swift Command Line Tools**: `xcode-select --install`
+- **Apple Developer Account**: Required for device deployment, In-App Purchase configuration, Game Center, and App Store Connect uploading.
 
-### Running on Simulator
-```bash
-open SnackSwapAdventure/SnackSwapAdventure.xcodeproj
-```
+---
 
-Or via Command Line:
+### 📦 2. Swift Package Dependencies
+The project relies on Swift Package Manager (SPM) for external SDK dependencies. Packages resolve automatically upon opening in Xcode:
+- **GoogleMobileAds**: `https://github.com/googleads/swift-package-manager-google-mobile-ads.git` (v11.13.0+)
+- **GoogleUserMessagingPlatform**: `https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git` (v2.7.0+)
+
+To resolve dependencies manually via terminal:
 ```bash
 cd SnackSwapAdventure
-xcodebuild -scheme SnackSwapAdventure \
-  -destination 'platform=iOS Simulator,name=iPhone 16' build
+xcodebuild -resolvePackageDependencies
 ```
+
+---
+
+### ⚙️ 3. Xcode Target & Entitlements Configuration
+
+#### A. General & Deployment Info
+- **Bundle Identifier**: `com.snackswap.adventure`
+- **Minimum Deploy Target**: iOS 17.0
+- **Supported Devices**: iPhone & iPad (Universal Target)
+- **Supported Orientations**: Portrait (iPhone & iPad)
+
+#### B. Signing & Capabilities
+In Xcode under **Target -> Signing & Capabilities**, ensure the following capabilities are enabled:
+1. **In-App Purchase**: StoreKit 2 entitlement.
+2. **iCloud**: Key-Value Storage enabled (`NSUbiquitousKeyValueStore`).
+3. **Game Center**: Enable Game Center capability for leaderboard score submission.
+
+#### C. `Info.plist` Privacy & AdMob Keys
+The `Info.plist` includes essential keys for Google AdMob and privacy disclosures:
+- `GADApplicationIdentifier`: `ca-app-pub-3940256099942544~3347511713` (Google AdMob Test App ID)
+- `NSUserTrackingUsageDescription`: Permission text requested for personalized ads via App Tracking Transparency.
+- `SKAdNetworkItems`: Pre-configured list of AdMob ad network identifier keys.
+
+---
+
+### 🚀 4. Building & Running the Project
+
+#### Option A: Running via Xcode Interface (GUI)
+1. Open the project:
+   ```bash
+   open SnackSwapAdventure/SnackSwapAdventure.xcodeproj
+   ```
+2. Select your target scheme: **SnackSwapAdventure**.
+3. Choose a destination (e.g. **iPhone 16**, **iPhone 16 Pro Max**, or **iPad Pro 13-inch (M4)**).
+4. Press `Cmd + R` to build and run.
+
+#### Option B: Building via Terminal (`xcodebuild`)
+To build for iOS Simulator from the terminal:
+```bash
+cd SnackSwapAdventure
+
+# List available simulator destination IDs
+xcrun simctl list devices available | grep iPhone
+
+# Build for specific Simulator ID
+xcodebuild -project SnackSwapAdventure.xcodeproj \
+  -scheme SnackSwapAdventure \
+  -configuration Debug \
+  -destination 'platform=iOS Simulator,id=8AFC8E25-62D0-4A8F-A52A-41F69D0B37A5' build
+```
+
+#### Option C: Installing & Launching on Simulator via CLI
+```bash
+# Install app bundle onto running Simulator
+xcrun simctl install 8AFC8E25-62D0-4A8F-A52A-41F69D0B37A5 \
+  ~/Library/Developer/Xcode/DerivedData/SnackSwapAdventure-*/Build/Products/Debug-iphonesimulator/SnackSwapAdventure.app
+
+# Launch app
+xcrun simctl launch 8AFC8E25-62D0-4A8F-A52A-41F69D0B37A5 com.snackswap.adventure
+```
+
+---
+
+### 📦 5. Archiving & Publishing to App Store Connect / TestFlight
+
+#### Step 1: Create an Archive
+```bash
+cd SnackSwapAdventure
+xcodebuild -project SnackSwapAdventure.xcodeproj \
+  -scheme SnackSwapAdventure \
+  -configuration Release \
+  -archivePath build/SnackSwapAdventure.xcarchive archive
+```
+
+#### Step 2: Upload to App Store Connect
+1. Open Xcode -> **Window -> Organizer** (`Cmd + Option + Shift + O`).
+2. Select the **SnackSwapAdventure** archive.
+3. Click **Distribute App** -> **App Store Connect** -> **Upload**.
+4. Select your Development Team and complete validation.
 
 ---
 
