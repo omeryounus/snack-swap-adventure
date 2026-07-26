@@ -1,51 +1,106 @@
 # Snack Swap Adventure
 
-**A colorful match-3 puzzle game for iOS** — match snacks, feed monsters, climb the leaderboard.
+**A premium, colorful match-3 puzzle game for iOS & iPadOS** — match snacks, activate explosive special combos, collect adorable monsters, sync progress across devices, and climb global leaderboards!
 
-## What’s included
+![Snack Swap Adventure Banner](AppStore_Screenshots/6.9_Inch_iPhone_16_Pro_Max/03_Match3_Gameplay.png)
 
-### Gameplay
-- 8×8 match-3 with 6 snack types
-- Cascades, gravity, refill, juicy SFX
-- **Specials**: row blaster, column blaster, bomb, rainbow (from 4+/5/L-T matches)
-- **30 levels** across Cookie Kingdom, Popcorn Plains, Candy Canyon
-- **Varied goals**: score, collect snack type, clear N snacks, make combos
-- Pause menu with sound/music toggles
-- Boosters shop + monster collection meta
+---
 
-### Backend (Vercel)
-- Live API: **https://backend-deploy-sepia.vercel.app**
-- Leaderboard, players, scores, global + player stats
-- Durable-ready store (Upstash Redis optional + `/tmp` mirror)
+## 🌟 Key Features
 
-## Run the iOS app
+### 🎮 Gameplay & Level Mechanics
+- **8×8 Match-3 Engine**: Built with SwiftUI + SpriteKit for high-performance 60fps animations, physics cascades, gravity refills, and juicy visual effects.
+- **30 Unique Per-Level Themes**: Every single level (1–30) features distinct vibrant background gradient palettes (*Warm Cookie Bakery*, *Donut Dreamland*, *Glacier Ice Candy*, *Electric Purple Lagoon*, *Deep Cosmic Sapphire*), customized board stroke colors, and theme badges.
+- **Dynamic Snack Item Mixes**: Levels cycle through custom combinations of 12 distinct snack types (Cookies, Donuts, Popcorn, Candy Canes, Lollipops, Cupcakes, Gummy Bears, Croissants, Chocolate Bars, Tacos, Boba, and Ice Cream Cones).
+- **Special Blasters & Combos**:
+  - 4-in-a-row/column: Row Blaster / Column Blaster
+  - 5-in-a-T/L shape: Snack Bomb (clears 3x3 area)
+  - 5-in-a-line: Rainbow Snack (clears all snacks of a selected color)
+- **Varied Level Goals**: Target score, specific snack collection, obstacle clearing, and special combo creation within move limits.
 
+### 📱 Universal Device & Layout Sizing
+- **Dynamic Sizing System (`LayoutMetrics.swift`)**: Seamless layout adaptation for all iPhone models (5.5" to 6.9") and all iPad models (Mini, Air, 11", 13" iPad Pro).
+- **Aspect Ratio Sizing**: SpriteKit board dynamically scales to fill available screen height while preserving safe-area margins for HUD pills and booster toolbars.
+
+### 💰 Monetization & Social Features
+- **In-App Purchases (`StoreManager.swift`)**: StoreKit 2 integration for purchasing star coin packs and Permanent Ad Removal (`com.snackswap.adventure.removeads`).
+- **Google AdMob Integration (`AdConfig.swift`, `RewardedAdService.swift`)**:
+  - Banner Ads, Interstitial Ads between levels, and Rewarded Video Ads for free extra moves & boosters.
+  - Test Ad IDs pre-configured for safe development.
+- **Game Center Leaderboards (`GameCenterManager.swift`)**: Real-time high-score submission and leaderboard browsing.
+- **iCloud Sync (`iCloudSyncManager.swift`)**: Automatic cloud persistence for level progress, star balances, and unlocked boosters across iOS & iPadOS devices.
+- **Daily Rewards System (`DailyRewardsManager.swift`)**: 7-day streak rewards with dynamic star bonuses.
+
+### 🌐 Backend API (Vercel + Next.js)
+- **Live Production Endpoint**: `https://backend-deploy-sepia.vercel.app`
+- **Endpoints**:
+  - `GET /api/health` — Health check
+  - `GET /api/leaderboard?sort=&limit=` — Fetch top global rankings
+  - `POST /api/scores` — Submit level score
+  - `GET/POST /api/players` — Manage player profiles
+  - `GET /api/stats/global` — Global gameplay statistics
+- **Durable Storage**: Upstash Redis integration with automatic `/tmp` fallback for zero-downtime execution.
+
+---
+
+## 📂 Project Architecture
+
+```
+snack-swap-adventure/
+├── SnackSwapAdventure/           # Main iOS Application Project
+│   ├── SnackSwapAdventure/
+│   │   ├── App/                  # App Entry, Theme tokens, Content View
+│   │   ├── Models/               # LevelConfig, GameState, PlayerProfile, MetaProgress, SnackType
+│   │   ├── Scenes/               # GameScene (SpriteKit physics, grid rendering, cascades)
+│   │   ├── Views/                # SwiftUI UI System, GameHUD, BoosterBar, WorldMap, StoreView
+│   │   ├── Managers/             # StoreManager, GameCenterManager, iCloudSyncManager, SoundManager
+│   │   ├── Services/             # AdConfig, RewardedAdService, VoiceAnnouncer
+│   │   └── Helpers/              # LayoutMetrics (Responsive iPad & iPhone layout engine)
+├── AppStore_Screenshots/         # App Store Showcase Screenshots (6.9", 6.5", 5.5" iPhone, 13" iPad)
+├── IAP_Review_Screenshots/       # Apple IAP Review Compliant Screenshots (24-bit RGB non-alpha)
+├── AGENTS_GUIDE.md               # Complete AI Agent & Developer Cloning Instruction Guide
+├── backend-deploy/               # Vercel Production API Deployment
+└── README.md
+```
+
+---
+
+## 🛠️ Build & Run Instructions
+
+### Prerequisites
+- macOS Sonoma or later
+- Xcode 15+ with iOS 17+ SDK installed
+- CocoaPods / Swift Package Manager (Google Mobile Ads & Google UMP SPM packages included)
+
+### Running on Simulator
 ```bash
 open SnackSwapAdventure/SnackSwapAdventure.xcodeproj
 ```
 
-Or:
-
+Or via Command Line:
 ```bash
 cd SnackSwapAdventure
 xcodebuild -scheme SnackSwapAdventure \
   -destination 'platform=iOS Simulator,name=iPhone 16' build
 ```
 
-## Backend
+---
 
-### Deploy (CLI)
+## 📸 App Store Screenshots & Assets
 
-```bash
-cd backend-deploy
-./deploy.sh
-# or:
-npx vercel@latest --prod --yes --scope omeryounus-projects
-```
+Automated screenshot generator script generates exact pixel-dimension showcase sets:
+- **6.9" iPhone 16 Pro Max**: 1320 × 2868 px
+- **6.5" iPhone 15 Pro Max**: 1290 × 2796 px
+- **5.5" iPhone 8 Plus**: 1242 × 2208 px
+- **13" iPad Pro**: 2048 × 2732 px
+- **In-App Purchase Review**: 1260 × 2736 px (24-bit RGB non-alpha format)
 
-### Optional Redis durability
+---
 
-Set on the Vercel project:
+## 🤖 Replicating / Cloning This App
+
+For building new match-3 games or cloning this architecture, follow the
+complete step-by-step instructions in [AGENTS_GUIDE.md](AGENTS_GUIDE.md).
 
 - `UPSTASH_REDIS_REST_URL`
 - `UPSTASH_REDIS_REST_TOKEN`
