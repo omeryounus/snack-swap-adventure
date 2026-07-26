@@ -94,21 +94,18 @@ jobs:
 
       - name: Build & Archive App
         run: |
-          ARCHIVE_SIGNING_FLAGS="CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="
-          if security list-keychains | grep -q "app-signing.keychain-db"; then
-            echo "Using installed keychain certificate for archiving."
-            ARCHIVE_SIGNING_FLAGS=""
-          fi
-
           xcodebuild -project SnackSwapAdventure/SnackSwapAdventure.xcodeproj \
             -scheme SnackSwapAdventure \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath ./build/SnackSwapAdventure.xcarchive \
             DEVELOPMENT_TEAM=Z2RB57KVQ5 \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_STYLE=Manual \
             ENABLE_PREVIEWS=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            $ARCHIVE_SIGNING_FLAGS \
             archive
 
       - name: Export IPA & Upload to App Store / TestFlight
