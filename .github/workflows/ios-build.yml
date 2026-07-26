@@ -81,15 +81,21 @@ jobs:
 
       - name: Setup App Store Connect API Key (if provided)
         env:
-          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APPSTORE_API_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_KEY_BASE64 || secrets.APPSTORE_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_KEY || secrets.APPSTORE_API_KEY }}
+          RAW_KEY_SECRET: ${{ secrets.APPSTORE_API_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_KEY_BASE64 || secrets.APPSTORE_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_KEY || secrets.APPSTORE_API_KEY }}
           KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID || secrets.APP_STORE_CONNECT_KEY_ID || secrets.APPSTORE_KEY_ID || secrets.APPLE_KEY_ID }}
         run: |
-          if [ -n "$APP_STORE_CONNECT_API_KEY_BASE64" ] && [ -n "$KEY_ID" ]; then
+          if [ -n "$RAW_KEY_SECRET" ] && [ -n "$KEY_ID" ]; then
             echo "Setting up App Store Connect API Key for Key ID: $KEY_ID..."
             mkdir -p ~/.private_keys
-            echo "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode > ~/.private_keys/AuthKey_${KEY_ID}.p8
-            chmod 600 ~/.private_keys/AuthKey_${KEY_ID}.p8
-            echo "API Key AuthKey_${KEY_ID}.p8 prepared."
+            KEY_FILE=~/.private_keys/AuthKey_${KEY_ID}.p8
+
+            if echo "$RAW_KEY_SECRET" | grep -q "BEGIN PRIVATE KEY"; then
+              echo "$RAW_KEY_SECRET" > "$KEY_FILE"
+            else
+              echo "$RAW_KEY_SECRET" | base64 --decode > "$KEY_FILE"
+            fi
+            chmod 600 "$KEY_FILE"
+            echo "API Key AuthKey_${KEY_ID}.p8 created successfully."
           fi
 
       - name: Build & Archive App
@@ -108,15 +114,14 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO \
             archive
 
-      - name: Export IPA & Upload to App Store / TestFlight
-        if: github.event_name != 'pull_request'
+      - name: Export IPA Package
         env:
           KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID || secrets.APP_STORE_CONNECT_KEY_ID || secrets.APPSTORE_KEY_ID || secrets.APPLE_KEY_ID }}
           ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID || secrets.APP_STORE_CONNECT_ISSUER_ID || secrets.APPSTORE_ISSUER_ID || secrets.APPLE_ISSUER_ID }}
         run: |
           AUTH_FLAGS=""
           if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -f "$HOME/.private_keys/AuthKey_${KEY_ID}.p8" ]; then
-            echo "Using App Store Connect API Key ($KEY_ID) for Export & Upload."
+            echo "Using App Store Connect API Key ($KEY_ID) for export."
             AUTH_FLAGS="-allowProvisioningUpdates -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID -authenticationKeyPath $HOME/.private_keys/AuthKey_${KEY_ID}.p8"
           else
             AUTH_FLAGS="-allowProvisioningUpdates"
@@ -130,6 +135,25 @@ jobs:
             ENABLE_PREVIEWS=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
             $AUTH_FLAGS
+
+      - name: Upload IPA to TestFlight / App Store Connect
+        if: github.event_name != 'pull_request'
+        env:
+          KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID || secrets.APP_STORE_CONNECT_KEY_ID || secrets.APPSTORE_KEY_ID || secrets.APPLE_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID || secrets.APP_STORE_CONNECT_ISSUER_ID || secrets.APPSTORE_ISSUER_ID || secrets.APPLE_ISSUER_ID }}
+        run: |
+          IPA_PATH=$(find ./build/output -name "*.ipa" | head -n 1)
+          if [ -f "$IPA_PATH" ] && [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -f "$HOME/.private_keys/AuthKey_${KEY_ID}.p8" ]; then
+            echo "Uploading $IPA_PATH to TestFlight via altool..."
+            xcrun altool --upload-app \
+              -f "$IPA_PATH" \
+              --type ios \
+              --apiKey "$KEY_ID" \
+              --apiIssuer "$ISSUER_ID"
+            echo "App uploaded to TestFlight successfully!"
+          else
+            echo "IPA or API Key not found. Skipping altool direct upload."
+          fi
 
       - name: Upload Build Artifacts to GitHub
         if: always()
