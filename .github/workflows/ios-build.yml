@@ -49,7 +49,7 @@ jobs:
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 || secrets.P12_BASE64 || secrets.IOS_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD || secrets.BUILD_CERTIFICATE_PASSWORD }}
-          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 || secrets.PROVISION_PROFILE_BASE64 || secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 || secrets.PROVISION_PROFILE_BASE64 || secrets.IOS_PROVISION_PROFILE_BASE64 || secrets.PROVISIONING_PROFILE_BASE64 || secrets.PROVISION_PROFILE }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD || 'github-action-keychain-pass' }}
         run: |
           if [ -n "$BUILD_CERTIFICATE_BASE64" ]; then
@@ -119,22 +119,63 @@ jobs:
           KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID || secrets.APP_STORE_CONNECT_KEY_ID || secrets.APPSTORE_KEY_ID || secrets.APPLE_KEY_ID }}
           ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID || secrets.APP_STORE_CONNECT_ISSUER_ID || secrets.APPSTORE_ISSUER_ID || secrets.APPLE_ISSUER_ID }}
         run: |
-          AUTH_FLAGS=""
-          if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -f "$HOME/.private_keys/AuthKey_${KEY_ID}.p8" ]; then
-            echo "Using App Store Connect API Key ($KEY_ID) for export."
-            AUTH_FLAGS="-allowProvisioningUpdates -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID -authenticationKeyPath $HOME/.private_keys/AuthKey_${KEY_ID}.p8"
-          else
-            AUTH_FLAGS="-allowProvisioningUpdates"
-          fi
+          PP_FILE=$(find "$HOME/Library/MobileDevice/Provisioning Profiles" -name "*.mobileprovision" 2>/dev/null | head -n 1)
 
-          xcodebuild -exportArchive \
-            -archivePath ./build/SnackSwapAdventure.xcarchive \
-            -exportOptionsPlist SnackSwapAdventure/ExportOptions-AppStoreConnect.plist \
-            -exportPath ./build/output \
-            DEVELOPMENT_TEAM=Z2RB57KVQ5 \
-            ENABLE_PREVIEWS=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            $AUTH_FLAGS
+          if [ -n "$PP_FILE" ]; then
+            PROFILE_UUID=$(security cms -D -i "$PP_FILE" | grep -A1 "<key>UUID</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//')
+            echo "Building manual ExportOptions with installed profile UUID: $PROFILE_UUID"
+
+            cat <<EOF > ./ExportOptions-Dynamic.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+          	<key>destination</key>
+          	<string>export</string>
+          	<key>method</key>
+          	<string>app-store</string>
+          	<key>signingStyle</key>
+          	<string>manual</string>
+          	<key>teamID</key>
+          	<string>Z2RB57KVQ5</string>
+          	<key>provisioningProfiles</key>
+          	<dict>
+          		<key>com.snackswap.adventure</key>
+          		<string>$PROFILE_UUID</string>
+          	</dict>
+          	<key>stripSwiftSymbols</key>
+          	<true/>
+          	<key>uploadSymbols</key>
+          	<true/>
+          </dict>
+          </plist>
+          EOF
+
+            xcodebuild -exportArchive \
+              -archivePath ./build/SnackSwapAdventure.xcarchive \
+              -exportOptionsPlist ./ExportOptions-Dynamic.plist \
+              -exportPath ./build/output \
+              DEVELOPMENT_TEAM=Z2RB57KVQ5 \
+              ENABLE_PREVIEWS=NO \
+              COMPILER_INDEX_STORE_ENABLE=NO
+          else
+            echo "No local provisioning profile found. Exporting using App Store Connect API Key automatic signing."
+            AUTH_FLAGS=""
+            if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -f "$HOME/.private_keys/AuthKey_${KEY_ID}.p8" ]; then
+              AUTH_FLAGS="-allowProvisioningUpdates -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID -authenticationKeyPath $HOME/.private_keys/AuthKey_${KEY_ID}.p8"
+            else
+              AUTH_FLAGS="-allowProvisioningUpdates"
+            fi
+
+            xcodebuild -exportArchive \
+              -archivePath ./build/SnackSwapAdventure.xcarchive \
+              -exportOptionsPlist SnackSwapAdventure/ExportOptions-AppStoreConnect.plist \
+              -exportPath ./build/output \
+              DEVELOPMENT_TEAM=Z2RB57KVQ5 \
+              ENABLE_PREVIEWS=NO \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              $AUTH_FLAGS
+          fi
 
       - name: Upload IPA to TestFlight / App Store Connect
         if: github.event_name != 'pull_request'
