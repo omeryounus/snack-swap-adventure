@@ -151,12 +151,10 @@ final class GameScene: SKScene {
     // MARK: - Visual setup
 
     private func drawStageBackdrop() {
-        // Tinted per level, but kept translucent so the SwiftUI world plate
-        // behind the SpriteView still reads through.
-        let levelTheme = LevelTheme.forLevel(gameState?.level.levelNumber ?? 1)
-
+        // Fully transparent: the per-level palette is painted by the SwiftUI
+        // GameplayBackgroundView sitting behind the SpriteView.
         let backdrop = SKShapeNode(rect: CGRect(origin: .zero, size: size))
-        backdrop.fillColor = levelTheme.backdropColor.withAlphaComponent(0.18)
+        backdrop.fillColor = .clear
         backdrop.strokeColor = .clear
         backdrop.zPosition = -20
         addChild(backdrop)

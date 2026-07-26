@@ -1,6 +1,12 @@
 import SwiftUI
 import SpriteKit
 
+extension SKColor {
+    convenience init(hex: String) {
+        self.init(Color(hex: hex))
+    }
+}
+
 enum LevelGoal: Equatable, Codable {
     case score(Int)
     case collect(SnackType, count: Int)
@@ -32,7 +38,6 @@ struct LevelTheme: Equatable {
     let bgColors: [Color]
     let boardFill: SKColor
     let boardStroke: SKColor
-    let backdropColor: SKColor
     let plateAsset: String
 
     static func forLevel(_ level: Int) -> LevelTheme {
@@ -41,176 +46,272 @@ struct LevelTheme: Equatable {
         case 1:
             return LevelTheme(
                 name: "Warm Cookie Bakery",
-                snacks: [.cookie, .donut, .candy, .popcorn],
-                bgColors: [Color(hex: "2A140E"), Color(hex: "4D2415"), Color(hex: "120805")],
-                boardFill: SKColor(red: 0.28, green: 0.16, blue: 0.12, alpha: 1.0),
-                boardStroke: SKColor(red: 0.95, green: 0.65, blue: 0.35, alpha: 1.0),
-                backdropColor: SKColor(red: 0.16, green: 0.08, blue: 0.06, alpha: 1.0),
+                snacks: [.cookie, .donut, .popcorn],
+                bgColors: [Color(hex: "663311"), Color(hex: "D97724"), Color(hex: "261004")],
+                boardFill: SKColor(red: 0.28, green: 0.14, blue: 0.08, alpha: 0.92),
+                boardStroke: SKColor(Color(hex: "FF9E44")),
                 plateAsset: "bg_gameplay_cookie"
             )
         case 2:
             return LevelTheme(
                 name: "Donut Dreamland",
-                snacks: [.donut, .lollipop, .cupcake, .candy],
-                bgColors: [Color(hex: "341126"), Color(hex: "5E1A42"), Color(hex: "14060F")],
-                boardFill: SKColor(red: 0.30, green: 0.14, blue: 0.25, alpha: 1.0),
-                boardStroke: SKColor(red: 1.00, green: 0.50, blue: 0.75, alpha: 1.0),
-                backdropColor: SKColor(red: 0.18, green: 0.07, blue: 0.15, alpha: 1.0),
+                snacks: [.donut, .lollipop, .cupcake],
+                bgColors: [Color(hex: "6B1348"), Color(hex: "F04D9E"), Color(hex: "29051B")],
+                boardFill: SKColor(red: 0.32, green: 0.10, blue: 0.24, alpha: 0.92),
+                boardStroke: SKColor(hex: "FF73BE"),
                 plateAsset: "bg_gameplay_cookie"
             )
         case 3:
             return LevelTheme(
                 name: "Cinema Popcorn Party",
-                snacks: [.popcorn, .cookie, .cupcake, .lollipop],
-                bgColors: [Color(hex: "2E2007"), Color(hex: "573B0C"), Color(hex: "120C03")],
-                boardFill: SKColor(red: 0.28, green: 0.20, blue: 0.08, alpha: 1.0),
-                boardStroke: SKColor(red: 1.00, green: 0.85, blue: 0.30, alpha: 1.0),
-                backdropColor: SKColor(red: 0.16, green: 0.11, blue: 0.04, alpha: 1.0),
+                snacks: [.popcorn, .candy, .cookie],
+                bgColors: [Color(hex: "735606"), Color(hex: "F5C724"), Color(hex: "291D02")],
+                boardFill: SKColor(red: 0.32, green: 0.24, blue: 0.06, alpha: 0.92),
+                boardStroke: SKColor(hex: "FFE066"),
                 plateAsset: "bg_gameplay_popcorn"
             )
         case 4:
             return LevelTheme(
-                name: "Neon Candy Festival",
-                snacks: [.candy, .lollipop, .donut, .popcorn],
-                bgColors: [Color(hex: "0D2638"), Color(hex: "164866"), Color(hex: "050F17")],
-                boardFill: SKColor(red: 0.10, green: 0.22, blue: 0.32, alpha: 1.0),
-                boardStroke: SKColor(red: 0.35, green: 0.85, blue: 1.00, alpha: 1.0),
-                backdropColor: SKColor(red: 0.05, green: 0.12, blue: 0.18, alpha: 1.0),
+                name: "Ocean Candy Breeze",
+                snacks: [.candy, .cupcake, .lollipop],
+                bgColors: [Color(hex: "0F446B"), Color(hex: "29A6FF"), Color(hex: "041A2B")],
+                boardFill: SKColor(red: 0.08, green: 0.22, blue: 0.35, alpha: 0.92),
+                boardStroke: SKColor(hex: "66C2FF"),
                 plateAsset: "bg_gameplay_candy"
             )
         case 5:
             return LevelTheme(
-                name: "Cupcake Creamery",
-                snacks: [.cupcake, .cookie, .candy, .lollipop],
-                bgColors: [Color(hex: "0C2B1F"), Color(hex: "18543D"), Color(hex: "04120D")],
-                boardFill: SKColor(red: 0.10, green: 0.26, blue: 0.18, alpha: 1.0),
-                boardStroke: SKColor(red: 0.40, green: 0.92, blue: 0.60, alpha: 1.0),
-                backdropColor: SKColor(red: 0.05, green: 0.15, blue: 0.10, alpha: 1.0),
+                name: "Emerald Mint Creamery",
+                snacks: [.cupcake, .cookie, .donut],
+                bgColors: [Color(hex: "095730"), Color(hex: "2BE88A"), Color(hex: "032413")],
+                boardFill: SKColor(red: 0.06, green: 0.28, blue: 0.18, alpha: 0.92),
+                boardStroke: SKColor(hex: "66FFB3"),
                 plateAsset: "bg_gameplay_cookie"
             )
         case 6:
             return LevelTheme(
-                name: "Lollipop Lagoon",
-                snacks: [.lollipop, .donut, .cookie, .candy, .cupcake],
-                bgColors: [Color(hex: "291038"), Color(hex: "521B6E"), Color(hex: "100517")],
-                boardFill: SKColor(red: 0.24, green: 0.12, blue: 0.32, alpha: 1.0),
-                boardStroke: SKColor(red: 0.78, green: 0.45, blue: 0.98, alpha: 1.0),
-                backdropColor: SKColor(red: 0.14, green: 0.06, blue: 0.18, alpha: 1.0),
+                name: "Electric Purple Lagoon",
+                snacks: [.lollipop, .donut, .popcorn],
+                bgColors: [Color(hex: "4C0F6E"), Color(hex: "BA3BFF"), Color(hex: "1B042B")],
+                boardFill: SKColor(red: 0.24, green: 0.08, blue: 0.36, alpha: 0.92),
+                boardStroke: SKColor(hex: "D880FF"),
                 plateAsset: "bg_gameplay_candy"
             )
         case 7:
             return LevelTheme(
                 name: "Choco Caramel Crunch",
-                snacks: [.cookie, .popcorn, .candy, .cupcake, .donut],
-                bgColors: [Color(hex: "301B0E"), Color(hex: "5A3118"), Color(hex: "120904")],
-                boardFill: SKColor(red: 0.30, green: 0.18, blue: 0.10, alpha: 1.0),
-                boardStroke: SKColor(red: 0.92, green: 0.58, blue: 0.28, alpha: 1.0),
-                backdropColor: SKColor(red: 0.16, green: 0.09, blue: 0.05, alpha: 1.0),
+                snacks: [.cookie, .candy, .cupcake, .popcorn],
+                bgColors: [Color(hex: "612B05"), Color(hex: "FF7014"), Color(hex: "240D01")],
+                boardFill: SKColor(red: 0.32, green: 0.16, blue: 0.06, alpha: 0.92),
+                boardStroke: SKColor(hex: "FFA057"),
                 plateAsset: "bg_gameplay_cookie"
             )
         case 8:
             return LevelTheme(
                 name: "Berry Blast Oasis",
-                snacks: [.donut, .lollipop, .candy, .cookie, .cupcake],
-                bgColors: [Color(hex: "3B0F25"), Color(hex: "6A1741"), Color(hex: "15050C")],
-                boardFill: SKColor(red: 0.32, green: 0.10, blue: 0.22, alpha: 1.0),
-                boardStroke: SKColor(red: 1.00, green: 0.40, blue: 0.65, alpha: 1.0),
-                backdropColor: SKColor(red: 0.18, green: 0.05, blue: 0.12, alpha: 1.0),
+                snacks: [.donut, .lollipop, .candy, .cookie],
+                bgColors: [Color(hex: "700B20"), Color(hex: "FF2E5B"), Color(hex: "290209")],
+                boardFill: SKColor(red: 0.36, green: 0.06, blue: 0.14, alpha: 0.92),
+                boardStroke: SKColor(hex: "FF708F"),
                 plateAsset: "bg_gameplay_candy"
             )
         case 9:
             return LevelTheme(
                 name: "Golden Honeycomb",
-                snacks: [.popcorn, .cupcake, .cookie, .lollipop, .candy],
-                bgColors: [Color(hex: "362608"), Color(hex: "66470C"), Color(hex: "150E03")],
-                boardFill: SKColor(red: 0.32, green: 0.22, blue: 0.08, alpha: 1.0),
-                boardStroke: SKColor(red: 1.00, green: 0.88, blue: 0.35, alpha: 1.0),
-                backdropColor: SKColor(red: 0.18, green: 0.12, blue: 0.04, alpha: 1.0),
+                snacks: [.popcorn, .cupcake, .cookie, .lollipop],
+                bgColors: [Color(hex: "466105"), Color(hex: "A0E82B"), Color(hex: "172401")],
+                boardFill: SKColor(red: 0.24, green: 0.32, blue: 0.06, alpha: 0.92),
+                boardStroke: SKColor(hex: "C4FF57"),
                 plateAsset: "bg_gameplay_popcorn"
             )
         case 10:
             return LevelTheme(
-                name: "Bakery Grand Carnival",
-                snacks: [.cookie, .donut, .candy, .popcorn, .lollipop, .cupcake],
-                bgColors: [Color(hex: "2B1238"), Color(hex: "56206B"), Color(hex: "100617")],
-                boardFill: SKColor(red: 0.26, green: 0.14, blue: 0.34, alpha: 1.0),
-                boardStroke: SKColor(red: 1.00, green: 0.70, blue: 0.30, alpha: 1.0),
-                backdropColor: SKColor(red: 0.15, green: 0.07, blue: 0.20, alpha: 1.0),
+                name: "Carnival Grand Fiesta",
+                snacks: [.cookie, .donut, .candy, .popcorn, .lollipop],
+                bgColors: [Color(hex: "310E63"), Color(hex: "8C47FF"), Color(hex: "110229")],
+                boardFill: SKColor(red: 0.20, green: 0.08, blue: 0.38, alpha: 0.92),
+                boardStroke: SKColor(hex: "B880FF"),
                 plateAsset: "bg_gameplay_cookie"
             )
-        case 11...20:
-            let sub = n - 10
-            let names = ["Crispy Popcorn Sunrise", "Butterscotch Breeze", "Popcorn Twilight", "Caramel Mountain", "Popcorn Starlight", "Honey Meadow", "Golden Kernel Valley", "Velvet Popcorn Night", "Popcorn Galaxy", "Popcorn Kingdom Peak"]
-            let snackPacks: [[SnackType]] = [
-                [.popcorn, .cookie, .candy, .lollipop, .cupcake],
-                [.popcorn, .donut, .cupcake, .cookie, .candy],
-                [.popcorn, .lollipop, .donut, .candy, .cookie],
-                [.popcorn, .cookie, .donut, .cupcake, .lollipop],
-                [.popcorn, .candy, .cookie, .lollipop, .cupcake],
-                [.popcorn, .donut, .candy, .cookie, .lollipop],
-                [.popcorn, .cupcake, .donut, .lollipop, .candy],
-                [.popcorn, .cookie, .lollipop, .candy, .donut],
-                [.popcorn, .donut, .cookie, .candy, .cupcake],
-                [.popcorn, .cookie, .donut, .candy, .lollipop, .cupcake]
-            ]
-            let bgSets: [[Color]] = [
-                [Color(hex: "342008"), Color(hex: "613C0E"), Color(hex: "140B03")],
-                [Color(hex: "2B1C0B"), Color(hex: "523514"), Color(hex: "100903")],
-                [Color(hex: "201830"), Color(hex: "3F2E5C"), Color(hex: "0A0712")],
-                [Color(hex: "331D0A"), Color(hex: "5C3312"), Color(hex: "120A03")],
-                [Color(hex: "182436"), Color(hex: "2D4566"), Color(hex: "080D14")],
-                [Color(hex: "2E240A"), Color(hex: "544212"), Color(hex: "100B03")],
-                [Color(hex: "38220A"), Color(hex: "633C12"), Color(hex: "150C03")],
-                [Color(hex: "24122C"), Color(hex: "482057"), Color(hex: "0D0512")],
-                [Color(hex: "1A1838"), Color(hex: "322E69"), Color(hex: "080714")],
-                [Color(hex: "3A2808"), Color(hex: "6B4A0E"), Color(hex: "160E03")]
-            ]
-            let idx = sub - 1
+        case 11:
             return LevelTheme(
-                name: names[idx],
-                snacks: snackPacks[idx],
-                bgColors: bgSets[idx],
-                boardFill: SKColor(red: 0.28, green: 0.20, blue: 0.10, alpha: 1.0),
-                boardStroke: SKColor(red: 1.00, green: 0.80, blue: 0.35, alpha: 1.0),
-                backdropColor: SKColor(red: 0.16, green: 0.10, blue: 0.05, alpha: 1.0),
+                name: "Coral Sunrise",
+                snacks: [.popcorn, .cookie, .cupcake],
+                bgColors: [Color(hex: "75280F"), Color(hex: "FF6238"), Color(hex: "2E0A02")],
+                boardFill: SKColor(red: 0.38, green: 0.14, blue: 0.08, alpha: 0.92),
+                boardStroke: SKColor(hex: "FF9070"),
                 plateAsset: "bg_gameplay_popcorn"
             )
-        default:
-            let sub = n - 20
-            let names = ["Candy Cotton Sunset", "Fizzy Soda Splash", "Neon Gummy Grove", "Marshmallow Meadow", "Rainbow Swirl Peak", "Sugar Crystal Cove", "Jellybean Jackpot", "Bubblegum Realm", "Sweet Tooth Symphony", "Master Snack Nirvana"]
-            let snackPacks: [[SnackType]] = [
-                [.candy, .lollipop, .donut, .cupcake, .cookie],
-                [.candy, .popcorn, .cookie, .lollipop, .donut],
-                [.candy, .cupcake, .lollipop, .donut, .popcorn],
-                [.candy, .donut, .cookie, .cupcake, .lollipop],
-                [.candy, .lollipop, .popcorn, .donut, .cupcake],
-                [.candy, .cookie, .donut, .popcorn, .lollipop],
-                [.candy, .cupcake, .popcorn, .cookie, .donut],
-                [.candy, .donut, .lollipop, .cookie, .cupcake],
-                [.candy, .popcorn, .cupcake, .lollipop, .donut],
-                [.cookie, .donut, .candy, .popcorn, .lollipop, .cupcake]
-            ]
-            let bgSets: [[Color]] = [
-                [Color(hex: "38102B"), Color(hex: "661C4E"), Color(hex: "15050F")],
-                [Color(hex: "0B2738"), Color(hex: "154969"), Color(hex: "040E14")],
-                [Color(hex: "0F3224"), Color(hex: "1B5940"), Color(hex: "05140C")],
-                [Color(hex: "2B1238"), Color(hex: "54206B"), Color(hex: "100616")],
-                [Color(hex: "381A10"), Color(hex: "662E1C"), Color(hex: "150A05")],
-                [Color(hex: "1A1B38"), Color(hex: "323569"), Color(hex: "080914")],
-                [Color(hex: "382A0B"), Color(hex: "694F15"), Color(hex: "140F04")],
-                [Color(hex: "381024"), Color(hex: "691B44"), Color(hex: "14050D")],
-                [Color(hex: "281038"), Color(hex: "4D1B69"), Color(hex: "0F0516")],
-                [Color(hex: "3B123B"), Color(hex: "6B1D6B"), Color(hex: "160616")]
-            ]
-            let idx = max(0, min(9, sub - 1))
+        case 12:
             return LevelTheme(
-                name: names[idx],
-                snacks: snackPacks[idx],
-                bgColors: bgSets[idx],
-                boardFill: SKColor(red: 0.24, green: 0.12, blue: 0.30, alpha: 1.0),
-                boardStroke: SKColor(red: 0.95, green: 0.50, blue: 0.90, alpha: 1.0),
-                backdropColor: SKColor(red: 0.14, green: 0.06, blue: 0.18, alpha: 1.0),
+                name: "Sky Cyan Paradise",
+                snacks: [.candy, .lollipop, .donut],
+                bgColors: [Color(hex: "095B6E"), Color(hex: "34D5F8"), Color(hex: "03242C")],
+                boardFill: SKColor(red: 0.06, green: 0.30, blue: 0.38, alpha: 0.92),
+                boardStroke: SKColor(hex: "70E6FF"),
                 plateAsset: "bg_gameplay_candy"
+            )
+        case 13:
+            return LevelTheme(
+                name: "Neon Magenta Festival",
+                snacks: [.donut, .candy, .popcorn],
+                bgColors: [Color(hex: "6E0959"), Color(hex: "FF26D4"), Color(hex: "2B0222")],
+                boardFill: SKColor(red: 0.36, green: 0.06, blue: 0.30, alpha: 0.92),
+                boardStroke: SKColor(hex: "FF70E5"),
+                plateAsset: "bg_gameplay_cookie"
+            )
+        case 14:
+            return LevelTheme(
+                name: "Tropical Lime Groove",
+                snacks: [.cupcake, .popcorn, .cookie],
+                bgColors: [Color(hex: "316E0A"), Color(hex: "75FF26"), Color(hex: "112B02")],
+                boardFill: SKColor(red: 0.18, green: 0.36, blue: 0.06, alpha: 0.92),
+                boardStroke: SKColor(hex: "A0FF66"),
+                plateAsset: "bg_gameplay_popcorn"
+            )
+        case 15:
+            return LevelTheme(
+                name: "Deep Cosmic Sapphire",
+                snacks: [.lollipop, .cupcake, .candy],
+                bgColors: [Color(hex: "0D226B"), Color(hex: "4776FF"), Color(hex: "030A2B")],
+                boardFill: SKColor(red: 0.08, green: 0.14, blue: 0.38, alpha: 0.92),
+                boardStroke: SKColor(hex: "80A3FF"),
+                plateAsset: "bg_gameplay_candy"
+            )
+        case 16:
+            return LevelTheme(
+                name: "Rose Gold Bakery",
+                snacks: [.cookie, .donut, .cupcake, .lollipop],
+                bgColors: [Color(hex: "6B2130"), Color(hex: "FF6B86"), Color(hex: "2B080F")],
+                boardFill: SKColor(red: 0.36, green: 0.12, blue: 0.18, alpha: 0.92),
+                boardStroke: SKColor(hex: "FFA6B7"),
+                plateAsset: "bg_gameplay_cookie"
+            )
+        case 17:
+            return LevelTheme(
+                name: "Sunset Amber Peak",
+                snacks: [.popcorn, .candy, .cookie, .donut],
+                bgColors: [Color(hex: "6B4408"), Color(hex: "FFAC1C"), Color(hex: "2B1902")],
+                boardFill: SKColor(red: 0.36, green: 0.24, blue: 0.06, alpha: 0.92),
+                boardStroke: SKColor(hex: "FFC966"),
+                plateAsset: "bg_gameplay_popcorn"
+            )
+        case 18:
+            return LevelTheme(
+                name: "Lavender Moonlight",
+                snacks: [.lollipop, .cupcake, .candy, .popcorn],
+                bgColors: [Color(hex: "41266B"), Color(hex: "9B6BFF"), Color(hex: "160B2B")],
+                boardFill: SKColor(red: 0.22, green: 0.14, blue: 0.38, alpha: 0.92),
+                boardStroke: SKColor(hex: "C2A3FF"),
+                plateAsset: "bg_gameplay_candy"
+            )
+        case 19:
+            return LevelTheme(
+                name: "Turquoise Ocean Splash",
+                snacks: [.candy, .donut, .cookie, .lollipop],
+                bgColors: [Color(hex: "0A6B5F"), Color(hex: "26FFE6"), Color(hex: "022B26")],
+                boardFill: SKColor(red: 0.06, green: 0.36, blue: 0.32, alpha: 0.92),
+                boardStroke: SKColor(hex: "70FFF0"),
+                plateAsset: "bg_gameplay_candy"
+            )
+        case 20:
+            return LevelTheme(
+                name: "Strawberry Shortcake",
+                snacks: [.cupcake, .cookie, .donut, .candy],
+                bgColors: [Color(hex: "750F36"), Color(hex: "FF3B7B"), Color(hex: "2E0212")],
+                boardFill: SKColor(red: 0.38, green: 0.08, blue: 0.20, alpha: 0.92),
+                boardStroke: SKColor(hex: "FF85AB"),
+                plateAsset: "bg_gameplay_cookie"
+            )
+        case 21:
+            return LevelTheme(
+                name: "Fiery Vulcan Sugar",
+                snacks: [.candy, .popcorn, .cookie, .lollipop, .cupcake],
+                bgColors: [Color(hex: "7A1B0D"), Color(hex: "FF4526"), Color(hex: "300803")],
+                boardFill: SKColor(red: 0.40, green: 0.10, blue: 0.06, alpha: 0.92),
+                boardStroke: SKColor(hex: "FF8370"),
+                plateAsset: "bg_gameplay_candy"
+            )
+        case 22:
+            return LevelTheme(
+                name: "Glacier Ice Candy",
+                snacks: [.lollipop, .candy, .donut, .cupcake, .popcorn],
+                bgColors: [Color(hex: "0F6078"), Color(hex: "47EAFF"), Color(hex: "03242E")],
+                boardFill: SKColor(red: 0.08, green: 0.32, blue: 0.40, alpha: 0.92),
+                boardStroke: SKColor(hex: "8CFAFF"),
+                plateAsset: "bg_gameplay_candy"
+            )
+        case 23:
+            return LevelTheme(
+                name: "Mystic Velvet Forest",
+                snacks: [.cupcake, .cookie, .popcorn, .donut, .candy],
+                bgColors: [Color(hex: "135E2A"), Color(hex: "3DF775"), Color(hex: "04260D")],
+                boardFill: SKColor(red: 0.08, green: 0.32, blue: 0.16, alpha: 0.92),
+                boardStroke: SKColor(hex: "85FFAC"),
+                plateAsset: "bg_gameplay_cookie"
+            )
+        case 24:
+            return LevelTheme(
+                name: "Solar Flare Caramel",
+                snacks: [.cookie, .popcorn, .lollipop, .candy, .donut],
+                bgColors: [Color(hex: "7A550D"), Color(hex: "FFBC26"), Color(hex: "302003")],
+                boardFill: SKColor(red: 0.40, green: 0.28, blue: 0.06, alpha: 0.92),
+                boardStroke: SKColor(hex: "FFD570"),
+                plateAsset: "bg_gameplay_popcorn"
+            )
+        case 25:
+            return LevelTheme(
+                name: "Crystal Quartz Cove",
+                snacks: [.donut, .cupcake, .lollipop, .cookie, .popcorn],
+                bgColors: [Color(hex: "471B78"), Color(hex: "AE47FF"), Color(hex: "1B0630")],
+                boardFill: SKColor(red: 0.26, green: 0.10, blue: 0.40, alpha: 0.92),
+                boardStroke: SKColor(hex: "D18CFF"),
+                plateAsset: "bg_gameplay_candy"
+            )
+        case 26:
+            return LevelTheme(
+                name: "Neon Cyber Gummy",
+                snacks: [.candy, .lollipop, .donut, .popcorn, .cookie],
+                bgColors: [Color(hex: "0D6E66"), Color(hex: "26FFAE"), Color(hex: "032B27")],
+                boardFill: SKColor(red: 0.06, green: 0.36, blue: 0.34, alpha: 0.92),
+                boardStroke: SKColor(hex: "70FFCE"),
+                plateAsset: "bg_gameplay_candy"
+            )
+        case 27:
+            return LevelTheme(
+                name: "Midnight Galaxy Crunch",
+                snacks: [.popcorn, .cookie, .cupcake, .candy, .lollipop],
+                bgColors: [Color(hex: "181152"), Color(hex: "5947FF"), Color(hex: "080424")],
+                boardFill: SKColor(red: 0.10, green: 0.08, blue: 0.32, alpha: 0.92),
+                boardStroke: SKColor(hex: "968CFF"),
+                plateAsset: "bg_gameplay_popcorn"
+            )
+        case 28:
+            return LevelTheme(
+                name: "Sweet Blossom Meadow",
+                snacks: [.cupcake, .donut, .cookie, .lollipop, .candy],
+                bgColors: [Color(hex: "781B55"), Color(hex: "FF47B5"), Color(hex: "300620")],
+                boardFill: SKColor(red: 0.40, green: 0.10, blue: 0.28, alpha: 0.92),
+                boardStroke: SKColor(hex: "FF8CE0"),
+                plateAsset: "bg_gameplay_cookie"
+            )
+        case 29:
+            return LevelTheme(
+                name: "Supernova Candy Blast",
+                snacks: [.lollipop, .candy, .popcorn, .cupcake, .donut],
+                bgColors: [Color(hex: "78440B"), Color(hex: "FF9D26"), Color(hex: "301A03")],
+                boardFill: SKColor(red: 0.40, green: 0.24, blue: 0.06, alpha: 0.92),
+                boardStroke: SKColor(hex: "FFC270"),
+                plateAsset: "bg_gameplay_candy"
+            )
+        default:
+            return LevelTheme(
+                name: "Ultimate Master Snack Nirvana",
+                snacks: [.cookie, .donut, .candy, .popcorn, .lollipop, .cupcake],
+                bgColors: [Color(hex: "521152"), Color(hex: "FF3DF7"), Color(hex: "240424")],
+                boardFill: SKColor(red: 0.30, green: 0.08, blue: 0.30, alpha: 0.92),
+                boardStroke: SKColor(hex: "FF8CFA"),
+                plateAsset: "bg_gameplay_cookie"
             )
         }
     }

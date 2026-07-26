@@ -38,7 +38,12 @@ struct GameHUD: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
                 pauseButton
-                statChip(title: "LVL", value: "\(gameState.level.levelNumber)", accent: .white)
+                statChip(
+                    title: gameState.level.themeName.uppercased(),
+                    value: "\(gameState.level.levelNumber)",
+                    accent: .white,
+                    titleMaxWidth: 92
+                )
                 Spacer(minLength: 4)
                 statChip(title: "⭐", value: "\(profile.stars)", accent: Theme.accentGold)
                 timerChip
@@ -66,7 +71,12 @@ struct GameHUD: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 pauseButton
-                statChip(title: "LVL", value: "\(gameState.level.levelNumber)", accent: .white)
+                statChip(
+                    title: gameState.level.themeName.uppercased(),
+                    value: "\(gameState.level.levelNumber)",
+                    accent: .white,
+                    titleMaxWidth: 92
+                )
                 Spacer(minLength: 0)
                 statChip(title: "⭐", value: "\(profile.stars)", accent: Theme.accentGold)
             }
@@ -117,11 +127,21 @@ struct GameHUD: View {
         .accessibilityLabel("Pause")
     }
 
-    private func statChip(title: String, value: String, accent: Color) -> some View {
+    /// `titleMaxWidth` caps long level-theme names so the chip can never push
+    /// the rest of the row out of the HUD card.
+    private func statChip(
+        title: String,
+        value: String,
+        accent: Color,
+        titleMaxWidth: CGFloat? = nil
+    ) -> some View {
         VStack(spacing: 1) {
             Text(title)
                 .font(.system(size: 9, weight: .bold, design: .rounded))
                 .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: titleMaxWidth)
             Text(value)
                 .font(.system(size: layout.isCompactWidth ? 13 : 15, weight: .black, design: .rounded).monospacedDigit())
                 .foregroundStyle(accent)
