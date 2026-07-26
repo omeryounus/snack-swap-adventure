@@ -70,13 +70,15 @@ jobs:
             echo "API Key AuthKey_${KEY_ID}.p8 prepared."
           fi
 
-      - name: Install Apple Certificate
+      - name: Install Apple Certificate and Provisioning Profile (if provided)
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 || secrets.P12_BASE64 || secrets.IOS_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD || secrets.BUILD_CERTIFICATE_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 || secrets.BUILD_PROVISION_PROFILE_BASE64 || secrets.IOS_PROVISION_PROFILE_BASE64 || secrets.PROVISION_PROFILE_BASE64 || secrets.PROVISIONING_PROFILE || secrets.PROVISION_PROFILE || secrets.MOBILEPROVISION_BASE64 }}
           KEYCHAIN_PASSWORD: 'temporary_keychain_password'
         run: |
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           if [ -n "$BUILD_CERTIFICATE_BASE64" ]; then
@@ -94,6 +96,22 @@ jobs:
 
             echo "=== DIAGNOSTICS: CODE SIGNING IDENTITIES ==="
             security find-identity -v -p codesigning
+          fi
+
+          if [ -n "$BUILD_PROVISION_PROFILE_BASE64" ]; then
+            echo "Installing provisioning profile..."
+            echo "$BUILD_PROVISION_PROFILE_BASE64" | tr -d '\r\n ' | base64 --decode > $PP_PATH
+            UUID=$(security cms -D -i $PP_PATH 2>/dev/null | grep -A1 "<key>UUID</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' || true)
+            PROFILE_NAME=$(security cms -D -i $PP_PATH 2>/dev/null | grep -A1 "<key>Name</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' || true)
+            
+            if [ -n "$UUID" ]; then
+              echo "Extracted Provisioning Profile Name: $PROFILE_NAME"
+              echo "Extracted Provisioning Profile UUID: $UUID"
+              mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+              cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+              echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
+              echo "PROFILE_UUID=$UUID" >> $GITHUB_ENV
+            fi
           fi
 
       - name: Build & Archive App
@@ -114,15 +132,23 @@ jobs:
             AUTH_FLAGS="-allowProvisioningUpdates -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID -authenticationKeyPath $KEY_PATH"
           fi
 
+          SIGNING_FLAGS=""
+          if [ -n "${{ env.PROFILE_UUID }}" ]; then
+            echo "Using manual signing with provisioning profile UUID: ${{ env.PROFILE_UUID }}"
+            SIGNING_FLAGS="CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=\"Apple Distribution\" PROVISIONING_PROFILE_SPECIFIER=\"${{ env.PROFILE_UUID }}\""
+          else
+            SIGNING_FLAGS="CODE_SIGN_STYLE=Automatic"
+          fi
+
           xcodebuild -project SnackSwapAdventure/SnackSwapAdventure.xcodeproj \
             -scheme SnackSwapAdventure \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath ./build/SnackSwapAdventure.xcarchive \
             DEVELOPMENT_TEAM=Z2RB57KVQ5 \
-            CODE_SIGN_STYLE=Automatic \
             ENABLE_PREVIEWS=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
+            $SIGNING_FLAGS \
             $AUTH_FLAGS \
             archive
 
@@ -131,27 +157,77 @@ jobs:
           KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID || secrets.APP_STORE_CONNECT_KEY_ID || secrets.APPSTORE_KEY_ID || secrets.APPLE_KEY_ID }}
           ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID || secrets.APP_STORE_CONNECT_ISSUER_ID || secrets.APPSTORE_ISSUER_ID || secrets.APPLE_ISSUER_ID }}
         run: |
-          AUTH_FLAGS=""
-          KEY_PATH=""
-          if [ -f "$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8" ]; then
-            KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
-          elif [ -f "$HOME/.private_keys/AuthKey_${KEY_ID}.p8" ]; then
-            KEY_PATH="$HOME/.private_keys/AuthKey_${KEY_ID}.p8"
-          fi
+          if [ -n "${{ env.PROFILE_UUID }}" ]; then
+            echo "Building ExportOptions with local profile UUID: ${{ env.PROFILE_UUID }}"
+            cat <<EOF > ./ExportOptions-Dynamic.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+          	<key>destination</key>
+          	<string>export</string>
+          	<key>method</key>
+          	<string>app-store</string>
+          	<key>signingStyle</key>
+          	<string>manual</string>
+          	<key>signingCertificate</key>
+          	<string>Apple Distribution</string>
+          	<key>teamID</key>
+          	<string>Z2RB57KVQ5</string>
+          	<key>provisioningProfiles</key>
+          	<dict>
+          		<key>com.snackswap.adventure</key>
+          		<string>${{ env.PROFILE_UUID }}</string>
+          	</dict>
+          	<key>stripSwiftSymbols</key>
+          	<true/>
+          	<key>uploadSymbols</key>
+          	<true/>
+          </dict>
+          </plist>
+          EOF
 
-          if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -n "$KEY_PATH" ]; then
-            echo "Found API Key at $KEY_PATH. Using authentication flags for export."
-            AUTH_FLAGS="-allowProvisioningUpdates -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID -authenticationKeyPath $KEY_PATH"
-          fi
+            xcodebuild -exportArchive \
+              -archivePath ./build/SnackSwapAdventure.xcarchive \
+              -exportOptionsPlist ./ExportOptions-Dynamic.plist \
+              -exportPath ./build/output \
+              ENABLE_PREVIEWS=NO \
+              COMPILER_INDEX_STORE_ENABLE=NO
+          else
+            echo "Exporting using App Store Connect API Key automatic signing."
+            AUTH_FLAGS=""
+            KEY_PATH=""
+            if [ -f "$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8" ]; then
+              KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
+            elif [ -f "$HOME/.private_keys/AuthKey_${KEY_ID}.p8" ]; then
+              KEY_PATH="$HOME/.private_keys/AuthKey_${KEY_ID}.p8"
+            fi
 
-          xcodebuild -exportArchive \
-            -archivePath ./build/SnackSwapAdventure.xcarchive \
-            -exportOptionsPlist SnackSwapAdventure/ExportOptions-AppStoreConnect.plist \
-            -exportPath ./build/output \
-            DEVELOPMENT_TEAM=Z2RB57KVQ5 \
-            ENABLE_PREVIEWS=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            $AUTH_FLAGS
+            if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -n "$KEY_PATH" ]; then
+              echo "Found API Key at $KEY_PATH. Using authentication flags for export."
+              AUTH_FLAGS="-allowProvisioningUpdates -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID -authenticationKeyPath $KEY_PATH"
+            else
+              echo "Warning: API Key parameters incomplete. Falling back to basic allowProvisioningUpdates."
+              AUTH_FLAGS="-allowProvisioningUpdates"
+            fi
+
+            xcodebuild -exportArchive \
+              -archivePath ./build/SnackSwapAdventure.xcarchive \
+              -exportOptionsPlist SnackSwapAdventure/ExportOptions-AppStoreConnect.plist \
+              -exportPath ./build/output \
+              DEVELOPMENT_TEAM=Z2RB57KVQ5 \
+              ENABLE_PREVIEWS=NO \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              $AUTH_FLAGS || {
+                echo "--------------------------------------------------------"
+                echo "Export with automatic cloud signing failed."
+                echo "REASON: Apple Cloud Signing requires the Provisioning Profile secret OR Admin API Key role."
+                echo "SOLUTION: Please add your App Store Distribution Provisioning Profile (.mobileprovision)"
+                echo "          to GitHub Secrets as PROVISIONING_PROFILE_BASE64 (just like in iman-flow)."
+                echo "--------------------------------------------------------"
+                exit 1
+              }
+          fi
 
       - name: Upload to TestFlight
         if: ${{ inputs.track == 'testflight' || inputs.track == '' || github.event_name == 'push' }}
@@ -183,8 +259,9 @@ jobs:
             ./build/SnackSwapAdventure.xcarchive
           if-no-files-found: ignore
 
-      - name: Clean up keychain and API keys
+      - name: Clean up keychain and provisioning profile
         if: always()
         run: |
           security delete-keychain $RUNNER_TEMP/app-signing.keychain-db || true
+          rm -f ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision
           rm -rf ~/.private_keys ~/.appstoreconnect/private_keys
