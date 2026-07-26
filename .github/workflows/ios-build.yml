@@ -35,7 +35,7 @@ env:
 jobs:
   build_and_deploy:
     name: Build & upload iOS
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 90
 
     steps:
@@ -47,12 +47,15 @@ jobs:
           echo "Available Xcode installations:"
           ls -d /Applications/Xcode*.app || true
           for app in \
+            /Applications/Xcode_26.5.app \
+            /Applications/Xcode_26.4.1.app \
+            /Applications/Xcode_26.4.app \
+            /Applications/Xcode_26.3.app \
+            /Applications/Xcode_26.2.app \
+            /Applications/Xcode_26.1.app \
+            /Applications/Xcode_26.0.app \
+            /Applications/Xcode_26.app \
             /Applications/Xcode_16.4.app \
-            /Applications/Xcode_16.3.app \
-            /Applications/Xcode_16.2.app \
-            /Applications/Xcode_16.1.app \
-            /Applications/Xcode_16.0.app \
-            /Applications/Xcode_16.app \
             /Applications/Xcode.app; do
             if [ -d "$app" ]; then
               echo "Selecting Xcode at $app"
