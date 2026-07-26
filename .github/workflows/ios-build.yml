@@ -70,21 +70,48 @@ jobs:
             echo "API Key AuthKey_${KEY_ID}.p8 prepared."
           fi
 
-      - name: Install Apple Certificate and Provisioning Profile (if provided)
+      - name: Install Apple Certificate and Provisioning Profile (Auto-Detect Content)
         env:
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 || secrets.P12_BASE64 || secrets.IOS_CERTIFICATE_BASE64 }}
+          SECRET_CERT: ${{ secrets.BUILD_CERTIFICATE_BASE64 || secrets.P12_BASE64 || secrets.IOS_CERTIFICATE_BASE64 }}
+          SECRET_PROF: ${{ secrets.PROVISIONING_PROFILE_BASE64 || secrets.BUILD_PROVISION_PROFILE_BASE64 || secrets.IOS_PROVISION_PROFILE_BASE64 || secrets.PROVISION_PROFILE_BASE64 || secrets.PROVISIONING_PROFILE || secrets.PROVISION_PROFILE || secrets.MOBILEPROVISION_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD || secrets.BUILD_CERTIFICATE_PASSWORD }}
-          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 || secrets.BUILD_PROVISION_PROFILE_BASE64 || secrets.IOS_PROVISION_PROFILE_BASE64 || secrets.PROVISION_PROFILE_BASE64 || secrets.PROVISIONING_PROFILE || secrets.PROVISION_PROFILE || secrets.MOBILEPROVISION_BASE64 }}
           KEYCHAIN_PASSWORD: 'temporary_keychain_password'
         run: |
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
           PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
-          if [ -n "$BUILD_CERTIFICATE_BASE64" ]; then
-            echo "Installing signing certificate..."
-            echo "$BUILD_CERTIFICATE_BASE64" | tr -d '\r\n ' | base64 --decode > $CERTIFICATE_PATH
+          # Auto-inspect SECRET_CERT payload
+          if [ -n "$SECRET_CERT" ]; then
+            TMP1=$RUNNER_TEMP/secret1.tmp
+            echo "$SECRET_CERT" | tr -d '\r\n ' | base64 --decode > "$TMP1" 2>/dev/null || true
 
+            if security cms -D -i "$TMP1" >/dev/null 2>&1; then
+              echo "Provisioning profile detected in SECRET_CERT."
+              cp "$TMP1" "$PP_PATH"
+            else
+              echo "Certificate .p12 detected in SECRET_CERT."
+              cp "$TMP1" "$CERTIFICATE_PATH"
+            fi
+          fi
+
+          # Auto-inspect SECRET_PROF payload
+          if [ -n "$SECRET_PROF" ]; then
+            TMP2=$RUNNER_TEMP/secret2.tmp
+            echo "$SECRET_PROF" | tr -d '\r\n ' | base64 --decode > "$TMP2" 2>/dev/null || true
+
+            if security cms -D -i "$TMP2" >/dev/null 2>&1; then
+              echo "Provisioning profile detected in SECRET_PROF."
+              cp "$TMP2" "$PP_PATH"
+            else
+              echo "Certificate .p12 detected in SECRET_PROF."
+              cp "$TMP2" "$CERTIFICATE_PATH"
+            fi
+          fi
+
+          # Install Keychain if certificate exists
+          if [ -f "$CERTIFICATE_PATH" ]; then
+            echo "Installing signing certificate into keychain..."
             security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
             security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
             security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
@@ -94,23 +121,20 @@ jobs:
             security default-keychain -s $KEYCHAIN_PATH
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-            echo "=== DIAGNOSTICS: KEYCHAINS SEARCH LIST ==="
-            security list-keychains -d user
             echo "=== DIAGNOSTICS: CODE SIGNING IDENTITIES ==="
             security find-identity -v -p codesigning
           fi
 
-          if [ -n "$BUILD_PROVISION_PROFILE_BASE64" ]; then
-            echo "Installing provisioning profile..."
-            echo "$BUILD_PROVISION_PROFILE_BASE64" | tr -d '\r\n ' | base64 --decode > $PP_PATH
-            UUID=$(security cms -D -i $PP_PATH 2>/dev/null | grep -A1 "<key>UUID</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' || true)
-            PROFILE_NAME=$(security cms -D -i $PP_PATH 2>/dev/null | grep -A1 "<key>Name</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' || true)
-            
+          # Install Provisioning Profile if profile exists
+          if [ -f "$PP_PATH" ]; then
+            UUID=$(security cms -D -i "$PP_PATH" 2>/dev/null | grep -A1 "<key>UUID</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' || true)
+            PROFILE_NAME=$(security cms -D -i "$PP_PATH" 2>/dev/null | grep -A1 "<key>Name</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' || true)
+
             if [ -n "$UUID" ]; then
               echo "Extracted Provisioning Profile Name: $PROFILE_NAME"
               echo "Extracted Provisioning Profile UUID: $UUID"
               mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-              cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+              cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
               echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
               echo "PROFILE_UUID=$UUID" >> $GITHUB_ENV
             fi
