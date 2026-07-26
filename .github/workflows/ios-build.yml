@@ -103,14 +103,24 @@ jobs:
             echo "$BUILD_PROVISION_PROFILE_BASE64" | tr -d '\r\n ' | base64 --decode > $PP_PATH
             UUID=$(security cms -D -i $PP_PATH 2>/dev/null | grep -A1 "<key>UUID</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' || true)
             PROFILE_NAME=$(security cms -D -i $PP_PATH 2>/dev/null | grep -A1 "<key>Name</key>" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' || true)
+            PROFILE_APP_ID=$(security cms -D -i $PP_PATH 2>/dev/null | grep -A1 "application-identifier" | grep "<string>" | sed -e 's/.*<string>//' -e 's/<\/string>.*//' | sed 's/^[^\.]*\.//' || true)
             
-            if [ -n "$UUID" ]; then
-              echo "Extracted Provisioning Profile Name: $PROFILE_NAME"
-              echo "Extracted Provisioning Profile UUID: $UUID"
+            echo "Profile Name: $PROFILE_NAME"
+            echo "Profile App ID: $PROFILE_APP_ID"
+            echo "Profile UUID: $UUID"
+
+            if [ "$PROFILE_APP_ID" = "com.snackswap.adventure" ] || [ "$PROFILE_APP_ID" = "*" ]; then
+              echo "Provisioning profile App ID matches target bundle ID 'com.snackswap.adventure'."
               mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
               cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
               echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
               echo "PROFILE_UUID=$UUID" >> $GITHUB_ENV
+            else
+              echo "--------------------------------------------------------"
+              echo "WARNING: Provisioning profile App ID '$PROFILE_APP_ID' does NOT match 'com.snackswap.adventure'."
+              echo "Skipping mismatched profile to prevent build failure."
+              echo "Please update PROVISIONING_PROFILE_BASE64 in GitHub Secrets with profile for com.snackswap.adventure."
+              echo "--------------------------------------------------------"
             fi
           fi
 
