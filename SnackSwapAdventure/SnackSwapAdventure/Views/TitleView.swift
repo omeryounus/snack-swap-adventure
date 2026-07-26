@@ -214,8 +214,12 @@ struct TitleView: View {
             }
 
             if showDailyRewardsModal {
-                DailyRewardModalView()
-                    .transition(.scale.combined(with: .opacity))
+                DailyRewardModalView(onDismiss: {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showDailyRewardsModal = false
+                    }
+                })
+                .transition(.scale.combined(with: .opacity))
             }
         }
     }

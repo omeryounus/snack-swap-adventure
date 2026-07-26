@@ -3,13 +3,27 @@ import SwiftUI
 /// Modal displaying 7-day reward streak calendar and claim button.
 struct DailyRewardModalView: View {
     @Environment(\.dismiss) private var dismiss
+    var onDismiss: (() -> Void)? = nil
+
     @StateObject private var rewardsManager = DailyRewardsManager.shared
     @State private var claimedRewardMessage: String?
 
+    private func handleDismiss() {
+        SoundManager.shared.playUITap()
+        if let onDismiss = onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
+        }
+    }
+
     var body: some View {
         ZStack {
-            Color.black.opacity(0.7)
+            Color.black.opacity(0.75)
                 .ignoresSafeArea()
+                .onTapGesture {
+                    handleDismiss()
+                }
 
             VStack(spacing: 20) {
                 headerView
@@ -39,7 +53,7 @@ struct DailyRewardModalView: View {
                 )
             Spacer()
 
-            Button(action: { dismiss() }) {
+            Button(action: { handleDismiss() }) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.white.opacity(0.8))
@@ -85,7 +99,7 @@ struct DailyRewardModalView: View {
                 claimedRewardMessage = "Claimed \(reward.title): +\(reward.stars) ⭐!"
             }
         }) {
-            Text(rewardsManager.isRewardAvailable ? "CLAIM REWARD! 🎁" : "COME BACK TOMORROW! ⏳")
+            Text(rewardsManager.isRewardAvailable ? "CLAIM REWARD! 🎁" : "GREAT JOB! ⏳")
                 .font(.system(size: 16, weight: .black, design: .rounded))
                 .foregroundStyle(rewardsManager.isRewardAvailable ? .black : .white.opacity(0.6))
                 .padding(.horizontal, 32)
