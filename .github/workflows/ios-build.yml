@@ -70,7 +70,7 @@ jobs:
             echo "API Key AuthKey_${KEY_ID}.p8 prepared."
           fi
 
-      - name: Install Apple Certificate and Provisioning Profile
+      - name: Install Apple Certificate and Provisioning Profile (if provided)
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 || secrets.P12_BASE64 || secrets.IOS_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD || secrets.BUILD_CERTIFICATE_PASSWORD }}
@@ -117,8 +117,24 @@ jobs:
           fi
 
       - name: Build & Archive App
+        env:
+          KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID || secrets.APP_STORE_CONNECT_KEY_ID || secrets.APPSTORE_KEY_ID || secrets.APPLE_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID || secrets.APP_STORE_CONNECT_ISSUER_ID || secrets.APPSTORE_ISSUER_ID || secrets.APPLE_ISSUER_ID }}
         run: |
-          SIGNING_FLAGS="CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="
+          AUTH_FLAGS=""
+          KEY_PATH=""
+          if [ -f "$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8" ]; then
+            KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
+          elif [ -f "$HOME/.private_keys/AuthKey_${KEY_ID}.p8" ]; then
+            KEY_PATH="$HOME/.private_keys/AuthKey_${KEY_ID}.p8"
+          fi
+
+          if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -n "$KEY_PATH" ]; then
+            echo "Using App Store Connect API Key ($KEY_ID) for archiving."
+            AUTH_FLAGS="-allowProvisioningUpdates -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID -authenticationKeyPath $KEY_PATH"
+          fi
+
+          SIGNING_FLAGS=""
           if [ -n "${{ env.PROFILE_UUID }}" ]; then
             echo "Using manual signing with provisioning profile UUID: ${{ env.PROFILE_UUID }}"
             SIGNING_FLAGS="CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=\"Apple Distribution\" PROVISIONING_PROFILE_SPECIFIER=\"${{ env.PROFILE_UUID }}\""
@@ -133,6 +149,7 @@ jobs:
             ENABLE_PREVIEWS=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
             $SIGNING_FLAGS \
+            $AUTH_FLAGS \
             archive
 
       - name: Export IPA Package
