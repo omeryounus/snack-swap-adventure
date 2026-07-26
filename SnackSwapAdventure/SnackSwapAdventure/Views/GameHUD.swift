@@ -14,7 +14,9 @@ struct GameHUD: View {
     var chrome: GameHUDChrome = .topBar
 
     @Environment(\.adaptiveLayout) private var layout
-    @StateObject private var meta = MetaProgress.shared
+    /// PlayerProfile owns the canonical star balance and mirrors it into
+    /// MetaProgress, so the HUD reads it directly for live updates.
+    @StateObject private var profile = PlayerProfile.shared
     @State private var timerPulse = false
 
     var body: some View {
@@ -38,7 +40,7 @@ struct GameHUD: View {
                 pauseButton
                 statChip(title: "LVL", value: "\(gameState.level.levelNumber)", accent: .white)
                 Spacer(minLength: 4)
-                statChip(title: "⭐", value: "\(meta.stars)", accent: Theme.accentGold)
+                statChip(title: "⭐", value: "\(profile.stars)", accent: Theme.accentGold)
                 timerChip
                 statChip(
                     title: "MOVES",
@@ -66,7 +68,7 @@ struct GameHUD: View {
                 pauseButton
                 statChip(title: "LVL", value: "\(gameState.level.levelNumber)", accent: .white)
                 Spacer(minLength: 0)
-                statChip(title: "⭐", value: "\(meta.stars)", accent: Theme.accentGold)
+                statChip(title: "⭐", value: "\(profile.stars)", accent: Theme.accentGold)
             }
 
             HStack(spacing: 8) {

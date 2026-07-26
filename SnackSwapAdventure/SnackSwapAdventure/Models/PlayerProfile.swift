@@ -56,12 +56,16 @@ final class PlayerProfile: ObservableObject {
     func deductStars(_ amount: Int) {
         localStars = max(0, localStars - amount)
         defaults.set(localStars, forKey: Keys.localStars)
+        MetaProgress.shared.stars = localStars
+        defaults.set(localStars, forKey: "ssa.stars")
         iCloudSyncManager.shared.pushToiCloud()
     }
 
     func addStars(_ amount: Int) {
         localStars += amount
         defaults.set(localStars, forKey: Keys.localStars)
+        MetaProgress.shared.stars = localStars
+        defaults.set(localStars, forKey: "ssa.stars")
         iCloudSyncManager.shared.pushToiCloud()
     }
 

@@ -156,6 +156,8 @@ final class MetaProgress: ObservableObject {
     func addStars(_ amount: Int) {
         stars += max(0, amount)
         defaults.set(stars, forKey: Keys.stars)
+        PlayerProfile.shared.localStars = stars
+        defaults.set(stars, forKey: "ssa.localStars")
     }
 
     @discardableResult
@@ -163,6 +165,8 @@ final class MetaProgress: ObservableObject {
         guard stars >= amount else { return false }
         stars -= amount
         defaults.set(stars, forKey: Keys.stars)
+        PlayerProfile.shared.localStars = stars
+        defaults.set(stars, forKey: "ssa.localStars")
         return true
     }
 
