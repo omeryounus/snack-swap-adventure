@@ -93,19 +93,7 @@ jobs:
           fi
 
       - name: Build & Archive App
-        env:
-          KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID || secrets.APP_STORE_CONNECT_KEY_ID || secrets.APPSTORE_KEY_ID || secrets.APPLE_KEY_ID }}
-          ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID || secrets.APP_STORE_CONNECT_ISSUER_ID || secrets.APPSTORE_ISSUER_ID || secrets.APPLE_ISSUER_ID }}
         run: |
-          AUTH_FLAGS=""
-          if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -f "$HOME/.private_keys/AuthKey_${KEY_ID}.p8" ]; then
-            echo "Using App Store Connect API Key ($KEY_ID) for authentication."
-            AUTH_FLAGS="-allowProvisioningUpdates -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID -authenticationKeyPath $HOME/.private_keys/AuthKey_${KEY_ID}.p8"
-          else
-            echo "Warning: API Key file not found or IDs missing. Using basic allowProvisioningUpdates."
-            AUTH_FLAGS="-allowProvisioningUpdates"
-          fi
-
           ARCHIVE_SIGNING_FLAGS="CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="
           if security list-keychains | grep -q "app-signing.keychain-db"; then
             echo "Using installed keychain certificate for archiving."
@@ -121,7 +109,6 @@ jobs:
             ENABLE_PREVIEWS=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
             $ARCHIVE_SIGNING_FLAGS \
-            $AUTH_FLAGS \
             archive
 
       - name: Export IPA & Upload to App Store / TestFlight
