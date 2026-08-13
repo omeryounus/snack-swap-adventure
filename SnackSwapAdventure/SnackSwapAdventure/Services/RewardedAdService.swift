@@ -27,6 +27,11 @@ final class RewardedAdService: NSObject, ObservableObject {
 
     func start() {
         #if canImport(GoogleMobileAds)
+        guard Bundle.main.object(forInfoDictionaryKey: "GADApplicationIdentifier") != nil else {
+            isReady = AdConfig.allowSimulatedFallback
+            statusMessage = "Ads skipped — missing GADApplicationIdentifier"
+            return
+        }
         GADMobileAds.sharedInstance().start { [weak self] _ in
             Task { @MainActor in
                 self?.load()

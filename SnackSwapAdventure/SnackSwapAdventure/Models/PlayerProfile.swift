@@ -91,10 +91,8 @@ final class PlayerProfile: ObservableObject {
 
         defaults.set(displayName, forKey: Keys.displayName)
         defaults.set(avatarEmoji, forKey: Keys.avatarEmoji)
-
-        // Initialize Game Center and iCloud Sync
-        GameCenterManager.shared.authenticatePlayer()
-        iCloudSyncManager.shared.startSync()
+        // Game Center + iCloud start after the first frame. Calling them here
+        // re-enters PlayerProfile.shared on device and crashes launch.
     }
 
     var localWinRate: Double {

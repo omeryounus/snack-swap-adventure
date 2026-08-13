@@ -31,6 +31,7 @@ struct ContentView: View {
         .task {
             await profile.ensureRegistered()
             meta.refreshMonsterUnlocks(maxLevel: profile.maxUnlockedLevel)
+            iCloudSyncManager.shared.startSync()
             if meta.musicEnabled {
                 MusicPlayer.shared.play()
             }

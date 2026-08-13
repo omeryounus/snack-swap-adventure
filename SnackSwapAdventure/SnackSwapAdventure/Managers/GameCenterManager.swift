@@ -43,8 +43,15 @@ final class GameCenterManager: NSObject, ObservableObject, GKGameCenterControlle
                 }
 
                 if let vc = vc {
-                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                       let rootVC = windowScene.windows.first?.rootViewController {
+                    try? await Task.sleep(nanoseconds: 250_000_000)
+                    guard let windowScene = UIApplication.shared.connectedScenes
+                        .compactMap({ $0 as? UIWindowScene })
+                        .first(where: { $0.activationState == .foregroundActive })
+                        ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first,
+                          let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController
+                            ?? windowScene.windows.first?.rootViewController
+                    else { return }
+                    if rootVC.presentedViewController == nil {
                         rootVC.present(vc, animated: true)
                     }
                     return

@@ -137,8 +137,8 @@ struct LoopingVideoPlayerView: UIViewRepresentable {
 
         let item = AVPlayerItem(url: url)
         let queuePlayer = AVQueuePlayer(playerItem: item)
-        let looper = AVPlayerLooper(player: queuePlayer, templateItem: item)
-        context.coordinator.looper = looper
+        queuePlayer.isMuted = true
+        context.coordinator.looper = AVPlayerLooper(player: queuePlayer, templateItem: item)
         context.coordinator.player = queuePlayer
 
         let layer = AVPlayerLayer(player: queuePlayer)
@@ -146,7 +146,6 @@ struct LoopingVideoPlayerView: UIViewRepresentable {
         view.layer.addSublayer(layer)
         context.coordinator.playerLayer = layer
 
-        queuePlayer.isMuted = true
         queuePlayer.play()
 
         return view

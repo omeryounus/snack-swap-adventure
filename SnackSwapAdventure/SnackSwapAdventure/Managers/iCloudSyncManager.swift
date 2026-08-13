@@ -10,6 +10,9 @@ final class iCloudSyncManager: ObservableObject {
         #if targetEnvironment(simulator)
         return nil
         #else
+        // No iCloud entitlement in this target — touching the default store
+        // can terminate on device. Only use it when a ubiquity identity exists.
+        guard FileManager.default.ubiquityIdentityToken != nil else { return nil }
         return NSUbiquitousKeyValueStore.default
         #endif
     }
