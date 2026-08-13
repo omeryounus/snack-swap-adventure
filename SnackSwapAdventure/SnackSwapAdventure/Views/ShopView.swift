@@ -5,56 +5,25 @@ import StoreKit
 struct ShopView: View {
     let onBack: () -> Void
 
-    @StateObject private var meta = MetaProgress.shared
     @StateObject private var storeManager = StoreManager.shared
     @StateObject private var profile = PlayerProfile.shared
 
+    @Environment(\.adaptiveLayout) private var layout
+
     var body: some View {
-        ZStack(alignment: .top) {
-            WorldBackgroundPlate(themeColor: SSATheme.candyGreen)
-
-            VStack(spacing: 0) {
-                // Header
-                HStack {
-                    Button {
-                        SoundManager.shared.playUITap()
-                        onBack()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .background(Color.white.opacity(0.12))
-                            .clipShape(Circle())
-                    }
-
-                    Spacer()
-
-                    VStack(spacing: 2) {
-                        Text("SHOP")
-                            .font(.system(size: 22, weight: .black, design: .rounded))
-                            .foregroundStyle(.white)
-
-                        Text("\(profile.stars) ⭐ Balance")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(SSATheme.candyYellow)
-                    }
-
-                    Spacer()
-
-                    Color.clear.frame(width: 44, height: 44)
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 16)
-
-                ScrollView(showsIndicators: false) {
+        ScreenScaffold(
+            title: "SHOP",
+            subtitle: "\(profile.stars) ⭐ Balance",
+            accent: SSATheme.candyYellow,
+            themeColor: SSATheme.candyGreen,
+            onBack: onBack
+        ) {
                     VStack(spacing: 20) {
                         // Remove Ads Banner
                         SSAGlassCard(padding: 16) {
                             HStack(spacing: 14) {
                                 Text("🚫")
-                                    .font(.system(size: 44))
+                                    .font(.system(size: layout.isCompactWidth ? 32 : 44))
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("REMOVE ADS")
@@ -64,13 +33,15 @@ struct ShopView: View {
                                     Text("Ad-Free Experience")
                                         .font(.title3.bold())
                                         .foregroundStyle(.white)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.75)
 
                                     Text(storeManager.isAdsRemoved ? "Purchased ✅" : "No Interstitial Ads!")
                                         .font(.caption)
                                         .foregroundStyle(storeManager.isAdsRemoved ? .green : SSATheme.textSecondary)
                                 }
 
-                                Spacer()
+                                Spacer(minLength: 4)
 
                                 if !storeManager.isAdsRemoved {
                                     Button {
@@ -100,7 +71,7 @@ struct ShopView: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                        LazyVGrid(columns: layout.gridItems(count: layout.shopGridColumns), spacing: 14) {
                             ShopItemCard(
                                 title: "500 Stars",
                                 price: productPrice(for: StoreManager.ProductIDs.stars500, fallback: "$0.99"),
@@ -179,10 +150,6 @@ struct ShopView: View {
                                 .padding(.top, 10)
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 30)
-                }
-            }
         }
     }
 

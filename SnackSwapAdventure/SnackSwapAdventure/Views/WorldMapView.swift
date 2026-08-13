@@ -1,128 +1,50 @@
 import SwiftUI
 
-/// Screen 02: World Map — Cookie Kingdom (1-10), Popcorn Plains (11-20), Candy Canyon (21-30), golden level path, L1-L30 level nodes, and bottom Level Preview sheet.
+/// Screen 02: World Map — two-column on iPad / wide landscape, winding path on phones.
 struct WorldMapView: View {
     let maxUnlockedLevel: Int
     let onSelectLevel: (Int) -> Void
     let onBack: () -> Void
 
+    @Environment(\.adaptiveLayout) private var layout
     @State private var selectedLevelForPreview: Int? = nil
 
     private let totalLevels = LevelConfig.totalLevels
 
     var body: some View {
         ZStack(alignment: .top) {
-            WorldBackgroundPlate(themeColor: SSATheme.candyCyan)
-
-            VStack(spacing: 0) {
-                // Map Header Bar
-                HStack {
-                    Button {
-                        SoundManager.shared.playUITap()
-                        onBack()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .background(Color.white.opacity(0.12))
-                            .clipShape(Circle())
-                    }
-
-                    Spacer()
-
-                    VStack(spacing: 2) {
-                        Text("WORLD MAP")
-                            .font(.system(size: 20, weight: .black, design: .rounded))
-                            .foregroundStyle(.white)
-
-                        Text("\(maxUnlockedLevel)/\(totalLevels) Levels Unlocked")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(SSATheme.candyYellow)
-                    }
-
-                    Spacer()
-
-                    Color.clear.frame(width: 44, height: 44)
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 12)
-
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 32) {
-                        // World 1 Header Banner: Cookie Kingdom (Levels 1 - 10)
-                        WorldSectionHeader(
-                            title: "Cookie Kingdom",
-                            emoji: "🍪",
-                            levelsRange: "Levels 1 - 10",
-                            color: SSATheme.candyOrange
-                        )
-
-                        VStack(spacing: 16) {
-                            ForEach(1...10, id: \.self) { lvl in
-                                LevelNodeRow(
-                                    level: lvl,
-                                    isUnlocked: lvl <= maxUnlockedLevel,
-                                    isCurrent: lvl == maxUnlockedLevel,
-                                    onTap: {
-                                        SoundManager.shared.playUITap()
-                                        selectedLevelForPreview = lvl
-                                    }
-                                )
-                            }
-                        }
-
-                        // World 2 Header Banner: Popcorn Plains (Levels 11 - 20)
-                        WorldSectionHeader(
-                            title: "Popcorn Plains",
-                            emoji: "🍿",
-                            levelsRange: "Levels 11 - 20",
-                            color: SSATheme.candyYellow
-                        )
-
-                        VStack(spacing: 16) {
-                            ForEach(11...20, id: \.self) { lvl in
-                                LevelNodeRow(
-                                    level: lvl,
-                                    isUnlocked: lvl <= maxUnlockedLevel,
-                                    isCurrent: lvl == maxUnlockedLevel,
-                                    onTap: {
-                                        SoundManager.shared.playUITap()
-                                        selectedLevelForPreview = lvl
-                                    }
-                                )
-                            }
-                        }
-
-                        // World 3 Header Banner: Candy Canyon (Levels 21 - 30)
-                        WorldSectionHeader(
-                            title: "Candy Canyon",
-                            emoji: "🍭",
-                            levelsRange: "Levels 21 - 30",
-                            color: SSATheme.candyPink
-                        )
-
-                        VStack(spacing: 16) {
-                            ForEach(21...30, id: \.self) { lvl in
-                                LevelNodeRow(
-                                    level: lvl,
-                                    isUnlocked: lvl <= maxUnlockedLevel,
-                                    isCurrent: lvl == maxUnlockedLevel,
-                                    onTap: {
-                                        SoundManager.shared.playUITap()
-                                        selectedLevelForPreview = lvl
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 40)
+            ScreenScaffold(
+                title: "WORLD MAP",
+                subtitle: "\(maxUnlockedLevel)/\(totalLevels) Levels Unlocked",
+                accent: SSATheme.candyYellow,
+                themeColor: SSATheme.candyCyan,
+                onBack: onBack
+            ) {
+                VStack(spacing: layout.isCompactHeight ? 20 : 32) {
+                    worldSection(
+                        title: "Cookie Kingdom",
+                        emoji: "🍪",
+                        levelsRange: "Levels 1 - 10",
+                        color: SSATheme.candyOrange,
+                        levels: 1...10
+                    )
+                    worldSection(
+                        title: "Popcorn Plains",
+                        emoji: "🍿",
+                        levelsRange: "Levels 11 - 20",
+                        color: SSATheme.candyYellow,
+                        levels: 11...20
+                    )
+                    worldSection(
+                        title: "Candy Canyon",
+                        emoji: "🍭",
+                        levelsRange: "Levels 21 - 30",
+                        color: SSATheme.candyPink,
+                        levels: 21...30
+                    )
                 }
             }
 
-            // Bottom Level Preview Sheet Modal
             if let levelNum = selectedLevelForPreview {
                 LevelPreviewSheet(
                     levelNumber: levelNum,
@@ -136,6 +58,50 @@ struct WorldMapView: View {
                     }
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+    }
+
+    private func worldSection(
+        title: String,
+        emoji: String,
+        levelsRange: String,
+        color: Color,
+        levels: ClosedRange<Int>
+    ) -> some View {
+        VStack(spacing: 16) {
+            WorldSectionHeader(title: title, emoji: emoji, levelsRange: levelsRange, color: color)
+
+            if layout.worldMapColumns > 1 {
+                LazyVGrid(columns: layout.gridItems(count: layout.worldMapColumns, spacing: 16), spacing: 16) {
+                    ForEach(Array(levels), id: \.self) { lvl in
+                        LevelNodeRow(
+                            level: lvl,
+                            isUnlocked: lvl <= maxUnlockedLevel,
+                            isCurrent: lvl == maxUnlockedLevel,
+                            compact: true,
+                            onTap: {
+                                SoundManager.shared.playUITap()
+                                selectedLevelForPreview = lvl
+                            }
+                        )
+                    }
+                }
+            } else {
+                VStack(spacing: 16) {
+                    ForEach(Array(levels), id: \.self) { lvl in
+                        LevelNodeRow(
+                            level: lvl,
+                            isUnlocked: lvl <= maxUnlockedLevel,
+                            isCurrent: lvl == maxUnlockedLevel,
+                            compact: false,
+                            onTap: {
+                                SoundManager.shared.playUITap()
+                                selectedLevelForPreview = lvl
+                            }
+                        )
+                    }
+                }
             }
         }
     }
@@ -157,6 +123,8 @@ private struct WorldSectionHeader: View {
                     Text(title)
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundStyle(color)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
 
                     Text(levelsRange)
                         .font(.caption.bold())
@@ -173,11 +141,12 @@ private struct LevelNodeRow: View {
     let level: Int
     let isUnlocked: Bool
     let isCurrent: Bool
+    var compact: Bool = false
     let onTap: () -> Void
 
     var body: some View {
         HStack {
-            if level % 2 == 0 { Spacer() }
+            if !compact, level % 2 == 0 { Spacer() }
 
             Button {
                 if isUnlocked { onTap() }
@@ -222,7 +191,7 @@ private struct LevelNodeRow: View {
                     }
 
                     if isCurrent {
-                        Text("CURRENT LEVEL")
+                        Text("CURRENT")
                             .font(.system(size: 11, weight: .black, design: .rounded))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 10)
@@ -230,10 +199,12 @@ private struct LevelNodeRow: View {
                             .background(Capsule().fill(SSATheme.candyPink))
                             .shadow(radius: 4)
                     }
+                    if compact { Spacer(minLength: 0) }
                 }
+                .frame(maxWidth: compact ? .infinity : nil, alignment: .leading)
             }
 
-            if level % 2 != 0 { Spacer() }
+            if !compact, level % 2 != 0 { Spacer() }
         }
     }
 }

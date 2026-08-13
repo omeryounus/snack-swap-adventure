@@ -26,13 +26,16 @@ struct BoosterBarView: View {
     @ObservedObject var gameState: GameState
     @ObservedObject var profile = PlayerProfile.shared
     @Binding var activeBooster: ActiveBooster?
+    var axis: Axis = .horizontal
+    var compact: Bool = false
     let onHammerUse: () -> Void
     let onColorBombUse: () -> Void
     let onExtraMovesUse: () -> Void
 
+    @Environment(\.adaptiveLayout) private var layout
+
     var body: some View {
-        HStack(spacing: 16) {
-            // Hammer Booster
+        let stack = Group {
             boosterButton(
                 booster: .hammer,
                 count: profile.hammerCount,
@@ -50,7 +53,6 @@ struct BoosterBarView: View {
                 }
             }
 
-            // Color Bomb Booster
             boosterButton(
                 booster: .colorBomb,
                 count: profile.colorBombCount,
@@ -70,7 +72,6 @@ struct BoosterBarView: View {
                 }
             }
 
-            // Extra Moves Booster
             boosterButton(
                 booster: .extraMoves,
                 count: profile.extraMovesCount,
@@ -92,8 +93,16 @@ struct BoosterBarView: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+
+        Group {
+            if axis == .vertical {
+                VStack(spacing: compact ? 10 : 14) { stack }
+            } else {
+                HStack(spacing: compact ? 10 : 16) { stack }
+            }
+        }
+        .padding(.horizontal, axis == .vertical ? 10 : 16)
+        .padding(.vertical, axis == .vertical ? 12 : 8)
         .background(
             Capsule()
                 .fill(Color.black.opacity(0.45))
@@ -112,16 +121,16 @@ struct BoosterBarView: View {
                 ZStack(alignment: .topTrailing) {
                     Circle()
                         .fill(isSelected ? SSATheme.candyPink : Color.white.opacity(0.12))
-                        .frame(width: 44, height: 44)
+                        .frame(width: buttonSize, height: buttonSize)
                         .overlay(
                             Circle()
                                 .stroke(isSelected ? .white : SSATheme.candyYellow.opacity(0.6), lineWidth: isSelected ? 2.5 : 1)
                         )
 
                     Image(systemName: booster.iconName)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: compact ? 16 : 20, weight: .bold))
                         .foregroundStyle(isSelected ? .white : SSATheme.candyYellow)
-                        .frame(width: 44, height: 44)
+                        .frame(width: buttonSize, height: buttonSize)
 
                     // Count or Star cost badge
                     Text(count > 0 ? "\(count)" : "⭐\(booster.cost)")
@@ -133,11 +142,28 @@ struct BoosterBarView: View {
                         .offset(x: 6, y: -4)
                 }
 
-                Text(booster.rawValue)
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(isSelected ? SSATheme.candyYellow : .white.opacity(0.8))
+                if !compact || axis == .horizontal {
+                    Text(compact ? shortName(booster) : booster.rawValue)
+                        .font(.system(size: compact ? 9 : 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(isSelected ? SSATheme.candyYellow : .white.opacity(0.8))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
             }
         }
         .buttonStyle(.plain)
+    }
+
+    private var buttonSize: CGFloat {
+        if compact { return 36 }
+        return layout.isPad ? 50 : 44
+    }
+
+    private func shortName(_ booster: ActiveBooster) -> String {
+        switch booster {
+        case .hammer: return "Hammer"
+        case .colorBomb: return "Bomb"
+        case .extraMoves: return "+5"
+        }
     }
 }

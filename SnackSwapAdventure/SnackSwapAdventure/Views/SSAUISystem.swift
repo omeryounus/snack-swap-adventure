@@ -90,6 +90,8 @@ struct SSAPrimaryButton: View {
                 }
                 Text(title)
                     .font(.system(size: 18, weight: .black, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
             .foregroundStyle(.white)
             .padding(.vertical, 15)
@@ -236,22 +238,25 @@ struct GameplayBackgroundView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color(red: 0.04, green: 0.02, blue: 0.08).ignoresSafeArea()
-            Image(plateAsset)
-                .resizable()
-                .scaledToFill()
-                .ignoresSafeArea()
-                .opacity(0.85)
+        GeometryReader { geo in
+            ZStack {
+                Color(red: 0.04, green: 0.02, blue: 0.08)
+                Image(plateAsset)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+                    .opacity(0.85)
 
-            RadialGradient(
-                colors: [.clear, .black.opacity(0.55)],
-                center: .center,
-                startRadius: 100,
-                endRadius: 420
-            )
-            .ignoresSafeArea()
+                RadialGradient(
+                    colors: [.clear, .black.opacity(0.55)],
+                    center: .center,
+                    startRadius: min(geo.size.width, geo.size.height) * 0.18,
+                    endRadius: max(geo.size.width, geo.size.height) * 0.72
+                )
+            }
         }
+        .ignoresSafeArea()
     }
 }
 
@@ -360,12 +365,16 @@ struct SnacklingMascotView: View {
 struct TitleHeroSnacklingSection: View {
     let playerName: String
     var speechText: String? = nil
+    var mascotSize: CGFloat? = nil
 
     var body: some View {
         VStack(spacing: 12) {
             Text(speechText ?? "Ready to match snacks, \(playerName)?")
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.95))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.75)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(
@@ -375,7 +384,11 @@ struct TitleHeroSnacklingSection: View {
                 )
                 .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
 
-            SnacklingMascotView(presentation: .homeHero, expression: .happy)
+            SnacklingMascotView(
+                presentation: .homeHero,
+                expression: .happy,
+                customSize: mascotSize
+            )
         }
     }
 }
@@ -390,17 +403,22 @@ struct SnacklingMascot: View {
     var body: some View {
         VStack(spacing: 8) {
             let text = speechBubbleText ?? expression.defaultMessage
-            Text(text)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(SSATheme.bgElevated.opacity(0.9))
-                        .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
-                )
-                .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+            if !text.isEmpty {
+                Text(text)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.75)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(SSATheme.bgElevated.opacity(0.9))
+                            .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                    )
+                    .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+            }
 
             SnacklingMascotView(
                 presentation: size >= 90 ? .homeHero : .dock,

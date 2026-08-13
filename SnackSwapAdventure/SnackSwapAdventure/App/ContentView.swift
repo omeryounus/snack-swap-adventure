@@ -22,6 +22,42 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
+        AdaptiveRoot {
+            screenStack
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(SSATheme.bgVoid.ignoresSafeArea())
+        .animation(.easeInOut(duration: 0.28), value: screen)
+        .task {
+            await profile.ensureRegistered()
+            meta.refreshMonsterUnlocks(maxLevel: profile.maxUnlockedLevel)
+            if meta.musicEnabled {
+                MusicPlayer.shared.play()
+            }
+            SoundManager.shared.setEnabled(meta.soundEnabled)
+        }
+        .onChange(of: screen) { _, newScreen in
+            MusicPlayer.shared.updateBGM(forScreen: newScreen, levelNumber: gameState.level.levelNumber)
+        }
+        .onChange(of: gameState.level.levelNumber) { _, newLevel in
+            MusicPlayer.shared.updateBGM(forScreen: screen, levelNumber: newLevel)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background || newPhase == .inactive {
+                if screen == .playing {
+                    gameState.isPaused = true
+                    gameState.stopTimer()
+                }
+            } else if newPhase == .active {
+                if screen == .playing && gameState.outcome == .playing && !gameState.isPaused {
+                    gameState.startTimer()
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var screenStack: some View {
         ZStack(alignment: .top) {
             switch screen {
             case .splash:
@@ -108,34 +144,6 @@ struct ContentView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(SSATheme.bgVoid.ignoresSafeArea())
-        .animation(.easeInOut(duration: 0.28), value: screen)
-        .task {
-            await profile.ensureRegistered()
-            meta.refreshMonsterUnlocks(maxLevel: profile.maxUnlockedLevel)
-            if meta.musicEnabled {
-                MusicPlayer.shared.play()
-            }
-            SoundManager.shared.setEnabled(meta.soundEnabled)
-        }
-        .onChange(of: screen) { _, newScreen in
-            MusicPlayer.shared.updateBGM(forScreen: newScreen, levelNumber: gameState.level.levelNumber)
-        }
-        .onChange(of: gameState.level.levelNumber) { _, newLevel in
-            MusicPlayer.shared.updateBGM(forScreen: screen, levelNumber: newLevel)
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .background || newPhase == .inactive {
-                if screen == .playing {
-                    gameState.isPaused = true
-                    gameState.stopTimer()
-                }
-            } else if newPhase == .active {
-                if screen == .playing && gameState.outcome == .playing && !gameState.isPaused {
-                    gameState.startTimer()
-                }
-            }
-        }
     }
 
     private func startLevel(_ number: Int) {

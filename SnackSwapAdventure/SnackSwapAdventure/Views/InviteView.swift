@@ -6,39 +6,20 @@ struct InviteView: View {
     @State private var toast: String?
     @State private var pulse = false
 
+    @Environment(\.adaptiveLayout) private var layout
+
     var body: some View {
-        ZStack(alignment: .top) {
-            WorldBackgroundPlate(themeColor: SSATheme.candyPink)
-
-            VStack(spacing: 0) {
-                // Header (AAA aligned)
-                HStack {
-                    Button {
-                        SoundManager.shared.play(.uiTap)
-                        onBack()
-                    } label: {
-                        Label("Back", systemImage: "chevron.left")
-                            .font(Theme.fontBody().bold())
-                            .foregroundStyle(Theme.textPrimary)
-                    }
-                    Spacer()
-                    VStack(spacing: 2) {
-                        Text("Invite")
-                            .font(Theme.fontTitle().bold())
-                            .foregroundStyle(Theme.textPrimary)
-                        Text("Share & earn free stars")
-                            .font(Theme.fontCaption())
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                    Spacer()
-                    Color.clear.frame(width: 54, height: 44)
-                }
-                .padding()
-
-                ScrollView {
-                    VStack(spacing: 22) {
+        ZStack(alignment: .bottom) {
+            ScreenScaffold(
+                title: "Invite",
+                subtitle: "Share & earn free stars",
+                accent: SSATheme.candyPink,
+                themeColor: SSATheme.candyPink,
+                onBack: onBack
+            ) {
+                    VStack(spacing: layout.isCompactHeight ? 14 : 22) {
                         Text("⭐")
-                            .font(.system(size: 72))
+                            .font(.system(size: layout.isCompactHeight ? 48 : (layout.isPad ? 88 : 72)))
                             .scaleEffect(pulse ? 1.12 : 0.95)
                             .shadow(color: .yellow.opacity(0.5), radius: pulse ? 20 : 8)
                             .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulse)
@@ -119,20 +100,17 @@ struct InviteView: View {
                             .foregroundStyle(Theme.textTertiary)
                             .multilineTextAlignment(.center)
                     }
-                    .padding(20)
-                }
+            }
 
-                if let toast {
-                    Text(toast)
-                        .font(Theme.fontCaption().bold())
-                        .foregroundStyle(.white)
-                        .padding(12)
-                        .background(Color.black.opacity(0.65))
-                        .clipShape(Capsule())
-                        .padding(.bottom, 24)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-                Spacer()
+            if let toast {
+                Text(toast)
+                    .font(Theme.fontCaption().bold())
+                    .foregroundStyle(.white)
+                    .padding(12)
+                    .background(Color.black.opacity(0.65))
+                    .clipShape(Capsule())
+                    .padding(.bottom, 24)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

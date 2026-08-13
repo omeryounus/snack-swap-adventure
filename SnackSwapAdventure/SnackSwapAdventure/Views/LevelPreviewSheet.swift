@@ -15,11 +15,14 @@ struct LevelPreviewSheet: View {
         LevelConfig.level(levelNumber)
     }
 
+    @Environment(\.adaptiveLayout) private var layout
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.65).ignoresSafeArea()
 
-            VStack(spacing: 20) {
+            AdaptiveModalCard {
+            VStack(spacing: layout.isCompactHeight ? 12 : 20) {
                 // Header Bar
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -28,8 +31,9 @@ struct LevelPreviewSheet: View {
                             .foregroundStyle(SSATheme.candyYellow)
 
                         Text("Level \(levelNumber)")
-                            .font(.system(size: 26, weight: .black, design: .rounded))
+                            .font(.system(size: layout.isCompactHeight ? 22 : 26, weight: .black, design: .rounded))
                             .foregroundStyle(.white)
+                            .minimumScaleFactor(0.75)
                     }
 
                     Spacer()
@@ -138,17 +142,8 @@ struct LevelPreviewSheet: View {
                     onPlay()
                 }
             }
-            .padding(24)
-            .background(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(SSATheme.bgElevated)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
-                    )
-            )
-            .padding(.horizontal, 24)
-            .shadow(color: .black.opacity(0.5), radius: 30, y: 10)
+            .frame(maxWidth: .infinity)
+            }
         }
     }
 

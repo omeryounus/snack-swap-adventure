@@ -15,6 +15,8 @@ struct GameContainerView: View {
     @State private var isWatchingAd = false
     @State private var adProgress: Double = 0
 
+    @Environment(\.adaptiveLayout) private var layout
+
     @State private var scene: GameScene = {
         let s = GameScene(size: CGSize(width: 390, height: 844))
         s.scaleMode = .resizeFill
@@ -26,96 +28,12 @@ struct GameContainerView: View {
 
     var body: some View {
         ZStack {
-            // Layer 1: World Gameplay Background Plate
             GameplayBackgroundView(level: gameState.level.levelNumber)
 
-            // Layer 2: SpriteKit Match-3 Game Board
-            SpriteView(
-                scene: scene,
-                options: [.ignoresSiblingOrder, .shouldCullNonVisibleNodes]
-            )
-                .ignoresSafeArea()
-                .onAppear {
-                    DispatchQueue.main.async {
-                        scene.configure(with: gameState)
-                        if let view = scene.view {
-                            scene.size = view.bounds.size
-                        }
-                        scene.rebuildBoard()
-                    }
-                }
-
-            // Layer 3A: Top Glass Game HUD & Active Booster Banner
-            VStack(spacing: 0) {
-                GameHUD(
-                    gameState: gameState,
-                    onClose: {
-                        gameState.stopTimer()
-                        onExit()
-                    },
-                    onPause: {
-                        gameState.isPaused = true
-                    }
-                )
-
-                if activeBooster == .hammer {
-                    HStack(spacing: 12) {
-                        Text("🔨 TAP ANY TILE TO SMASH IT!")
-                            .font(.system(size: 13, weight: .black, design: .rounded))
-                            .foregroundStyle(SSATheme.candyYellow)
-
-                        Button {
-                            activeBooster = nil
-                            scene.isHammerModeActive = false
-                        } label: {
-                            Text("CANCEL")
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(Capsule().fill(Color.red.opacity(0.7)))
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(Color.black.opacity(0.75)))
-                    .padding(.top, 6)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-
-                Spacer()
-            }
-
-            // Layer 3B: Bottom Booster Toolbar & Mascot Feedback
-            VStack(spacing: 0) {
-                Spacer()
-
-                // Booster Toolbar
-                BoosterBarView(
-                    gameState: gameState,
-                    activeBooster: $activeBooster,
-                    onHammerUse: {
-                        scene.isHammerModeActive = true
-                        scene.onHammerUsed = {
-                            activeBooster = nil
-                        }
-                    },
-                    onColorBombUse: {
-                        scene.plantSpecialOnBoard(.rainbow)
-                    },
-                    onExtraMovesUse: {
-                        scene.refreshHUD()
-                    }
-                )
-                .padding(.bottom, 6)
-
-                // Snackling Mascot Reaction Bubble (Screen 03 Gameplay)
-                SnacklingMascot(
-                    expression: gameState.isFeverActive ? .cheer : (gameState.outcome == .playing ? .happy : .thinking),
-                    size: 44,
-                    speechBubbleText: gameState.lastFeedMessage
-                )
-                .padding(.bottom, 4)
+            if layout.usesSidebarGameplay {
+                landscapePlayfield
+            } else {
+                portraitPlayfield
             }
 
             // Layer 4: FTUE Tutorial Coach Mark Overlay (Levels 1–3)
@@ -209,10 +127,178 @@ struct GameContainerView: View {
         .onAppear {
             didSubmitResult = false
             submittedRank = nil
+            DispatchQueue.main.async {
+                configureScene()
+            }
+        }
+        .onChange(of: layout) { _, _ in
+            DispatchQueue.main.async {
+                configureScene()
+            }
         }
         .onDisappear {
             gameState.stopTimer()
         }
+    }
+
+    // MARK: - Playfields
+
+    private var portraitPlayfield: some View {
+        ZStack {
+            boardView
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                GameHUD(
+                    gameState: gameState,
+                    onClose: exitToMap,
+                    onPause: { gameState.isPaused = true },
+                    chrome: .topBar
+                )
+                hammerBanner
+                Spacer(minLength: 0)
+            }
+            .safeAreaPadding(.top)
+
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                boosterBar(axis: .horizontal, compact: layout.deviceClass == .compactPhone)
+                    .padding(.bottom, 4)
+                mascotDock
+                    .padding(.bottom, 2)
+            }
+            .safeAreaPadding(.bottom)
+        }
+    }
+
+    private var landscapePlayfield: some View {
+        HStack(spacing: 0) {
+            VStack(spacing: layout.isCompactHeight ? 8 : 12) {
+                GameHUD(
+                    gameState: gameState,
+                    onClose: exitToMap,
+                    onPause: { gameState.isPaused = true },
+                    chrome: .sidebar
+                )
+                hammerBanner
+                Spacer(minLength: 4)
+                boosterBar(axis: .vertical, compact: layout.isCompactHeight || layout.isPhone)
+                mascotDock
+            }
+            .frame(width: layout.gameplaySidebarWidth)
+            .frame(maxHeight: .infinity)
+            .padding(.leading, 4)
+
+            boardView
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .safeAreaPadding(.leading)
+        .safeAreaPadding(.trailing)
+        .safeAreaPadding(.top)
+        .safeAreaPadding(.bottom)
+    }
+
+    private var boardView: some View {
+        SpriteView(
+            scene: scene,
+            options: [.ignoresSiblingOrder, .shouldCullNonVisibleNodes]
+        )
+        .allowsHitTesting(gameState.outcome == .playing && !gameState.isPaused)
+        .onAppear {
+            DispatchQueue.main.async { configureScene() }
+        }
+    }
+
+    @ViewBuilder
+    private var hammerBanner: some View {
+        if activeBooster == .hammer {
+            HStack(spacing: 10) {
+                Text("🔨 TAP A TILE!")
+                    .font(.system(size: layout.isCompactHeight ? 11 : 13, weight: .black, design: .rounded))
+                    .foregroundStyle(SSATheme.candyYellow)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                Button {
+                    activeBooster = nil
+                    scene.isHammerModeActive = false
+                } label: {
+                    Text("CANCEL")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.red.opacity(0.7)))
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(Color.black.opacity(0.75)))
+            .padding(.top, 4)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    private func boosterBar(axis: Axis, compact: Bool) -> some View {
+        BoosterBarView(
+            gameState: gameState,
+            activeBooster: $activeBooster,
+            axis: axis,
+            compact: compact,
+            onHammerUse: {
+                scene.isHammerModeActive = true
+                scene.onHammerUsed = {
+                    activeBooster = nil
+                }
+            },
+            onColorBombUse: {
+                scene.plantSpecialOnBoard(.rainbow)
+            },
+            onExtraMovesUse: {
+                scene.refreshHUD()
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var mascotDock: some View {
+        SnacklingMascot(
+            expression: gameState.isFeverActive ? .cheer : (gameState.outcome == .playing ? .happy : .thinking),
+            size: layout.gameplayMascotSize,
+            speechBubbleText: layout.showsGameplaySpeech ? gameState.lastFeedMessage : ""
+        )
+    }
+
+    private func exitToMap() {
+        gameState.stopTimer()
+        onExit()
+    }
+
+    private func configureScene() {
+        LayoutMetrics.sync(from: layout)
+        scene.configure(with: gameState)
+        if let view = scene.view {
+            scene.size = view.bounds.size
+        }
+        let insets: UIEdgeInsets
+        if layout.usesSidebarGameplay {
+            insets = UIEdgeInsets(
+                top: layout.boardMargin,
+                left: layout.boardMargin,
+                bottom: layout.boardMargin,
+                right: layout.boardMargin
+            )
+        } else {
+            insets = UIEdgeInsets(
+                top: layout.portraitBoardTopReserved,
+                left: layout.boardMargin,
+                bottom: layout.portraitBoardBottomReserved,
+                right: layout.boardMargin
+            )
+        }
+        scene.playfieldInsets = insets
+        scene.maxTileSize = layout.maxTileSize
+        scene.rebuildBoard()
     }
 
     private func watchAdForTime() {
@@ -280,19 +366,25 @@ struct TimeUpOverlay: View {
     let onSpendStars: () -> Void
     let onGiveUp: () -> Void
 
+    @Environment(\.adaptiveLayout) private var layout
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.6).ignoresSafeArea()
 
-            VStack(spacing: 18) {
+            AdaptiveModalCard {
+            VStack(spacing: layout.isCompactHeight ? 12 : 18) {
                 Text("⏰")
-                    .font(.system(size: 56))
+                    .font(.system(size: layout.overlayEmojiSize))
                 Text("Time's Up!")
-                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    .font(.system(size: layout.overlayTitleFont, weight: .heavy, design: .rounded))
                     .foregroundStyle(.white)
+                    .minimumScaleFactor(0.75)
+                    .lineLimit(1)
                 Text("Keep playing with +\(extensionSeconds) seconds")
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
 
                 if isWatchingAd {
                     VStack(spacing: 10) {
@@ -351,26 +443,8 @@ struct TimeUpOverlay: View {
                 }
                 .disabled(isWatchingAd)
             }
-            .padding(28)
-            .background(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.28, green: 0.12, blue: 0.28),
-                                Color(red: 0.12, green: 0.1, blue: 0.2)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                    )
-            )
-            .padding(.horizontal, 28)
-            .shadow(color: .black.opacity(0.45), radius: 30, y: 12)
+            .frame(maxWidth: .infinity)
+            }
         }
     }
 }
@@ -402,7 +476,8 @@ struct PauseOverlay: View {
 
         return ZStack {
             Color.black.opacity(0.58).ignoresSafeArea()
-            VStack(spacing: 18) {
+            AdaptiveModalCard {
+            VStack(spacing: 16) {
                 VStack(spacing: 6) {
                     Image(systemName: "pause.circle.fill")
                         .font(.system(size: 46, weight: .bold))
@@ -412,6 +487,8 @@ struct PauseOverlay: View {
                     Text("Paused")
                         .font(.system(size: 30, weight: .black, design: .rounded))
                         .foregroundStyle(.white)
+                        .minimumScaleFactor(0.75)
+                        .lineLimit(1)
                 }
 
                 Button { SoundManager.shared.playUITap(); onResume() } label: {
@@ -473,26 +550,8 @@ struct PauseOverlay: View {
                 }
                 .buttonStyle(OverlayPressButtonStyle())
             }
-            .padding(28)
-            .background(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.24, green: 0.13, blue: 0.19),
-                                Color(red: 0.12, green: 0.08, blue: 0.14)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .stroke(Color.white.opacity(0.14), lineWidth: 1)
-                    )
-            )
-            .padding(30)
-            .shadow(color: .black.opacity(0.42), radius: 28, y: 12)
+            .frame(maxWidth: .infinity)
+            }
         }
     }
 }
@@ -509,6 +568,7 @@ struct LevelResultOverlay: View {
     let onMap: () -> Void
     let onMainMenu: () -> Void
     @State private var showPrize = false
+    @Environment(\.adaptiveLayout) private var layout
 
     var body: some View {
         ZStack {
@@ -521,17 +581,19 @@ struct LevelResultOverlay: View {
                     .transition(.opacity)
             }
 
-            VStack(spacing: 18) {
-                // Mascot Reaction (Screen 05 Win / Screen 06 Lose)
+            AdaptiveModalCard {
+            VStack(spacing: 16) {
                 SnacklingMascot(
                     expression: won ? .cheer : .sad,
-                    size: 80,
+                    size: layout.isCompactHeight ? 56 : (layout.isPad ? 96 : 80),
                     speechBubbleText: won ? "YAY! Level Cleared!" : "Aww, so close! Try again!"
                 )
 
                 Text(won ? "Level Complete!" : "Out of Moves")
-                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .font(.system(size: layout.overlayTitleFont, weight: .heavy, design: .rounded))
                     .foregroundStyle(.white)
+                    .minimumScaleFactor(0.75)
+                    .lineLimit(1)
 
                 if won {
                     HStack(spacing: 8) {
@@ -634,26 +696,8 @@ struct LevelResultOverlay: View {
                     .buttonStyle(OverlayPressButtonStyle())
                 }
             }
-            .padding(28)
-            .background(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.22, green: 0.16, blue: 0.36),
-                                Color(red: 0.14, green: 0.12, blue: 0.24)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                    )
-            )
-            .padding(.horizontal, 28)
-            .shadow(color: .black.opacity(0.4), radius: 30, y: 12)
+            .frame(maxWidth: .infinity)
+            }
         }
         .onAppear {
             showPrize = false

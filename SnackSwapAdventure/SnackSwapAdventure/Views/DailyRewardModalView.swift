@@ -17,6 +17,8 @@ struct DailyRewardModalView: View {
         }
     }
 
+    @Environment(\.adaptiveLayout) private var layout
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.75)
@@ -25,16 +27,16 @@ struct DailyRewardModalView: View {
                     handleDismiss()
                 }
 
-            VStack(spacing: 20) {
-                headerView
-                subtitleView
-                rewardGrid
-                rewardToast
-                claimButton
+            AdaptiveModalCard(maxWidth: min(layout.overlayMaxWidth, layout.isPad ? 560 : 440)) {
+                VStack(spacing: layout.isCompactHeight ? 12 : 20) {
+                    headerView
+                    subtitleView
+                    rewardGrid
+                    rewardToast
+                    claimButton
+                }
+                .frame(maxWidth: .infinity)
             }
-            .padding(24)
-            .background(modalBackground)
-            .padding(.horizontal, 20)
         }
     }
 
@@ -43,7 +45,9 @@ struct DailyRewardModalView: View {
         HStack {
             Spacer()
             Text("DAILY REWARDS 🎁")
-                .font(.system(size: 22, weight: .black, design: .rounded))
+                .font(.system(size: layout.isCompactHeight ? 16 : 22, weight: .black, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .foregroundStyle(
                     LinearGradient(
                         colors: [.yellow, .orange],
@@ -70,7 +74,7 @@ struct DailyRewardModalView: View {
 
     // MARK: - Reward Grid
     private var rewardGrid: some View {
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: layout.dailyRewardColumns)
         return LazyVGrid(columns: columns, spacing: 12) {
             ForEach(rewardsManager.rewardSchedule) { item in
                 DayCardView(item: item, currentStreak: rewardsManager.currentStreak, isAvailable: rewardsManager.isRewardAvailable)
@@ -118,14 +122,6 @@ struct DailyRewardModalView: View {
         }
     }
 
-    private var modalBackground: some View {
-        RoundedRectangle(cornerRadius: 24)
-            .fill(LinearGradient(colors: [Color(hex: "2D1854"), Color(hex: "180C34")], startPoint: .top, endPoint: .bottom))
-            .overlay(
-                RoundedRectangle(cornerRadius: 24)
-                    .stroke(LinearGradient(colors: [.purple.opacity(0.6), .yellow.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 2)
-            )
-    }
 }
 
 private struct DayCardView: View {

@@ -1,18 +1,20 @@
+import SwiftUI
 import UIKit
 
-/// Centralized layout constants that adapt between iPhone and iPad.
-/// Usage: `LayoutMetrics.shared.overlayMaxWidth`
+/// Compatibility facade over `AdaptiveLayout`.
+/// Prefer `@Environment(\.adaptiveLayout)` in SwiftUI views.
+/// SpriteKit still reads `LayoutMetrics.shared` as a last-known snapshot.
 @MainActor
 struct LayoutMetrics {
-    static let shared = LayoutMetrics()
+    static var shared = LayoutMetrics(layout: .fallback)
 
     let isPad: Bool
+    let isLandscape: Bool
 
-    // MARK: - HUD
     let hudSpacing: CGFloat
     let hudPillPaddingH: CGFloat
     let hudPillPaddingV: CGFloat
-    let hudPillFont: CGFloat         // caption-level font size
+    let hudPillFont: CGFloat
     let hudTimerSize: CGFloat
     let hudTimerStroke: CGFloat
     let hudTimerFont: CGFloat
@@ -20,7 +22,6 @@ struct LayoutMetrics {
     let hudHorizontalPadding: CGFloat
     let progressBarHeight: CGFloat
 
-    // MARK: - Overlays
     let overlayMaxWidth: CGFloat
     let overlayPadding: CGFloat
     let overlayCornerRadius: CGFloat
@@ -28,86 +29,55 @@ struct LayoutMetrics {
     let overlayTitleFont: CGFloat
     let overlayButtonPaddingV: CGFloat
 
-    // MARK: - Title
     let titleFontPrimary: CGFloat
     let titleFontSecondary: CGFloat
     let titleButtonMaxWidth: CGFloat
     let titleTopSpacer: CGFloat
 
-    // MARK: - Sub-screens
     let contentMaxWidth: CGFloat
     let headerHeight: CGFloat
 
-    // MARK: - SpriteKit Board
     let boardTopReserved: CGFloat
     let boardBottomReserved: CGFloat
     let maxTileSize: CGFloat
 
-    private init() {
-        isPad = UIDevice.current.userInterfaceIdiom == .pad
+    init(layout: AdaptiveLayout) {
+        isPad = layout.isPad
+        isLandscape = layout.isLandscape
 
-        if isPad {
-            // iPad scaled values
-            hudSpacing = 14
-            hudPillPaddingH = 14
-            hudPillPaddingV = 10
-            hudPillFont = 15
-            hudTimerSize = 52
-            hudTimerStroke = 5
-            hudTimerFont = 16
-            hudMaxWidth = 620
-            hudHorizontalPadding = 24
-            progressBarHeight = 18
+        hudSpacing = layout.hudSpacing
+        hudPillPaddingH = layout.hudPillPaddingH
+        hudPillPaddingV = layout.hudPillPaddingV
+        hudPillFont = layout.hudPillFont
+        hudTimerSize = layout.hudTimerSize
+        hudTimerStroke = layout.hudTimerStroke
+        hudTimerFont = layout.hudTimerFont
+        hudMaxWidth = layout.hudMaxWidth
+        hudHorizontalPadding = layout.hudHorizontalPadding
+        progressBarHeight = layout.progressBarHeight
 
-            overlayMaxWidth = 420
-            overlayPadding = 36
-            overlayCornerRadius = 32
-            overlayEmojiSize = 64
-            overlayTitleFont = 34
-            overlayButtonPaddingV = 16
+        overlayMaxWidth = layout.overlayMaxWidth
+        overlayPadding = layout.overlayPadding
+        overlayCornerRadius = layout.overlayCornerRadius
+        overlayEmojiSize = layout.overlayEmojiSize
+        overlayTitleFont = layout.overlayTitleFont
+        overlayButtonPaddingV = layout.isPad ? 16 : 14
 
-            titleFontPrimary = 52
-            titleFontSecondary = 38
-            titleButtonMaxWidth = 440
-            titleTopSpacer = 180
+        titleFontPrimary = layout.titleHeroFont
+        titleFontSecondary = layout.titleSecondaryFont
+        titleButtonMaxWidth = layout.titleButtonMaxWidth
+        titleTopSpacer = layout.isLandscape ? 24 : (layout.isPad ? 80 : 40)
 
-            contentMaxWidth = 600
-            headerHeight = 52
+        contentMaxWidth = layout.contentMaxWidth
+        headerHeight = layout.headerHeight
 
-            boardTopReserved = 340
-            boardBottomReserved = 150
-            maxTileSize = 72
-        } else {
-            // iPhone original values
-            hudSpacing = 8
-            hudPillPaddingH = 8
-            hudPillPaddingV = 6
-            hudPillFont = 12
-            hudTimerSize = 38
-            hudTimerStroke = 3.5
-            hudTimerFont = 12
-            hudMaxWidth = .infinity
-            hudHorizontalPadding = 16
-            progressBarHeight = 14
+        boardTopReserved = layout.usesSidebarGameplay ? layout.boardMargin : layout.portraitBoardTopReserved
+        boardBottomReserved = layout.usesSidebarGameplay ? layout.boardMargin : layout.portraitBoardBottomReserved
+        maxTileSize = layout.maxTileSize
+    }
 
-            overlayMaxWidth = .infinity
-            overlayPadding = 28
-            overlayCornerRadius = 28
-            overlayEmojiSize = 54
-            overlayTitleFont = 28
-            overlayButtonPaddingV = 14
-
-            titleFontPrimary = 38
-            titleFontSecondary = 28
-            titleButtonMaxWidth = .infinity
-            titleTopSpacer = 120
-
-            contentMaxWidth = .infinity
-            headerHeight = 44
-
-            boardTopReserved = 155
-            boardBottomReserved = 90
-            maxTileSize = 56
-        }
+    /// Refresh the shared snapshot when the window size changes.
+    static func sync(from layout: AdaptiveLayout) {
+        shared = LayoutMetrics(layout: layout)
     }
 }

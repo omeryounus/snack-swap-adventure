@@ -163,8 +163,10 @@ struct FTUECoachOverlay: View {
                             }
                         }
                     }
+                    .frame(maxWidth: 520)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 24)
+                    .safeAreaPadding(.bottom)
                 }
             }
             .transition(.opacity)

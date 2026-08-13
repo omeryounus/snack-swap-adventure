@@ -73,6 +73,15 @@ backend/                TypeScript source / local Next dev
 DESIGN.md
 ```
 
+## Devices & orientations
+
+The SwiftUI + SpriteKit UI now scales across iPhone SE through iPhone Pro Max and iPad Mini through iPad Pro (12.9"), including Split View. Portrait and landscape are both supported:
+
+- **Portrait** — top HUD, centered 8×8 board, boosters + mascot along the bottom
+- **Landscape** — left sidebar (HUD, boosters, mascot) so the board stays large enough to tap
+- **iPad** — centered content width, extra grid columns, larger tiles (capped so they don't balloon)
+- Menus, overlays, and the daily-reward sheet scroll when height is tight
+
 ## How to play
 
 1. **Play** or pick a level on the **World Map**

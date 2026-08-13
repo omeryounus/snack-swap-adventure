@@ -12,56 +12,22 @@ struct LeaderboardView: View {
     @State private var errorMessage: String?
     @State private var selectedTab: Int = 0 // 0 = Global, 1 = Friends, 2 = Weekly
 
+    @Environment(\.adaptiveLayout) private var layout
+
     var body: some View {
-        ZStack(alignment: .top) {
-            WorldBackgroundPlate(themeColor: SSATheme.candyYellow)
-
-            VStack(spacing: 0) {
-                // Header
-                HStack {
-                    Button {
-                        SoundManager.shared.playUITap()
-                        onBack()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .background(Color.white.opacity(0.12))
-                            .clipShape(Circle())
-                    }
-
-                    Spacer()
-
-                    VStack(spacing: 2) {
-                        Text("RANKS")
-                            .font(.system(size: 22, weight: .black, design: .rounded))
-                            .foregroundStyle(.white)
-
-                        Text("Global Leaderboard")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(SSATheme.candyYellow)
-                    }
-
-                    Spacer()
-
-                    Color.clear.frame(width: 44, height: 44)
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 12)
-
-                // Tab selector (Global, Friends, Weekly)
-                HStack(spacing: 8) {
-                    TabChip(title: "Global", isSelected: selectedTab == 0) { selectedTab = 0 }
-                    TabChip(title: "Friends", isSelected: selectedTab == 1) { selectedTab = 1 }
-                    TabChip(title: "Weekly", isSelected: selectedTab == 2) { selectedTab = 2 }
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 16)
-
-                ScrollView(showsIndicators: false) {
+        ScreenScaffold(
+            title: "RANKS",
+            subtitle: "Global Leaderboard",
+            accent: SSATheme.candyYellow,
+            themeColor: SSATheme.candyYellow,
+            onBack: onBack
+        ) {
                     VStack(spacing: 16) {
+                        HStack(spacing: 8) {
+                            TabChip(title: "Global", isSelected: selectedTab == 0) { selectedTab = 0 }
+                            TabChip(title: "Friends", isSelected: selectedTab == 1) { selectedTab = 1 }
+                            TabChip(title: "Weekly", isSelected: selectedTab == 2) { selectedTab = 2 }
+                        }
                         // User's Own Rank Card
                         SSAGlassCard(padding: 14) {
                             HStack(spacing: 14) {
@@ -99,7 +65,7 @@ struct LeaderboardView: View {
                         }
 
                         // Top 3 Podium Cards
-                        HStack(alignment: .bottom, spacing: 10) {
+                        HStack(alignment: .bottom, spacing: layout.isPad ? 16 : 8) {
                             PodiumCard(rank: 2, name: "SnackPro", score: 14200, emoji: "🦊", color: Color.gray)
                             PodiumCard(rank: 1, name: "Omer", score: 18450, emoji: "👑", color: SSATheme.candyYellow)
                             PodiumCard(rank: 3, name: "CandyQueen", score: 12100, emoji: "🦄", color: SSATheme.candyOrange)
@@ -117,10 +83,6 @@ struct LeaderboardView: View {
                             LeaderRow(rank: 10, name: "CookieNinja", score: 3200, emoji: "🍪")
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 30)
-                }
-            }
         }
     }
 }

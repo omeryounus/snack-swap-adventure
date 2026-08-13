@@ -6,16 +6,14 @@ final class GameScene: SKScene {
 
     // MARK: - Config
 
-    /// Top chrome is SwiftUI GameHUD — leave accurate room for top panel & bottom mascot.
+    /// Insets reserved for SwiftUI chrome. Portrait overlay mode uses large
+    /// top/bottom values; landscape split mode only needs a small margin.
+    var playfieldInsets: UIEdgeInsets = UIEdgeInsets(top: 155, left: 16, bottom: 90, right: 16)
+    var maxTileSize: CGFloat = 56
     private let boardPadding: CGFloat = 8
-    private var topHUDReserved: CGFloat {
-        LayoutMetrics.shared.isPad ? 180 : 155
-    }
-    private var bottomReserved: CGFloat {
-        LayoutMetrics.shared.isPad ? 120 : 90
-    }
-    /// Grow tiles 10% vs the original padded layout.
-    private let tileScaleBoost: CGFloat = 1.10
+    /// Grow tiles slightly vs the padded well.
+    private let tileScaleBoost: CGFloat = 1.06
+    private var lastLaidOutSize: CGSize = .zero
 
     // MARK: - State
 
@@ -45,7 +43,12 @@ final class GameScene: SKScene {
 
     // MARK: - Lifecycle
 
+    private var hasPresentedBoard = false
+
     func configure(with state: GameState) {
+        if gameState !== state {
+            hasPresentedBoard = false
+        }
         self.gameState = state
         self.boardSize = state.level.boardSize
     }
@@ -54,16 +57,39 @@ final class GameScene: SKScene {
         view.ignoresSiblingOrder = true
         view.shouldCullNonVisibleNodes = true
         view.preferredFramesPerSecond = 60
-        // Warm bakery night backdrop — less pure purple so snacks contrast better
-        backgroundColor = SKColor(red: 0.043, green: 0.024, blue: 0.078, alpha: 1)
+        // Transparent so the SwiftUI world plate shows through.
+        backgroundColor = .clear
         rebuildBoard()
+    }
+
+    override func didChangeSize(_ oldSize: CGSize) {
+        super.didChangeSize(oldSize)
+        guard size.width > 1, size.height > 1 else { return }
+        let deltaW = abs(size.width - lastLaidOutSize.width)
+        let deltaH = abs(size.height - lastLaidOutSize.height)
+        guard deltaW > 1 || deltaH > 1 else { return }
+        rebuildBoard()
+    }
+
+    /// Apply live SwiftUI chrome insets and relayout if they actually changed.
+    func applyPlayfield(insets: UIEdgeInsets, maxTile: CGFloat) {
+        let insetsChanged =
+            abs(insets.top - playfieldInsets.top) > 0.5 ||
+            abs(insets.bottom - playfieldInsets.bottom) > 0.5 ||
+            abs(insets.left - playfieldInsets.left) > 0.5 ||
+            abs(insets.right - playfieldInsets.right) > 0.5
+        let tileChanged = abs(maxTile - maxTileSize) > 0.5
+        playfieldInsets = insets
+        maxTileSize = maxTile
+        if (insetsChanged || tileChanged), size.width > 1 {
+            rebuildBoard()
+        }
     }
 
     func rebuildBoard() {
         removeAllChildren()
         selectedPosition = nil
         isBusy = false
-        lastAnnouncedOutcome = .playing
 
         guard let state = gameState else { return }
         boardSize = state.level.boardSize
@@ -77,26 +103,27 @@ final class GameScene: SKScene {
         buildTilesFromModel()
         buildHUD()
         refreshHUD()
-        bounceInTiles()
+        if !hasPresentedBoard {
+            bounceInTiles()
+            hasPresentedBoard = true
+        }
         scheduleHint()
     }
 
     // MARK: - Layout
 
     private func layoutMetrics() {
-        let boardHorizontalMargin: CGFloat = 20
-        let usableWidth = size.width - boardHorizontalMargin * 2
-        let usableHeight = size.height - topHUDReserved - bottomReserved
+        lastLaidOutSize = size
+        let usableWidth = max(8, size.width - playfieldInsets.left - playfieldInsets.right)
+        let usableHeight = max(8, size.height - playfieldInsets.top - playfieldInsets.bottom)
         let side = min(usableWidth, usableHeight)
-
-        tileSize = max(1, floor(side / CGFloat(boardSize)))
+        let rawTile = floor(side / CGFloat(max(boardSize, 1)))
+        tileSize = max(28, min(maxTileSize, rawTile))
 
         let boardPixel = tileSize * CGFloat(boardSize)
-
-        boardOrigin = CGPoint(
-            x: (size.width - boardPixel) / 2,
-            y: bottomReserved + max(0, (usableHeight - boardPixel) / 2)
-        )
+        let originX = playfieldInsets.left + max(0, (usableWidth - boardPixel) / 2)
+        let originY = playfieldInsets.bottom + max(0, (usableHeight - boardPixel) / 2)
+        boardOrigin = CGPoint(x: originX, y: originY)
     }
 
     private func point(for pos: BoardPosition) -> CGPoint {
@@ -126,7 +153,7 @@ final class GameScene: SKScene {
         let topY = boardOrigin.y + boardPixel
 
         let backdrop = SKShapeNode(rect: CGRect(origin: .zero, size: size))
-        backdrop.fillColor = SKColor(red: 0.17, green: 0.09, blue: 0.13, alpha: 1)
+        backdrop.fillColor = SKColor(red: 0.08, green: 0.04, blue: 0.10, alpha: 0.18)
         backdrop.strokeColor = .clear
         backdrop.zPosition = -20
         addChild(backdrop)

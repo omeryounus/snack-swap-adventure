@@ -7,51 +7,21 @@ struct StatsView: View {
     @StateObject private var profile = PlayerProfile.shared
     @StateObject private var meta = MetaProgress.shared
 
+    @Environment(\.adaptiveLayout) private var layout
+
     var body: some View {
-        ZStack(alignment: .top) {
-            WorldBackgroundPlate(themeColor: SSATheme.candyCyan)
-
-            VStack(spacing: 0) {
-                // Header
-                HStack {
-                    Button {
-                        SoundManager.shared.playUITap()
-                        onBack()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .background(Color.white.opacity(0.12))
-                            .clipShape(Circle())
-                    }
-
-                    Spacer()
-
-                    VStack(spacing: 2) {
-                        Text("STATS")
-                            .font(.system(size: 22, weight: .black, design: .rounded))
-                            .foregroundStyle(.white)
-
-                        Text("Player Dashboard")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(SSATheme.candyCyan)
-                    }
-
-                    Spacer()
-
-                    Color.clear.frame(width: 44, height: 44)
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 16)
-
-                ScrollView(showsIndicators: false) {
+        ScreenScaffold(
+            title: "STATS",
+            subtitle: "Player Dashboard",
+            accent: SSATheme.candyCyan,
+            themeColor: SSATheme.candyCyan,
+            onBack: onBack
+        ) {
                     VStack(spacing: 18) {
                         // Profile Banner
                         SSAGlassCard(padding: 16) {
                             HStack(spacing: 14) {
-                                SnacklingMascot(expression: .happy, size: 50, speechBubbleText: nil, animateFloat: false)
+                                SnacklingMascot(expression: .happy, size: 50, speechBubbleText: "", animateFloat: false)
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(profile.displayName)
@@ -68,7 +38,7 @@ struct StatsView: View {
                         }
 
                         // Grid Cards (High Score, Total Matches, Win Rate, Streaks)
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                        LazyVGrid(columns: layout.gridItems(count: layout.statsGridColumns), spacing: 14) {
                             StatCard(title: "High Score", value: "\(profile.localHighScore)", icon: "trophy.fill", color: SSATheme.candyYellow)
                             StatCard(title: "Levels Cleared", value: "\(profile.maxUnlockedLevel - 1)", icon: "checkmark.seal.fill", color: SSATheme.candyGreen)
                             StatCard(title: "Total Stars", value: "\(meta.stars) ⭐", icon: "star.fill", color: SSATheme.candyYellow)
@@ -127,10 +97,6 @@ struct StatsView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 30)
-                }
-            }
         }
     }
 }

@@ -14,38 +14,11 @@ struct SettingsView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            WorldBackgroundPlate(themeColor: SSATheme.candyPurple)
-
-            VStack(spacing: 0) {
-                // Header
-                HStack {
-                    Button {
-                        SoundManager.shared.playUITap()
-                        onBack()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .background(Color.white.opacity(0.12))
-                            .clipShape(Circle())
-                    }
-
-                    Spacer()
-
-                    Text("Settings")
-                        .font(.system(size: 22, weight: .black, design: .rounded))
-                        .foregroundStyle(.white)
-
-                    Spacer()
-
-                    Color.clear.frame(width: 44, height: 44)
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 16)
-
-                ScrollView(showsIndicators: false) {
+            ScreenScaffold(
+                title: "Settings",
+                themeColor: SSATheme.candyPurple,
+                onBack: onBack
+            ) {
                     VStack(spacing: 20) {
                         // Profile Section
                         SSAGlassCard {
@@ -212,10 +185,7 @@ struct SettingsView: View {
                                 .foregroundStyle(SSATheme.textMuted)
                         }
                         .padding(.top, 8)
-                        .padding(.bottom, 40)
                     }
-                    .padding(.horizontal, 20)
-                }
             }
 
             // Toast overlay
