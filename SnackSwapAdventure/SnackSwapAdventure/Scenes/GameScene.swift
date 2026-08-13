@@ -118,7 +118,8 @@ final class GameScene: SKScene {
         let usableHeight = max(8, size.height - playfieldInsets.top - playfieldInsets.bottom)
         let side = min(usableWidth, usableHeight)
         let rawTile = floor(side / CGFloat(max(boardSize, 1)))
-        tileSize = max(28, min(maxTileSize, rawTile))
+        let cap = maxTileSize > 0 ? maxTileSize : rawTile
+        tileSize = max(24, min(cap, rawTile))
 
         let boardPixel = tileSize * CGFloat(boardSize)
         let originX = playfieldInsets.left + max(0, (usableWidth - boardPixel) / 2)

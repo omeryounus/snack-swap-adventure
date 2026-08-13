@@ -144,54 +144,55 @@ struct GameContainerView: View {
     // MARK: - Playfields
 
     private var portraitPlayfield: some View {
-        ZStack {
+        VStack(spacing: 4) {
+            GameHUD(
+                gameState: gameState,
+                onClose: exitToMap,
+                onPause: { gameState.isPaused = true },
+                chrome: .topBar
+            )
+            hammerBanner
             boardView
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                GameHUD(
-                    gameState: gameState,
-                    onClose: exitToMap,
-                    onPause: { gameState.isPaused = true },
-                    chrome: .topBar
-                )
-                hammerBanner
-                Spacer(minLength: 0)
-            }
-            .safeAreaPadding(.top)
-
-            VStack(spacing: 0) {
-                Spacer(minLength: 0)
-                boosterBar(axis: .horizontal, compact: layout.deviceClass == .compactPhone)
-                    .padding(.bottom, 4)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minHeight: 220)
+                .layoutPriority(1)
+            boosterBar(axis: .horizontal, compact: layout.isPhone)
+            if layout.showsGameplaySpeech || layout.isPad {
                 mascotDock
-                    .padding(.bottom, 2)
             }
-            .safeAreaPadding(.bottom)
         }
+        .padding(.horizontal, 8)
+        .safeAreaPadding(.top)
+        .safeAreaPadding(.bottom)
     }
 
     private var landscapePlayfield: some View {
-        HStack(spacing: 0) {
-            VStack(spacing: layout.isCompactHeight ? 8 : 12) {
-                GameHUD(
-                    gameState: gameState,
-                    onClose: exitToMap,
-                    onPause: { gameState.isPaused = true },
-                    chrome: .sidebar
-                )
-                hammerBanner
-                Spacer(minLength: 4)
-                boosterBar(axis: .vertical, compact: layout.isCompactHeight || layout.isPhone)
-                mascotDock
+        HStack(spacing: 8) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 8) {
+                    GameHUD(
+                        gameState: gameState,
+                        onClose: exitToMap,
+                        onPause: { gameState.isPaused = true },
+                        chrome: .sidebar
+                    )
+                    hammerBanner
+                    boosterBar(axis: .vertical, compact: true)
+                    if layout.showsGameplaySpeech {
+                        mascotDock
+                    }
+                }
+                .frame(maxWidth: .infinity)
             }
             .frame(width: layout.gameplaySidebarWidth)
-            .frame(maxHeight: .infinity)
-            .padding(.leading, 4)
+            .scrollBounceBehavior(.basedOnSize)
 
             boardView
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minWidth: 220, minHeight: 220)
+                .layoutPriority(1)
         }
+        .padding(.horizontal, 6)
         .safeAreaPadding(.leading)
         .safeAreaPadding(.trailing)
         .safeAreaPadding(.top)
@@ -278,25 +279,13 @@ struct GameContainerView: View {
         LayoutMetrics.sync(from: layout)
         scene.configure(with: gameState)
         if let view = scene.view {
-            scene.size = view.bounds.size
+            let bounds = view.bounds.size
+            if bounds.width > 1, bounds.height > 1 {
+                scene.size = bounds
+            }
         }
-        let insets: UIEdgeInsets
-        if layout.usesSidebarGameplay {
-            insets = UIEdgeInsets(
-                top: layout.boardMargin,
-                left: layout.boardMargin,
-                bottom: layout.boardMargin,
-                right: layout.boardMargin
-            )
-        } else {
-            insets = UIEdgeInsets(
-                top: layout.portraitBoardTopReserved,
-                left: layout.boardMargin,
-                bottom: layout.portraitBoardBottomReserved,
-                right: layout.boardMargin
-            )
-        }
-        scene.playfieldInsets = insets
+        let margin = layout.boardMargin
+        scene.playfieldInsets = UIEdgeInsets(top: margin, left: margin, bottom: margin, right: margin)
         scene.maxTileSize = layout.maxTileSize
         scene.rebuildBoard()
     }

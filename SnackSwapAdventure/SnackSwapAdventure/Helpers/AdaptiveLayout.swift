@@ -65,27 +65,29 @@ struct AdaptiveLayout: Equatable {
 
     var gameplaySidebarWidth: CGFloat {
         if isPad {
-            return min(340, max(248, width * 0.26))
+            return min(300, max(220, width * 0.22))
         }
+        // Keep the column slim so the square board can use full landscape height.
         if isCompactHeight {
-            return min(232, max(176, width * 0.32))
+            return min(188, max(156, width * 0.24))
         }
-        return min(250, max(196, width * 0.34))
+        return min(210, max(168, width * 0.22))
     }
 
+    /// High enough that the board fills its SpriteView; iPad is capped so tiles stay readable.
     var maxTileSize: CGFloat {
         switch deviceClass {
-        case .compactPhone: return 48
-        case .regularPhone: return 56
-        case .largePhone: return 62
-        case .compactPad: return 68
-        case .regularPad: return 78
-        case .largePad: return 88
+        case .compactPhone: return 72
+        case .regularPhone: return 96
+        case .largePhone: return 120
+        case .compactPad: return 88
+        case .regularPad: return 96
+        case .largePad: return 104
         }
     }
 
     var boardMargin: CGFloat {
-        isPad ? 20 : (isCompactWidth ? 10 : 14)
+        isPad ? 12 : 8
     }
 
     /// Reserved space *inside* a full-screen SpriteView (portrait overlay mode).
@@ -101,18 +103,19 @@ struct AdaptiveLayout: Equatable {
     }
 
     var gameplayMascotSize: CGFloat {
-        if usesSidebarGameplay { return isPad ? 52 : 34 }
+        if usesSidebarGameplay { return isPad ? 44 : 28 }
         switch deviceClass {
-        case .compactPhone: return 34
-        case .regularPhone, .largePhone: return 44
-        case .compactPad: return 52
-        case .regularPad, .largePad: return 60
+        case .compactPhone: return 32
+        case .regularPhone: return 40
+        case .largePhone: return 42
+        case .compactPad: return 48
+        case .regularPad, .largePad: return 56
         }
     }
 
     var showsGameplaySpeech: Bool {
-        if usesSidebarGameplay { return isPad || height >= 390 }
-        return deviceClass != .compactPhone
+        if usesSidebarGameplay { return isPad && height >= 700 }
+        return !isCompactHeight && deviceClass != .compactPhone
     }
 
     // MARK: - Spacing
@@ -312,7 +315,7 @@ struct AdaptiveRoot<Content: View>: View {
             let layout = AdaptiveLayout(size: geo.size, safeArea: geo.safeAreaInsets)
             content()
                 .environment(\.adaptiveLayout, layout)
-                .frame(width: geo.size.width, height: geo.size.height)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onAppear { LayoutMetrics.sync(from: layout) }
                 .onChange(of: layout) { _, newValue in
                     LayoutMetrics.sync(from: newValue)

@@ -35,7 +35,7 @@ struct GameHUD: View {
     // MARK: - Portrait top bar
 
     private var topBar: some View {
-        VStack(spacing: layout.isCompactHeight ? 6 : 10) {
+        VStack(spacing: 6) {
             HStack(spacing: layout.hudSpacing) {
                 pauseButton
                 levelBadge
@@ -44,39 +44,23 @@ struct GameHUD: View {
                 timerRing
                 movesPill
             }
-            .padding(.horizontal, layout.hudHorizontalPadding)
-            .padding(.top, 6)
-            .frame(maxWidth: layout.hudMaxWidth)
+            .frame(maxWidth: .infinity)
 
             goalBlock
-                .padding(.horizontal, layout.hudHorizontalPadding)
-                .padding(.vertical, layout.isCompactHeight ? 6 : 10)
-                .glassCard()
-                .padding(.horizontal, layout.isCompactWidth ? 10 : 14)
-                .frame(maxWidth: layout.hudMaxWidth)
 
             if gameState.isFeverActive {
                 feverBanner
-                    .padding(.horizontal, layout.isCompactWidth ? 10 : 14)
-                    .frame(maxWidth: layout.hudMaxWidth)
             }
         }
+        .padding(.horizontal, 4)
         .padding(.top, 2)
-        .padding(.bottom, 6)
-        .background(
-            LinearGradient(
-                colors: [Theme.bgVoid, Theme.bgVoid.opacity(0.8), .clear],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea(edges: .top)
-        )
+        .padding(.bottom, 4)
     }
 
     // MARK: - Landscape sidebar
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: layout.isCompactHeight ? 8 : 12) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 pauseButton
                 levelBadge
@@ -101,19 +85,9 @@ struct GameHUD: View {
             if gameState.isFeverActive {
                 feverBanner
             }
-
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(
-            LinearGradient(
-                colors: [Theme.bgVoid.opacity(0.72), Theme.bgVoid.opacity(0.28), .clear],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        )
+        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     // MARK: - Shared bits
