@@ -149,9 +149,6 @@ final class GameScene: SKScene {
     // MARK: - Visual setup
 
     private func drawStageBackdrop() {
-        let boardPixel = tileSize * CGFloat(boardSize)
-        let topY = boardOrigin.y + boardPixel
-
         let backdrop = SKShapeNode(rect: CGRect(origin: .zero, size: size))
         backdrop.fillColor = SKColor(red: 0.08, green: 0.04, blue: 0.10, alpha: 0.18)
         backdrop.strokeColor = .clear
@@ -487,7 +484,7 @@ final class GameScene: SKScene {
     }
 
     func smashTile(at pos: BoardPosition) {
-        guard let state = gameState, !isBusy, let _ = tileNodes[pos.row][pos.col] else { return }
+        guard gameState != nil, !isBusy, tileNodes[pos.row][pos.col] != nil else { return }
         isBusy = true
         SoundManager.shared.playSpecial()
         spawnParticles(at: Set([pos]))
@@ -898,12 +895,12 @@ final class GameScene: SKScene {
             let center = point(for: pos)
             let snack = gameState?.board.snack(at: pos)
             let color = snack?.color ?? SKColor(red: 1.0, green: 0.86, blue: 0.32, alpha: 1.0)
-            
-            // Spawn 4 rotating sparkle stars
+
+            // Spawn 4 rotating sparkle stars tinted to the matched snack
             for _ in 0..<4 {
                 let size = CGFloat.random(in: 6...10)
                 let star = SKShapeNode(path: createStarPath(size: size))
-                star.fillColor = .white
+                star.fillColor = color
                 star.strokeColor = .clear
                 star.blendMode = .add
                 star.position = center

@@ -137,7 +137,7 @@ struct LevelPreviewSheet: View {
                 ) {
                     // Queue selected boosters
                     for b in selectedBoosters {
-                        meta.queueBooster(b)
+                        _ = meta.queueBooster(b)
                     }
                     onPlay()
                 }

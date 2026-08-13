@@ -1,6 +1,7 @@
 # TestFlight Release Checklist
 
-Snack Swap is configured to build as `com.snackswap.adventure` version `1.0` build `2`.
+Snack Swap is configured to build as `com.snackswap.adventure` version `1.1` build `3`.
+Version `1.0` is closed on App Store Connect, so new uploads must use a higher `CFBundleShortVersionString`.
 
 ## Local Validation
 
