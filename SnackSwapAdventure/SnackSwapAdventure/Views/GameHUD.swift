@@ -35,14 +35,23 @@ struct GameHUD: View {
     // MARK: - Portrait top bar
 
     private var topBar: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: layout.hudSpacing) {
-                pauseButton
-                levelBadge
-                Spacer(minLength: 4)
-                starsPill
-                timerRing
-                movesPill
+        VStack(spacing: layout.isCompactHeight ? 4 : 6) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: layout.hudSpacing) {
+                    pauseButton
+                    levelBadge
+                    Spacer(minLength: 4)
+                    starsPill
+                    timerRing
+                    movesPill
+                }
+                HStack(spacing: layout.hudSpacing) {
+                    pauseButton
+                    levelBadge
+                    Spacer(minLength: 2)
+                    timerRing
+                    movesPill
+                }
             }
             .frame(maxWidth: .infinity)
 
@@ -52,9 +61,9 @@ struct GameHUD: View {
                 feverBanner
             }
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, layout.isVeryNarrow ? 2 : 4)
         .padding(.top, 2)
-        .padding(.bottom, 4)
+        .padding(.bottom, 2)
     }
 
     // MARK: - Landscape sidebar

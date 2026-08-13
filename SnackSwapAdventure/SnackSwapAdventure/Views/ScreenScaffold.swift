@@ -93,7 +93,7 @@ struct AdaptiveModalCard<Content: View>: View {
 
     var body: some View {
         let cardWidth = maxWidth ?? layout.overlayMaxWidth
-        let maxCardHeight = max(220, layout.height - max(layout.safeArea.top + layout.safeArea.bottom, 24) - 16)
+        let maxCardHeight = max(160, layout.height - max(layout.safeArea.top + layout.safeArea.bottom, 16) - 12)
 
         ScrollView(showsIndicators: false) {
             content()

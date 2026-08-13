@@ -51,7 +51,7 @@ struct TitleView: View {
     }
 
     private var topBar: some View {
-        HStack {
+        HStack(spacing: 8) {
             Button {
                 SoundManager.shared.playUITap()
                 onStats()
@@ -65,12 +65,13 @@ struct TitleView: View {
                             .font(.system(size: 14, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.75)
+                            .minimumScaleFactor(0.7)
 
                         Text("\(profile.stars) ⭐")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundStyle(SSATheme.candyYellow)
                     }
+                    .layoutPriority(1)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)

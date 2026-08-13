@@ -144,32 +144,38 @@ struct GameContainerView: View {
     // MARK: - Playfields
 
     private var portraitPlayfield: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: layout.isCompactHeight ? 2 : 4) {
             GameHUD(
                 gameState: gameState,
                 onClose: exitToMap,
                 onPause: { gameState.isPaused = true },
                 chrome: .topBar
             )
+            .fixedSize(horizontal: false, vertical: true)
+
             hammerBanner
+
             boardView
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .frame(minHeight: 220)
                 .layoutPriority(1)
-            boosterBar(axis: .horizontal, compact: layout.isPhone)
-            if layout.showsGameplaySpeech || layout.isPad {
+
+            boosterBar(axis: .horizontal, compact: layout.isPhone || layout.isCompactWidth)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if layout.showsGameplaySpeech || (layout.isPad && !layout.isCompactHeight) {
                 mascotDock
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, layout.isVeryNarrow ? 4 : 8)
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
     }
 
     private var landscapePlayfield: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 8) {
+                VStack(spacing: 6) {
                     GameHUD(
                         gameState: gameState,
                         onClose: exitToMap,
@@ -189,10 +195,9 @@ struct GameContainerView: View {
 
             boardView
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .frame(minWidth: 220, minHeight: 220)
                 .layoutPriority(1)
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, layout.isVeryNarrow ? 4 : 6)
         .safeAreaPadding(.leading)
         .safeAreaPadding(.trailing)
         .safeAreaPadding(.top)

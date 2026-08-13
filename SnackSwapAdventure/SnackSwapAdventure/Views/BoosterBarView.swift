@@ -155,6 +155,7 @@ struct BoosterBarView: View {
     }
 
     private var buttonSize: CGFloat {
+        if layout.isVeryNarrow { return 32 }
         if compact { return 36 }
         return layout.isPad ? 50 : 44
     }

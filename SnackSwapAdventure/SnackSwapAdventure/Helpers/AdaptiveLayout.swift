@@ -33,10 +33,12 @@ struct AdaptiveLayout: Equatable {
     var shortestSide: CGFloat { min(width, height) }
     var longestSide: CGFloat { max(width, height) }
 
-    /// True when vertical space is tight (phone landscape, Split View, SE).
+    /// Phone landscape, SE 1st gen, or a short Split View slice.
     var isCompactHeight: Bool { height < 560 }
-    /// True when the window is phone-narrow (SE, Mini, iPad 1/3 Split View).
+    /// SE / Mini / iPad 1/3 Split View.
     var isCompactWidth: Bool { width < 400 }
+    /// Too tight for a side column + 8×8 board.
+    var isVeryNarrow: Bool { width < 360 }
 
     enum DeviceClass: String, Equatable {
         case compactPhone
@@ -60,34 +62,42 @@ struct AdaptiveLayout: Equatable {
 
     // MARK: - Gameplay chrome
 
-    /// Landscape (any device) uses a side column so the 8×8 board stays tappable.
-    var usesSidebarGameplay: Bool { isLandscape }
-
-    var gameplaySidebarWidth: CGFloat {
-        if isPad {
-            return min(300, max(220, width * 0.22))
-        }
-        // Keep the column slim so the square board can use full landscape height.
-        if isCompactHeight {
-            return min(188, max(156, width * 0.24))
-        }
-        return min(210, max(168, width * 0.22))
+    /// Side column only when the leftover rectangle can still hold an 8×8 board.
+    var usesSidebarGameplay: Bool {
+        guard isLandscape else { return false }
+        return width >= 520 && (width - 168) >= min(200, height * 0.55)
     }
 
-    /// High enough that the board fills its SpriteView; iPad is capped so tiles stay readable.
+    var gameplaySidebarWidth: CGFloat {
+        let boardFloor = min(height * 0.72, width * 0.58)
+        let maxSidebar = max(132, width - boardFloor - 20)
+        let desired: CGFloat
+        if isPad {
+            desired = min(280, max(200, width * 0.22))
+        } else if isCompactHeight {
+            desired = min(176, max(148, width * 0.24))
+        } else {
+            desired = min(200, max(160, width * 0.22))
+        }
+        return min(desired, maxSidebar)
+    }
+
+    /// Cap is high on phones so the board fills its SpriteView; iPad stays readable.
     var maxTileSize: CGFloat {
+        let playable = min(width, height)
+        let fromWindow = floor((playable - 24) / 6)
         switch deviceClass {
-        case .compactPhone: return 72
-        case .regularPhone: return 96
-        case .largePhone: return 120
-        case .compactPad: return 88
-        case .regularPad: return 96
-        case .largePad: return 104
+        case .compactPhone: return min(64, fromWindow)
+        case .regularPhone: return min(96, fromWindow)
+        case .largePhone: return min(120, fromWindow)
+        case .compactPad: return min(88, fromWindow)
+        case .regularPad: return min(96, fromWindow)
+        case .largePad: return min(108, fromWindow)
         }
     }
 
     var boardMargin: CGFloat {
-        isPad ? 12 : 8
+        isVeryNarrow || isCompactHeight ? 6 : (isPad ? 12 : 8)
     }
 
     /// Reserved space *inside* a full-screen SpriteView (portrait overlay mode).
@@ -142,9 +152,10 @@ struct AdaptiveLayout: Equatable {
     }
 
     var overlayMaxWidth: CGFloat {
-        if isPad { return min(500, width - 48) }
-        if isLandscape { return min(460, width - 48) }
-        return min(400, width - 28)
+        let gutter: CGFloat = isVeryNarrow ? 16 : 28
+        if isPad { return min(520, width - 48) }
+        if isLandscape { return min(460, max(240, width - gutter)) }
+        return min(400, max(240, width - gutter))
     }
 
     var overlayPadding: CGFloat {
@@ -177,9 +188,10 @@ struct AdaptiveLayout: Equatable {
     var hudPillPaddingV: CGFloat { isPad ? 10 : (isCompactHeight ? 4 : 6) }
     var hudPillFont: CGFloat { isPad ? 15 : (isCompactWidth ? 11 : 12) }
     var hudTimerSize: CGFloat {
-        if usesSidebarGameplay { return isPad ? 64 : 46 }
+        if isCompactHeight { return isPad ? 44 : 30 }
+        if usesSidebarGameplay { return isPad ? 56 : 40 }
         if isPad { return 52 }
-        return isCompactWidth ? 34 : 38
+        return isCompactWidth ? 32 : 36
     }
     var hudTimerStroke: CGFloat { isPad ? 5 : 3.5 }
     var hudTimerFont: CGFloat { isPad ? 18 : 12 }
@@ -278,7 +290,7 @@ struct AdaptiveLayout: Equatable {
     }
 
     var titleUsesSplitLayout: Bool {
-        isLandscape && width >= 640
+        isLandscape && width >= 640 && height >= 340
     }
 
     var titleButtonMaxWidth: CGFloat {
@@ -312,7 +324,10 @@ struct AdaptiveRoot<Content: View>: View {
 
     var body: some View {
         GeometryReader { geo in
-            let layout = AdaptiveLayout(size: geo.size, safeArea: geo.safeAreaInsets)
+            let layout = AdaptiveLayout(
+                size: CGSize(width: max(geo.size.width, 1), height: max(geo.size.height, 1)),
+                safeArea: geo.safeAreaInsets
+            )
             content()
                 .environment(\.adaptiveLayout, layout)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
