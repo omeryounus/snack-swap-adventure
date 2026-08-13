@@ -190,7 +190,10 @@ jobs:
 
           # Use fastlane sigh to download/generate the distribution provisioning profile via ASC API
           gem install fastlane --no-document
+          # --force regenerates the profile so Game Center is included after
+          # the capability was added on the App ID.
           fastlane sigh \
+            --force \
             --app_identifier "$APP_IDENTIFIER" \
             --api_key_path "$PWD/build/asc_api_key.json" \
             --output_path "build" \
@@ -217,7 +220,16 @@ jobs:
           set -euo pipefail
           BUILD_NUMBER="${{ github.run_number }}"
           if [ "$BUILD_NUMBER" -le 1 ]; then BUILD_NUMBER=2; fi
-          MARKETING_VERSION="1.1"
+          MARKETING_VERSION="1.1.1"
+          ENTITLEMENTS="$PWD/SnackSwapAdventure/SnackSwapAdventure/SnackSwapAdventure.entitlements"
+          if [ ! -f "$ENTITLEMENTS" ]; then
+            echo "::error::Missing Game Center entitlements file: $ENTITLEMENTS"
+            exit 1
+          fi
+          if ! grep -q "com.apple.developer.game-center" "$ENTITLEMENTS"; then
+            echo "::error::Entitlements file is missing com.apple.developer.game-center"
+            exit 1
+          fi
           ARCHIVE_PATH="$RUNNER_TEMP/SnackSwapAdventure.xcarchive"
           EXPORT_PATH="$PWD/build/ipa"
           mkdir -p "$EXPORT_PATH"
@@ -264,16 +276,26 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             MARKETING_VERSION="$MARKETING_VERSION" \
+            CODE_SIGN_ENTITLEMENTS="$PWD/SnackSwapAdventure/SnackSwapAdventure/SnackSwapAdventure.entitlements" \
             ENABLE_PREVIEWS=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
             clean archive
 
-          APP_PLIST="$ARCHIVE_PATH/Products/Applications/SnackSwapAdventure.app/Info.plist"
+          APP_PATH="$ARCHIVE_PATH/Products/Applications/SnackSwapAdventure.app"
+          APP_PLIST="$APP_PATH/Info.plist"
           ARCHIVED_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PLIST")
           ARCHIVED_BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_PLIST")
           echo "Archived CFBundleShortVersionString=${ARCHIVED_VERSION} CFBundleVersion=${ARCHIVED_BUILD}"
           if [ "$ARCHIVED_VERSION" = "1.0" ]; then
             echo "::error::Refusing to upload closed train 1.0 (ITMS-90186). Expected 1.1+."
+            exit 1
+          fi
+
+          codesign -d --entitlements :- "$APP_PATH" > "$RUNNER_TEMP/archived.entitlements" 2>/dev/null || true
+          echo "=== Archived entitlements ==="
+          cat "$RUNNER_TEMP/archived.entitlements" || true
+          if ! grep -q "com.apple.developer.game-center" "$RUNNER_TEMP/archived.entitlements"; then
+            echo "::error::Signed app is missing com.apple.developer.game-center. Regenerating the App Store profile may be required."
             exit 1
           fi
 

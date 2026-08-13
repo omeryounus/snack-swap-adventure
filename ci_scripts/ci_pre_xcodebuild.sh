@@ -1,14 +1,24 @@
 #!/bin/sh
-# Xcode Cloud: force a marketing version higher than the closed 1.0 train.
-# App Store Connect rejects CFBundleShortVersionString 1.0 (ITMS-90186 / ITMS-90062).
+# Xcode Cloud: pin marketing version and confirm Game Center entitlements exist.
 set -euo pipefail
 
-MARKETING_VERSION="1.1"
+MARKETING_VERSION="1.1.1"
 ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/.." && pwd)}"
 PROJ_DIR="$ROOT/SnackSwapAdventure"
 INFO="$PROJ_DIR/Info.plist"
+ENTITLEMENTS="$PROJ_DIR/SnackSwapAdventure/SnackSwapAdventure.entitlements"
 
 echo "ci_pre_xcodebuild: pinning CFBundleShortVersionString to ${MARKETING_VERSION}"
+
+if [ ! -f "$ENTITLEMENTS" ]; then
+  echo "error: missing $ENTITLEMENTS"
+  exit 1
+fi
+if ! grep -q "com.apple.developer.game-center" "$ENTITLEMENTS"; then
+  echo "error: $ENTITLEMENTS is missing com.apple.developer.game-center"
+  exit 1
+fi
+echo "ci_pre_xcodebuild: Game Center entitlement file OK"
 
 if [ -d "$PROJ_DIR/SnackSwapAdventure.xcodeproj" ]; then
   (
