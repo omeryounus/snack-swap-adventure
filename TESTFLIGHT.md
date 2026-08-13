@@ -1,7 +1,13 @@
 # TestFlight Release Checklist
 
-Snack Swap is configured to build as `com.snackswap.adventure` version `1.1` build `3`.
-Version `1.0` is closed on App Store Connect, so new uploads must use a higher `CFBundleShortVersionString`.
+Snack Swap is configured to build as `com.snackswap.adventure` version `1.1` build `34`.
+Version `1.0` is **closed** on App Store Connect (ITMS-90186 / ITMS-90062). New binaries must ship `CFBundleShortVersionString` **1.1 or higher**.
+
+Before the next Xcode Cloud / TestFlight upload:
+
+1. In App Store Connect, create a new app version **1.1** (do not keep delivering to 1.0).
+2. Point the Xcode Cloud “Archive - iOS” workflow at version **1.1**.
+3. Turn **off** “Manage Version and Build Number” if Cloud is rewriting the binary back to 1.0.
 
 ## Local Validation
 
