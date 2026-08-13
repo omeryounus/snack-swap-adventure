@@ -1,6 +1,7 @@
 # TestFlight Release Checklist
 
-Snack Swap is configured to build as `com.snackswap.adventure` version `1.1` build `34`.
+Snack Swap is configured to build as `com.snackswap.adventure` version `1.1` build `35`.
+The target includes `SnackSwapAdventure.entitlements` with `com.apple.developer.game-center`. Enable **Game Center** on App ID `com.snackswap.adventure` in the Apple Developer portal if signing fails.
 Version `1.0` is **closed** on App Store Connect (ITMS-90186 / ITMS-90062). New binaries must ship `CFBundleShortVersionString` **1.1 or higher**.
 
 Before the next Xcode Cloud / TestFlight upload:
