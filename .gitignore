@@ -11,13 +11,14 @@ build/
 xcuserdata/
 *.xcworkspace
 !default.xcworkspace
+# Xcode Cloud requires the shared workspace + Package.resolved
+!**/project.xcworkspace
+!**/project.xcworkspace/**
 *.playground
 
 # Swift Package Manager
 .build/
 Packages/
-Package.resolved
-*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
 
 # Node / Next.js / Vercel
 node_modules/
