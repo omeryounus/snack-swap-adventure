@@ -220,7 +220,7 @@ jobs:
           set -euo pipefail
           BUILD_NUMBER="${{ github.run_number }}"
           if [ "$BUILD_NUMBER" -le 1 ]; then BUILD_NUMBER=2; fi
-          MARKETING_VERSION="1.1.1"
+          MARKETING_VERSION="1.2"
           ENTITLEMENTS="$PWD/SnackSwapAdventure/SnackSwapAdventure/SnackSwapAdventure.entitlements"
           if [ ! -f "$ENTITLEMENTS" ]; then
             echo "::error::Missing Game Center entitlements file: $ENTITLEMENTS"
@@ -286,8 +286,8 @@ jobs:
           ARCHIVED_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PLIST")
           ARCHIVED_BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_PLIST")
           echo "Archived CFBundleShortVersionString=${ARCHIVED_VERSION} CFBundleVersion=${ARCHIVED_BUILD}"
-          if [ "$ARCHIVED_VERSION" = "1.0" ]; then
-            echo "::error::Refusing to upload closed train 1.0 (ITMS-90186). Expected 1.1+."
+          if [ "$ARCHIVED_VERSION" = "1.0" ] || [ "$ARCHIVED_VERSION" = "1.1" ] || [ "$ARCHIVED_VERSION" = "1.1.1" ]; then
+            echo "::error::Refusing to upload closed train ${ARCHIVED_VERSION} (ITMS-90186). Expected 1.2+."
             exit 1
           fi
 

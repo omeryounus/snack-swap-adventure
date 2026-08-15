@@ -1,14 +1,13 @@
 # TestFlight Release Checklist
 
-Snack Swap is configured to build as `com.snackswap.adventure` version `1.1.1` build `36`.
-The signed target uses `SnackSwapAdventure/SnackSwapAdventure.entitlements` with `com.apple.developer.game-center`.
-Version `1.0` is **closed** on App Store Connect. Do not upload another 1.0 binary.
+Snack Swap is configured to build as `com.snackswap.adventure` version `1.2` build `40`.
+Closed trains on App Store Connect: **1.0**, **1.1**, **1.1.1**. New binaries must ship `CFBundleShortVersionString` **1.2 or higher**.
 
 Before the next Xcode Cloud / TestFlight upload:
 
-1. Create App Store version **1.1.1** (or keep 1.1 if that train is still open).
-2. Point the Xcode Cloud workflow at that version and turn **off** “Manage Version and Build Number”.
-3. Confirm App ID `com.snackswap.adventure` has **Game Center** enabled, then regenerate the App Store provisioning profile (CI uses `sigh --force`).
+1. In App Store Connect, create version **1.2**.
+2. Point the Archive workflow at **1.2** and turn **off** “Manage Version and Build Number”.
+3. Confirm App ID `com.snackswap.adventure` has **Game Center** enabled.
 
 ## Local Validation
 

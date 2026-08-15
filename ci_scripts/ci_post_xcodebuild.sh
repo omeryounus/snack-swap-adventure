@@ -21,10 +21,10 @@ VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST
 BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST")
 echo "ci_post_xcodebuild: archived ${VERSION} (${BUILD})"
 
-if [ "$VERSION" = "1.0" ]; then
-  echo "error: CFBundleShortVersionString is 1.0, but that App Store train is closed (ITMS-90186)."
-  echo "Create version 1.1.1 in App Store Connect and point this Xcode Cloud workflow at 1.1.1."
-  echo "Turn OFF 'Manage Version and Build Number' if Cloud is rewriting the plist back to 1.0."
+if [ "$VERSION" = "1.0" ] || [ "$VERSION" = "1.1" ] || [ "$VERSION" = "1.1.1" ]; then
+  echo "error: CFBundleShortVersionString ${VERSION} is a closed App Store train (ITMS-90186)."
+  echo "Create version 1.2 in App Store Connect and point this Xcode Cloud workflow at 1.2."
+  echo "Turn OFF 'Manage Version and Build Number' if Cloud is rewriting the plist."
   exit 1
 fi
 
