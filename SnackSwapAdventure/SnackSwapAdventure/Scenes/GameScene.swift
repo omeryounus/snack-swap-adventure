@@ -55,7 +55,8 @@ final class GameScene: SKScene {
 
     override func didMove(to view: SKView) {
         view.ignoresSiblingOrder = true
-        view.shouldCullNonVisibleNodes = true
+        // Culling hid the top row when the SKView bounds lagged the scene size.
+        view.shouldCullNonVisibleNodes = false
         view.preferredFramesPerSecond = 60
         // Transparent so the SwiftUI world plate shows through.
         backgroundColor = .clear

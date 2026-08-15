@@ -344,6 +344,20 @@ final class BoardModel {
         return spawned
     }
 
+    func emptyPositions() -> [BoardPosition] {
+        var empties: [BoardPosition] = []
+        for row in 0..<size {
+            for col in 0..<size where grid[row][col] == nil {
+                empties.append(BoardPosition(row: row, col: col))
+            }
+        }
+        return empties
+    }
+
+    var isCompletelyFilled: Bool {
+        emptyPositions().isEmpty
+    }
+
     static func score(for groups: [[BoardPosition]], cascadeDepth: Int, specialsActivated: Int) -> Int {
         var total = 0
         let multiplier = 1 + cascadeDepth

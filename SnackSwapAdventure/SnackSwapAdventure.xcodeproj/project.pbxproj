@@ -12,12 +12,18 @@
 
 /* Begin PBXFileReference section */
 		A10000000000000000000001 /* SnackSwapAdventure.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SnackSwapAdventure.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000001 /* SnackSwapAdventureTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SnackSwapAdventureTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A10000000000000000000010 /* SnackSwapAdventure */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = SnackSwapAdventure;
+			sourceTree = "<group>";
+		};
+		B10000000000000000000010 /* SnackSwapAdventureTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SnackSwapAdventureTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -31,6 +37,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B10000000000000000000020 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -38,6 +51,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000010 /* SnackSwapAdventure */,
+				B10000000000000000000010 /* SnackSwapAdventureTests */,
 				A10000000000000000000040 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -46,6 +60,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000001 /* SnackSwapAdventure.app */,
+				B10000000000000000000001 /* SnackSwapAdventureTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -76,7 +91,45 @@
 			productReference = A10000000000000000000001 /* SnackSwapAdventure.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B10000000000000000000050 /* SnackSwapAdventureTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B10000000000000000000080 /* Build configuration list for PBXNativeTarget "SnackSwapAdventureTests" */;
+			buildPhases = (
+				B10000000000000000000060 /* Sources */,
+				B10000000000000000000020 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B10000000000000000000021 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B10000000000000000000010 /* SnackSwapAdventureTests */,
+			);
+			name = SnackSwapAdventureTests;
+			productName = SnackSwapAdventureTests;
+			productReference = B10000000000000000000001 /* SnackSwapAdventureTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		B10000000000000000000022 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10000000000000000000090 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000000000000000000050;
+			remoteInfo = SnackSwapAdventure;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		B10000000000000000000021 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000000000000000000050 /* SnackSwapAdventure */;
+			targetProxy = B10000000000000000000022 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		A10000000000000000000090 /* Project object */ = {
@@ -114,6 +167,7 @@
 			projectRoot = "";
 			targets = (
 				A10000000000000000000050 /* SnackSwapAdventure */,
+				B10000000000000000000050 /* SnackSwapAdventureTests */,
 			);
 		};
 /* End PBXProject section */
@@ -130,6 +184,13 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		A10000000000000000000060 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B10000000000000000000060 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -268,6 +329,7 @@
 				CURRENT_PROJECT_VERSION = 40;
 				DEVELOPMENT_TEAM = Z2RB57KVQ5;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Snack Swap";
@@ -326,6 +388,48 @@
 			};
 			name = Release;
 		};
+		B100000000000000000000C0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z2RB57KVQ5;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.snackswap.adventure.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SnackSwapAdventure.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SnackSwapAdventure";
+			};
+			name = Debug;
+		};
+		B100000000000000000000C1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z2RB57KVQ5;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.snackswap.adventure.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SnackSwapAdventure.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SnackSwapAdventure";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -334,6 +438,15 @@
 			buildConfigurations = (
 				A100000000000000000000C0 /* Debug */,
 				A100000000000000000000C1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B10000000000000000000080 /* Build configuration list for PBXNativeTarget "SnackSwapAdventureTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B100000000000000000000C0 /* Debug */,
+				B100000000000000000000C1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

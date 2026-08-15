@@ -30,11 +30,7 @@ struct GameContainerView: View {
         ZStack {
             GameplayBackgroundView(level: gameState.level.levelNumber)
 
-            if layout.usesSidebarGameplay {
-                landscapePlayfield
-            } else {
-                portraitPlayfield
-            }
+            playfield
 
             // Layer 4: FTUE Tutorial Coach Mark Overlay (Levels 1–3)
             if showFTUEOverlay {
@@ -143,60 +139,49 @@ struct GameContainerView: View {
 
     // MARK: - Playfields
 
-    private var portraitPlayfield: some View {
-        VStack(spacing: 10) {
-            GameHUD(
-                gameState: gameState,
-                onClose: exitToMap,
-                onPause: { gameState.isPaused = true },
-                chrome: .topBar
+    private var playfield: some View {
+        GeometryReader { geo in
+            placedPlayfield(
+                PlayfieldGeometry.make(
+                    container: geo.size,
+                    isLandscape: geo.size.width > geo.size.height + 12,
+                    isPad: layout.isPad
+                )
             )
-            .fixedSize(horizontal: false, vertical: true)
-
-            hammerBanner
-
-            boardCard
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .layoutPriority(1)
-
-            boosterBar(axis: .horizontal, compact: layout.isPhone || layout.isCompactWidth)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
+        .safeAreaPadding(.leading)
+        .safeAreaPadding(.trailing)
     }
 
-    private var landscapePlayfield: some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(spacing: 10) {
+    private func placedPlayfield(_ geometry: PlayfieldGeometry) -> some View {
+        ZStack(alignment: .topLeading) {
+            VStack(spacing: 6) {
                 GameHUD(
                     gameState: gameState,
                     onClose: exitToMap,
                     onPause: { gameState.isPaused = true },
-                    chrome: .sidebar
+                    chrome: geometry.isLandscape ? .sidebar : .topBar
                 )
-                .fixedSize(horizontal: false, vertical: true)
-
                 hammerBanner
-
-                boosterBar(axis: .vertical, compact: true)
-                    .fixedSize(horizontal: false, vertical: true)
-
                 Spacer(minLength: 0)
             }
-            .frame(width: layout.gameplaySidebarWidth)
+            .padding(8)
+            .frame(width: geometry.hud.width, height: geometry.hud.height, alignment: .top)
+            .clipped()
+            .offset(x: geometry.hud.minX, y: geometry.hud.minY)
 
             boardCard
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .layoutPriority(1)
+                .frame(width: geometry.board.width, height: geometry.board.height)
+                .clipped()
+                .offset(x: geometry.board.minX, y: geometry.board.minY)
+
+            boosterBar(axis: geometry.isLandscape ? .vertical : .horizontal, compact: true)
+                .frame(width: geometry.dock.width, height: geometry.dock.height)
+                .clipped()
+                .offset(x: geometry.dock.minX, y: geometry.dock.minY)
         }
-        .padding(10)
-        .safeAreaPadding(.leading)
-        .safeAreaPadding(.trailing)
-        .safeAreaPadding(.top)
-        .safeAreaPadding(.bottom)
     }
 
     private var boardCard: some View {
@@ -212,7 +197,7 @@ struct GameContainerView: View {
     private var boardView: some View {
         SpriteView(
             scene: scene,
-            options: [.ignoresSiblingOrder, .shouldCullNonVisibleNodes]
+            options: [.ignoresSiblingOrder]
         )
         .allowsHitTesting(gameState.outcome == .playing && !gameState.isPaused)
         .onAppear {
@@ -285,7 +270,8 @@ struct GameContainerView: View {
                 scene.size = bounds
             }
         }
-        let margin = layout.boardMargin
+        // Keep tiles inside the rounded clip so the first row is never shaved off.
+        let margin = max(18, layout.boardMargin)
         scene.playfieldInsets = UIEdgeInsets(top: margin, left: margin, bottom: margin, right: margin)
         scene.maxTileSize = layout.maxTileSize
         scene.rebuildBoard()
