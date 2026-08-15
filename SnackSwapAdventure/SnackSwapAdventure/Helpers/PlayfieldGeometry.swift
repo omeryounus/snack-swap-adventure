@@ -10,6 +10,9 @@ struct PlayfieldGeometry: Equatable {
     var isLandscape: Bool
 
     static let minimumBoardSide: CGFloat = 168
+    /// Landscape split: gameplay column is 70% of the content width.
+    static let landscapeGameplayRatio: CGFloat = 0.70
+    static let landscapeMinSidebar: CGFloat = 140
 
     static func make(container: CGSize, isLandscape: Bool, isPad: Bool) -> PlayfieldGeometry {
         let width = max(container.width, 1)
@@ -26,16 +29,20 @@ struct PlayfieldGeometry: Equatable {
     private static func portrait(width: CGFloat, height: CGFloat, gap: CGFloat, pad: CGFloat, isPad: Bool) -> PlayfieldGeometry {
         let contentW = max(1, width - pad * 2)
         let contentH = max(1, height - pad * 2)
-        let hudH = min(isPad ? 136 : 120, max(88, contentH * 0.17))
-        let dockH = min(isPad ? 88 : 76, max(64, contentH * 0.13))
-        let boardBudget = max(Self.minimumBoardSide, contentH - hudH - dockH - gap * 2)
-        let boardSide = min(contentW, boardBudget)
+        // Compact HUD so the board sits high instead of under a tall top slab.
+        let hudH = min(isPad ? 92 : 76, max(60, contentH * 0.10))
+        let dockH = min(isPad ? 80 : 68, max(56, contentH * 0.10))
+        let leftover = contentH - hudH - dockH - gap * 2
+        let boardSide = min(contentW, max(Self.minimumBoardSide, leftover))
 
         let hud = CGRect(x: pad, y: pad, width: contentW, height: hudH)
         let boardX = pad + (contentW - boardSide) / 2
         let boardY = hud.maxY + gap
         let board = CGRect(x: boardX, y: boardY, width: boardSide, height: boardSide)
-        let dockY = min(height - pad - dockH, board.maxY + gap)
+        let bottomDockY = height - pad - dockH
+        let dockY = bottomDockY >= board.maxY + gap - 0.5
+            ? bottomDockY
+            : min(bottomDockY, board.maxY + gap)
         let dock = CGRect(x: pad, y: dockY, width: contentW, height: dockH)
         return PlayfieldGeometry(hud: hud, board: board, dock: dock, isLandscape: false)
     }
@@ -43,16 +50,18 @@ struct PlayfieldGeometry: Equatable {
     private static func landscape(width: CGFloat, height: CGFloat, gap: CGFloat, pad: CGFloat, isPad: Bool) -> PlayfieldGeometry {
         let contentW = max(1, width - pad * 2)
         let contentH = max(1, height - pad * 2)
-        let boardSide = min(contentH, max(Self.minimumBoardSide, contentW * 0.62))
-        let sidebarW = max(132, contentW - boardSide - gap)
-        let hudH = min(isPad ? 168 : 132, max(96, contentH * 0.42))
+        var playW = contentW * Self.landscapeGameplayRatio
+        var sidebarW = contentW - playW - gap
+        if sidebarW < Self.landscapeMinSidebar {
+            sidebarW = min(Self.landscapeMinSidebar, contentW * 0.38)
+            playW = max(Self.minimumBoardSide, contentW - sidebarW - gap)
+        }
+        let hudH = min(isPad ? 200 : 160, max(88, contentH * 0.48))
         let dockH = max(64, contentH - hudH - gap)
 
         let hud = CGRect(x: pad, y: pad, width: sidebarW, height: hudH)
         let dock = CGRect(x: pad, y: hud.maxY + gap, width: sidebarW, height: dockH)
-        let boardX = pad + sidebarW + gap
-        let boardY = pad + max(0, (contentH - boardSide) / 2)
-        let board = CGRect(x: boardX, y: boardY, width: boardSide, height: boardSide)
+        let board = CGRect(x: pad + sidebarW + gap, y: pad, width: playW, height: contentH)
         return PlayfieldGeometry(hud: hud, board: board, dock: dock, isLandscape: true)
     }
 

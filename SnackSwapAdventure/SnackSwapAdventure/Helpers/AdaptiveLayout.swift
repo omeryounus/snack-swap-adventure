@@ -65,21 +65,16 @@ struct AdaptiveLayout: Equatable {
     /// Side column only when the leftover rectangle can still hold an 8×8 board.
     var usesSidebarGameplay: Bool {
         guard isLandscape else { return false }
-        return width >= 520 && (width - 168) >= min(200, height * 0.55)
+        return width >= 520
     }
 
+    /// 30% chrome / 70% gameplay split used by `PlayfieldGeometry`.
     var gameplaySidebarWidth: CGFloat {
-        let boardFloor = min(height * 0.72, width * 0.58)
-        let maxSidebar = max(132, width - boardFloor - 20)
-        let desired: CGFloat
-        if isPad {
-            desired = min(280, max(200, width * 0.22))
-        } else if isCompactHeight {
-            desired = min(176, max(148, width * 0.24))
-        } else {
-            desired = min(200, max(160, width * 0.22))
-        }
-        return min(desired, maxSidebar)
+        let pad: CGFloat = isPad ? 12 : 8
+        let gap: CGFloat = isPad ? 12 : 8
+        let content = max(1, width - pad * 2)
+        let play = content * PlayfieldGeometry.landscapeGameplayRatio
+        return max(PlayfieldGeometry.landscapeMinSidebar, content - play - gap)
     }
 
     /// Cap is high on phones so the board fills its SpriteView; iPad stays readable.
@@ -102,8 +97,8 @@ struct AdaptiveLayout: Equatable {
 
     /// Reserved space *inside* a full-screen SpriteView (portrait overlay mode).
     var portraitBoardTopReserved: CGFloat {
-        let hud = 12 + hudControlSize + 10 + progressBarHeight + 36
-        return hud + max(safeArea.top, 8)
+        let hud: CGFloat = isPad ? 92 : 76
+        return hud + max(safeArea.top, 4)
     }
 
     var portraitBoardBottomReserved: CGFloat {

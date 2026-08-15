@@ -33,8 +33,8 @@ struct GameHUD: View {
     // MARK: - Portrait
 
     private var topBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
                 pauseButton
                 statChip(title: "LVL", value: "\(gameState.level.levelNumber)", accent: .white)
                 Spacer(minLength: 4)
@@ -47,18 +47,14 @@ struct GameHUD: View {
                 )
             }
 
-            goalRow
+            compactGoalRow
 
             if gameState.isFeverActive {
                 feverRow
             }
-
-            if showsStatusLine {
-                statusLine
-            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
         .background(hudBackground)
     }
 
@@ -109,9 +105,9 @@ struct GameHUD: View {
             onPause()
         } label: {
             Image(systemName: "pause.fill")
-                .font(.system(size: 14, weight: .bold))
+                .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(.white)
-                .frame(width: 36, height: 36)
+                .frame(width: 32, height: 32)
                 .background(Color.white.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
@@ -130,9 +126,9 @@ struct GameHUD: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .frame(minWidth: 36)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .frame(minWidth: 32)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
         .background(Color.white.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
@@ -149,15 +145,47 @@ struct GameHUD: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .frame(minWidth: 40)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .frame(minWidth: 36)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
         .background(Color.white.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(gameState.isTimerUrgent ? Color.red.opacity(0.7) : Color.clear, lineWidth: 1)
         )
+    }
+
+    private var compactGoalRow: some View {
+        HStack(spacing: 8) {
+            Text(gameState.level.goal.shortTitle)
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.10))
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: "FF3D8A"), Color(hex: "FF6B4A"), Theme.accentGold],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(8, geo.size.width * gameState.progress))
+                        .animation(.easeOut(duration: 0.25), value: gameState.goalProgressValue)
+                }
+            }
+            .frame(height: 7)
+
+            Text("\(gameState.goalProgressValue)/\(gameState.level.progressDenominator)")
+                .font(.system(size: 11, weight: .semibold, design: .rounded).monospacedDigit())
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+        }
     }
 
     private var goalRow: some View {

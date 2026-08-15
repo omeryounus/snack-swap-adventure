@@ -81,7 +81,7 @@ struct BoosterBarView: View {
                 }
             }
         }
-        .padding(8)
+        .padding(compact ? 6 : 8)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.black.opacity(0.42))
@@ -121,7 +121,7 @@ struct BoosterBarView: View {
                     .minimumScaleFactor(0.7)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .padding(.vertical, compact ? 4 : 6)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(isSelected ? SSATheme.candyPink.opacity(0.85) : Color.white.opacity(0.08))

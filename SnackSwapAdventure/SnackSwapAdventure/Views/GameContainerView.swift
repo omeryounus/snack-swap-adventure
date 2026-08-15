@@ -157,7 +157,7 @@ struct GameContainerView: View {
 
     private func placedPlayfield(_ geometry: PlayfieldGeometry) -> some View {
         ZStack(alignment: .topLeading) {
-            VStack(spacing: 6) {
+            VStack(spacing: 4) {
                 GameHUD(
                     gameState: gameState,
                     onClose: exitToMap,
@@ -167,7 +167,7 @@ struct GameContainerView: View {
                 hammerBanner
                 Spacer(minLength: 0)
             }
-            .padding(8)
+            .padding(geometry.isLandscape ? 8 : 4)
             .frame(width: geometry.hud.width, height: geometry.hud.height, alignment: .top)
             .clipped()
             .offset(x: geometry.hud.minX, y: geometry.hud.minY)
