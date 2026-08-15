@@ -222,40 +222,113 @@ struct WorldBackgroundPlate: View {
     }
 }
 
-// MARK: - GameplayBackgroundView Component
+// MARK: - Gameplay world atmosphere (no mockup plates)
 
+/// Palette + snack specks for a level's world. Kept out of the asset catalog
+/// because `bg_gameplay_*` are full UI mockups (Play / stars / Next Level).
+struct GameplayWorldTheme {
+    let accent: Color
+    let secondary: Color
+    let deep: Color
+    let snacks: [String]
+
+    static func forLevel(_ level: Int) -> GameplayWorldTheme {
+        switch level {
+        case 1...10:
+            return GameplayWorldTheme(
+                accent: Color(red: 1.00, green: 0.66, blue: 0.34),
+                secondary: Color(red: 0.62, green: 0.34, blue: 0.22),
+                deep: Color(red: 0.18, green: 0.08, blue: 0.05),
+                snacks: ["🍪", "🍩", "🧁"]
+            )
+        case 11...20:
+            return GameplayWorldTheme(
+                accent: Color(red: 1.00, green: 0.84, blue: 0.30),
+                secondary: Color(red: 0.54, green: 0.72, blue: 0.38),
+                deep: Color(red: 0.10, green: 0.12, blue: 0.04),
+                snacks: ["🍿", "🥤", "🍩"]
+            )
+        case 21...30:
+            return GameplayWorldTheme(
+                accent: Color(red: 1.00, green: 0.35, blue: 0.72),
+                secondary: Color(red: 0.48, green: 0.40, blue: 1.00),
+                deep: Color(red: 0.12, green: 0.04, blue: 0.16),
+                snacks: ["🍬", "🍭", "🧁"]
+            )
+        default:
+            return GameplayWorldTheme(
+                accent: Color(red: 0.36, green: 0.88, blue: 1.00),
+                secondary: Color(red: 0.23, green: 0.51, blue: 0.96),
+                deep: Color(red: 0.04, green: 0.08, blue: 0.16),
+                snacks: ["🥤", "🍬", "🍭"]
+            )
+        }
+    }
+}
+
+/// Atmospheric playfield backdrop. Gradients + faint snacks only — never
+/// composite a screenshot that already contains buttons or star ratings.
 struct GameplayBackgroundView: View {
     let level: Int
 
-    private var plateAsset: String {
-        switch level {
-        case 1...10: return "bg_gameplay_cookie"
-        case 11...20: return "bg_gameplay_popcorn"
-        case 21...30: return "bg_gameplay_candy"
-        default: return "bg_gameplay_soda"
-        }
-    }
+    private var world: GameplayWorldTheme { GameplayWorldTheme.forLevel(level) }
 
     var body: some View {
         GeometryReader { geo in
+            let shortest = min(geo.size.width, geo.size.height)
+            let longest = max(geo.size.width, geo.size.height)
             ZStack {
-                Color(red: 0.04, green: 0.02, blue: 0.08)
-                Image(plateAsset)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .clipped()
-                    .opacity(0.85)
+                SSATheme.bgVoid
+
+                LinearGradient(
+                    colors: [world.deep.opacity(0.92), SSATheme.bgVoid, world.deep.opacity(0.62)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
 
                 RadialGradient(
-                    colors: [.clear, .black.opacity(0.55)],
+                    colors: [world.accent.opacity(0.34), .clear],
+                    center: .topLeading,
+                    startRadius: 16,
+                    endRadius: longest * 0.68
+                )
+
+                RadialGradient(
+                    colors: [world.secondary.opacity(0.24), .clear],
+                    center: .bottomTrailing,
+                    startRadius: 24,
+                    endRadius: longest * 0.78
+                )
+
+                RadialGradient(
+                    colors: [world.accent.opacity(0.10), .clear],
                     center: .center,
-                    startRadius: min(geo.size.width, geo.size.height) * 0.18,
-                    endRadius: max(geo.size.width, geo.size.height) * 0.72
+                    startRadius: 8,
+                    endRadius: shortest * 0.52
+                )
+
+                ForEach(0..<12, id: \.self) { i in
+                    Text(world.snacks[i % world.snacks.count])
+                        .font(.system(size: CGFloat((i * 5 + 14) % 18 + 16)))
+                        .opacity(0.10)
+                        .rotationEffect(.degrees(Double(i * 29 % 360)))
+                        .position(
+                            x: CGFloat((i * 89 + 41) % Int(max(1, geo.size.width))),
+                            y: CGFloat((i * 131 + 53) % Int(max(1, geo.size.height)))
+                        )
+                }
+                .accessibilityHidden(true)
+
+                RadialGradient(
+                    colors: [.clear, Color.black.opacity(0.48)],
+                    center: .center,
+                    startRadius: shortest * 0.22,
+                    endRadius: longest * 0.80
                 )
             }
         }
         .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 }
 
