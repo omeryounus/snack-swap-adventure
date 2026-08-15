@@ -144,7 +144,7 @@ struct GameContainerView: View {
     // MARK: - Playfields
 
     private var portraitPlayfield: some View {
-        VStack(spacing: layout.isCompactHeight ? 2 : 4) {
+        VStack(spacing: 10) {
             GameHUD(
                 gameState: gameState,
                 onClose: exitToMap,
@@ -155,53 +155,58 @@ struct GameContainerView: View {
 
             hammerBanner
 
-            boardView
+            boardCard
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(1)
 
             boosterBar(axis: .horizontal, compact: layout.isPhone || layout.isCompactWidth)
                 .fixedSize(horizontal: false, vertical: true)
-
-            if layout.showsGameplaySpeech || (layout.isPad && !layout.isCompactHeight) {
-                mascotDock
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
-        .padding(.horizontal, layout.isVeryNarrow ? 4 : 8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
     }
 
     private var landscapePlayfield: some View {
-        HStack(spacing: 6) {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 6) {
-                    GameHUD(
-                        gameState: gameState,
-                        onClose: exitToMap,
-                        onPause: { gameState.isPaused = true },
-                        chrome: .sidebar
-                    )
-                    hammerBanner
-                    boosterBar(axis: .vertical, compact: true)
-                    if layout.showsGameplaySpeech {
-                        mascotDock
-                    }
-                }
-                .frame(maxWidth: .infinity)
+        HStack(alignment: .top, spacing: 10) {
+            VStack(spacing: 10) {
+                GameHUD(
+                    gameState: gameState,
+                    onClose: exitToMap,
+                    onPause: { gameState.isPaused = true },
+                    chrome: .sidebar
+                )
+                .fixedSize(horizontal: false, vertical: true)
+
+                hammerBanner
+
+                boosterBar(axis: .vertical, compact: true)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 0)
             }
             .frame(width: layout.gameplaySidebarWidth)
-            .scrollBounceBehavior(.basedOnSize)
 
-            boardView
+            boardCard
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(1)
         }
-        .padding(.horizontal, layout.isVeryNarrow ? 4 : 6)
+        .padding(10)
         .safeAreaPadding(.leading)
         .safeAreaPadding(.trailing)
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
+    }
+
+    private var boardCard: some View {
+        boardView
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
+            )
+            .clipped()
     }
 
     private var boardView: some View {
@@ -263,15 +268,6 @@ struct GameContainerView: View {
             onExtraMovesUse: {
                 scene.refreshHUD()
             }
-        )
-    }
-
-    @ViewBuilder
-    private var mascotDock: some View {
-        SnacklingMascot(
-            expression: gameState.isFeverActive ? .cheer : (gameState.outcome == .playing ? .happy : .thinking),
-            size: layout.gameplayMascotSize,
-            speechBubbleText: layout.showsGameplaySpeech ? gameState.lastFeedMessage : ""
         )
     }
 

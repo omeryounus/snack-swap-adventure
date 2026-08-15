@@ -351,8 +351,8 @@ struct SnacklingMascotView: View {
                 .frame(width: size, height: size)
                 .shadow(color: SnacklingColors.bodyBottom.opacity(0.4), radius: 8, y: 3)
         }
-        .frame(width: size * 1.2, height: size * 1.2)
-        .offset(y: !reduceMotion ? (floatUp ? -6 : 6) : 0)
+        .frame(width: size * 1.2, height: size * 1.2 + 16)
+        .offset(y: !reduceMotion ? (floatUp ? -4 : 4) : 0)
         .onAppear {
             guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { floatUp = true }
@@ -367,7 +367,7 @@ struct TitleHeroSnacklingSection: View {
     var mascotSize: CGFloat? = nil
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             Text(speechText ?? "Ready to match snacks, \(playerName)?")
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.95))

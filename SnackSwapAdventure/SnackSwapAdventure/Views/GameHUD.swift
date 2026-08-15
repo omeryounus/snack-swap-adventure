@@ -5,8 +5,8 @@ enum GameHUDChrome {
     case sidebar
 }
 
-/// AAA Apple Arcade style HUD — glassmorphism, circular clock, liquid progress.
-/// Adapts between a compact top bar (portrait) and a vertical sidebar (landscape).
+/// Single glass HUD card. Every control stays inside the card — no scale pulses,
+/// no floating badges, no overlapping neighbors.
 struct GameHUD: View {
     @ObservedObject var gameState: GameState
     let onClose: () -> Void
@@ -20,10 +20,8 @@ struct GameHUD: View {
     var body: some View {
         Group {
             switch chrome {
-            case .topBar:
-                topBar
-            case .sidebar:
-                sidebar
+            case .topBar: topBar
+            case .sidebar: sidebar
             }
         }
         .onAppear { updatePulseState(urgent: gameState.isTimerUrgent) }
@@ -32,74 +30,78 @@ struct GameHUD: View {
         }
     }
 
-    // MARK: - Portrait top bar
+    // MARK: - Portrait
 
     private var topBar: some View {
-        VStack(spacing: layout.isCompactHeight ? 4 : 6) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: layout.hudSpacing) {
-                    pauseButton
-                    levelBadge
-                    Spacer(minLength: 4)
-                    starsPill
-                    timerRing
-                    movesPill
-                }
-                HStack(spacing: layout.hudSpacing) {
-                    pauseButton
-                    levelBadge
-                    Spacer(minLength: 2)
-                    timerRing
-                    movesPill
-                }
-            }
-            .frame(maxWidth: .infinity)
-
-            goalBlock
-
-            if gameState.isFeverActive {
-                feverBanner
-            }
-        }
-        .padding(.horizontal, layout.isVeryNarrow ? 2 : 4)
-        .padding(.top, 2)
-        .padding(.bottom, 2)
-    }
-
-    // MARK: - Landscape sidebar
-
-    private var sidebar: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 pauseButton
-                levelBadge
-                Spacer(minLength: 0)
-                starsPill
+                statChip(title: "LVL", value: "\(gameState.level.levelNumber)", accent: .white)
+                Spacer(minLength: 4)
+                statChip(title: "⭐", value: "\(meta.stars)", accent: Theme.accentGold)
+                timerChip
+                statChip(
+                    title: "MOVES",
+                    value: "\(gameState.movesLeft)",
+                    accent: gameState.movesLeft <= 5 ? .orange : .white
+                )
             }
 
-            HStack(spacing: 12) {
-                timerRing
-                VStack(alignment: .leading, spacing: 6) {
-                    movesPill
-                    Text(gameState.level.goal.shortTitle)
-                        .font(.system(size: layout.hudPillFont, weight: .bold, design: .rounded))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.75)
-                }
-            }
-
-            goalBlock
+            goalRow
 
             if gameState.isFeverActive {
-                feverBanner
+                feverRow
+            }
+
+            if showsStatusLine {
+                statusLine
             }
         }
-        .padding(.horizontal, 4)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(hudBackground)
     }
 
-    // MARK: - Shared bits
+    // MARK: - Landscape
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                pauseButton
+                statChip(title: "LVL", value: "\(gameState.level.levelNumber)", accent: .white)
+                Spacer(minLength: 0)
+                statChip(title: "⭐", value: "\(meta.stars)", accent: Theme.accentGold)
+            }
+
+            HStack(spacing: 8) {
+                timerChip
+                statChip(
+                    title: "MOVES",
+                    value: "\(gameState.movesLeft)",
+                    accent: gameState.movesLeft <= 5 ? .orange : .white
+                )
+            }
+
+            goalRow
+
+            if gameState.isFeverActive {
+                feverRow
+            }
+
+            if showsStatusLine {
+                statusLine
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(hudBackground)
+    }
+
+    // MARK: - Pieces
+
+    private var showsStatusLine: Bool {
+        !gameState.lastFeedMessage.isEmpty && !layout.isCompactHeight
+    }
 
     private var pauseButton: some View {
         Button {
@@ -107,115 +109,75 @@ struct GameHUD: View {
             onPause()
         } label: {
             Image(systemName: "pause.fill")
-                .font(.system(size: layout.isPad ? 18 : 14, weight: .bold))
-                .frame(width: layout.hudControlSize, height: layout.hudControlSize)
-                .background(Color.white.opacity(0.12))
+                .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(.white)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                .frame(width: 36, height: 36)
+                .background(Color.white.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
+        .buttonStyle(.plain)
         .accessibilityLabel("Pause")
     }
 
-    private var levelBadge: some View {
-        HStack(spacing: 4) {
-            Text(gameState.level.worldEmoji)
-                .font(layout.isPad ? .subheadline : .caption2)
-            Text("L\(gameState.level.levelNumber)")
-                .font(.system(size: layout.hudPillFont, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.textPrimary)
-        }
-        .padding(.horizontal, layout.hudPillPaddingH)
-        .padding(.vertical, layout.hudPillPaddingV)
-        .background(Color.white.opacity(0.08))
-        .clipShape(Capsule())
-        .lineLimit(1)
-        .minimumScaleFactor(0.8)
-    }
-
-    private var starsPill: some View {
-        HStack(spacing: layout.isPad ? 5 : 3) {
-            Text("⭐")
-                .font(layout.isPad ? .subheadline : .caption2)
-            Text("\(meta.stars)")
-                .font(.system(size: layout.hudPillFont, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.accentGold)
-        }
-        .padding(.horizontal, layout.hudPillPaddingH)
-        .padding(.vertical, layout.hudPillPaddingV)
-        .background(Color.white.opacity(0.12))
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 1))
-    }
-
-    private var timerRing: some View {
-        ZStack {
-            Circle()
-                .stroke(Color.white.opacity(0.12), lineWidth: layout.hudTimerStroke)
-                .frame(width: layout.hudTimerSize, height: layout.hudTimerSize)
-
-            Circle()
-                .trim(from: 0.0, to: CGFloat(max(0, min(1.0, Double(gameState.timeRemaining) / Double(max(1, gameState.level.timeLimit))))))
-                .stroke(
-                    gameState.isTimerUrgent ? Color.red : Theme.accentGold,
-                    style: StrokeStyle(lineWidth: layout.hudTimerStroke, lineCap: .round)
-                )
-                .frame(width: layout.hudTimerSize, height: layout.hudTimerSize)
-                .rotationEffect(.degrees(-90))
-
-            Text("\(gameState.timeRemaining)")
-                .font(.system(size: layout.hudTimerFont, weight: .black, design: .rounded).monospacedDigit())
-                .foregroundStyle(gameState.isTimerUrgent ? Color.red : Theme.textPrimary)
-                .minimumScaleFactor(0.7)
+    private func statChip(title: String, value: String, accent: Color) -> some View {
+        VStack(spacing: 1) {
+            Text(title)
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .foregroundStyle(Theme.textSecondary)
+            Text(value)
+                .font(.system(size: layout.isCompactWidth ? 13 : 15, weight: .black, design: .rounded).monospacedDigit())
+                .foregroundStyle(accent)
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
-        .scaleEffect(timerPulse ? 1.08 : 1.0)
+        .frame(minWidth: 36)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private var movesPill: some View {
-        HStack(spacing: layout.isPad ? 5 : 3) {
-            Image(systemName: "hand.tap.fill")
-                .font(layout.isPad ? .subheadline : .caption2)
-            Text("\(gameState.movesLeft)")
-                .font(.system(size: layout.hudPillFont, weight: .semibold, design: .rounded).monospacedDigit())
+    private var timerChip: some View {
+        VStack(spacing: 1) {
+            Text("TIME")
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .foregroundStyle(Theme.textSecondary)
+            Text("\(gameState.timeRemaining)")
+                .font(.system(size: layout.isCompactWidth ? 13 : 15, weight: .black, design: .rounded).monospacedDigit())
+                .foregroundStyle(gameState.isTimerUrgent ? Color.red : Theme.accentGold)
+                .opacity(timerPulse ? 0.55 : 1)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
-        .padding(.horizontal, layout.hudPillPaddingH)
-        .padding(.vertical, layout.hudPillPaddingV)
-        .background(
-            gameState.movesLeft <= 5
-                ? AnyShapeStyle(Color.orange.opacity(0.35))
-                : AnyShapeStyle(Color.white.opacity(0.12))
-        )
-        .foregroundStyle(.white)
-        .clipShape(Capsule())
+        .frame(minWidth: 40)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
-            Capsule()
-                .stroke(gameState.movesLeft <= 5 ? Color.orange.opacity(0.6) : Color.white.opacity(0.15), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(gameState.isTimerUrgent ? Color.red.opacity(0.7) : Color.clear, lineWidth: 1)
         )
     }
 
-    private var goalBlock: some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private var goalRow: some View {
+        VStack(alignment: .leading, spacing: 5) {
             HStack {
                 Text(gameState.level.goal.shortTitle)
-                    .font(.system(size: layout.hudPillFont, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
-                Spacer(minLength: 4)
+                Spacer(minLength: 6)
                 Text("\(gameState.goalProgressValue)/\(gameState.level.progressDenominator)")
-                    .font(.system(size: layout.hudPillFont, weight: .medium, design: .rounded).monospacedDigit())
+                    .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
             }
-            .padding(.horizontal, 2)
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.white.opacity(0.08))
-                        .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
-
+                    Capsule().fill(Color.white.opacity(0.10))
                     Capsule()
                         .fill(
                             LinearGradient(
@@ -224,34 +186,49 @@ struct GameHUD: View {
                                 endPoint: .trailing
                             )
                         )
-                        .frame(width: max(14, geo.size.width * gameState.progress))
-                        .shadow(color: Color(hex: "FF3D8A").opacity(0.35), radius: 4, y: 0)
+                        .frame(width: max(8, geo.size.width * gameState.progress))
                         .animation(.easeOut(duration: 0.25), value: gameState.goalProgressValue)
                 }
             }
-            .frame(height: layout.progressBarHeight)
+            .frame(height: 8)
         }
     }
 
-    private var feverBanner: some View {
-        HStack(spacing: 8) {
+    private var feverRow: some View {
+        HStack(spacing: 6) {
             Image(systemName: "flame.fill")
-                .font(.system(size: layout.isPad ? 14 : 11, weight: .bold))
-                .foregroundStyle(Color(hex: "FF3D8A"))
-            Text("Sugar Rush x2")
-                .font(.system(size: layout.hudPillFont, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.textPrimary)
+                .font(.system(size: 11, weight: .bold))
+            Text("Sugar Rush ×2")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
             Spacer(minLength: 4)
             Text("\(gameState.feverDisplayTurnsRemaining) turns")
-                .font(.system(size: layout.hudPillFont, weight: .medium, design: .rounded))
-                .foregroundStyle(Color(hex: "FF3D8A"))
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .lineLimit(1)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color.white.opacity(0.12))
+        .foregroundStyle(Color(hex: "FF3D8A"))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Color(hex: "FF3D8A").opacity(0.14))
         .clipShape(Capsule())
+    }
+
+    private var statusLine: some View {
+        Text(gameState.lastFeedMessage)
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .foregroundStyle(Theme.textSecondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var hudBackground: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(Color.black.opacity(0.42))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            )
     }
 
     private func updatePulseState(urgent: Bool) {
@@ -263,16 +240,6 @@ struct GameHUD: View {
             withAnimation(.default) {
                 timerPulse = false
             }
-        }
-    }
-}
-
-#Preview {
-    ZStack {
-        Color(hex: "0B0614").ignoresSafeArea()
-        VStack {
-            GameHUD(gameState: GameState(level: .level(5)), onClose: {}, onPause: {})
-            Spacer()
         }
     }
 }
