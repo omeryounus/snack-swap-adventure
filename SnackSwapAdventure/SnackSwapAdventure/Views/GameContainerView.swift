@@ -169,7 +169,6 @@ struct GameContainerView: View {
             }
             .padding(geometry.isLandscape ? 8 : 4)
             .frame(width: geometry.hud.width, height: geometry.hud.height, alignment: .top)
-            .clipped()
             .offset(x: geometry.hud.minX, y: geometry.hud.minY)
 
             boardCard

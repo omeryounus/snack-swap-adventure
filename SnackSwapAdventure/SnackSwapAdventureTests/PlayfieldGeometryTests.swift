@@ -39,23 +39,29 @@ final class PlayfieldGeometryTests: XCTestCase {
         XCTAssertFalse(geometry.isLandscape)
     }
 
-    func testPortraitHUDStaysCompact() {
+    func testPortraitHasTopSpaceAndCenteredBoard() {
         let phone = PlayfieldGeometry.make(
             container: CGSize(width: 390, height: 844),
             isLandscape: false,
             isPad: false
         )
+        XCTAssertGreaterThanOrEqual(phone.hud.minY, 844 * PlayfieldGeometry.portraitTopRatio - 0.5)
         XCTAssertLessThanOrEqual(phone.hud.height, 76.5)
-        XCTAssertLessThanOrEqual(phone.hud.maxY, 86)
-        XCTAssertLessThanOrEqual(phone.board.minY, 94)
+
+        let midTop = phone.hud.maxY
+        let midBottom = phone.dock.minY
+        let boardMid = phone.board.midY
+        let areaMid = (midTop + midBottom) / 2
+        XCTAssertEqual(boardMid, areaMid, accuracy: 8)
+        XCTAssertEqual(phone.board.midX, 195, accuracy: 1)
 
         let maxPhone = PlayfieldGeometry.make(
             container: CGSize(width: 440, height: 956),
             isLandscape: false,
             isPad: false
         )
-        XCTAssertLessThanOrEqual(maxPhone.hud.height, 76.5)
-        XCTAssertLessThanOrEqual(maxPhone.board.minY, 94)
+        XCTAssertGreaterThanOrEqual(maxPhone.hud.minY, 956 * PlayfieldGeometry.portraitTopRatio - 0.5)
+        XCTAssertEqual(maxPhone.board.midX, 220, accuracy: 1)
     }
 
     func testLandscapeBoardDoesNotEnterSidebar() {
@@ -94,6 +100,18 @@ final class PlayfieldGeometryTests: XCTestCase {
             )
             XCTAssertEqual(geometry.board.height, size.height - pad * 2, accuracy: 0.5)
         }
+    }
+
+    func testLandscapeLeavesTenPercentBeforeDock() {
+        let geometry = PlayfieldGeometry.make(
+            container: CGSize(width: 956, height: 440),
+            isLandscape: true,
+            isPad: false
+        )
+        let contentH: CGFloat = 440 - 16
+        let gap = geometry.dock.minY - geometry.hud.maxY
+        XCTAssertGreaterThanOrEqual(gap + 0.5, contentH * PlayfieldGeometry.landscapeSectionGapRatio)
+        XCTAssertGreaterThanOrEqual(geometry.hud.height, 184)
     }
 
     func testNarrowLandscapeFallsBackToStackedPortrait() {

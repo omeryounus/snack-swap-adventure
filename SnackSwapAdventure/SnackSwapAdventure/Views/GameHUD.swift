@@ -61,7 +61,7 @@ struct GameHUD: View {
     // MARK: - Landscape
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 pauseButton
                 statChip(title: "LVL", value: "\(gameState.level.levelNumber)", accent: .white)
@@ -88,8 +88,8 @@ struct GameHUD: View {
                 statusLine
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(hudBackground)
     }
 

@@ -5,8 +5,10 @@ from dataclasses import dataclass
 
 
 MIN_BOARD = 168.0
+PORTRAIT_TOP_RATIO = 0.10
 LANDSCAPE_GAMEPLAY_RATIO = 0.70
 LANDSCAPE_MIN_SIDEBAR = 140.0
+LANDSCAPE_SECTION_GAP_RATIO = 0.10
 
 
 @dataclass
@@ -43,19 +45,21 @@ def portrait(width: float, height: float, is_pad: bool) -> tuple[Rect, Rect, Rec
     pad = 12.0 if is_pad else 8.0
     gap = 12.0 if is_pad else 8.0
     content_w = max(1.0, width - pad * 2)
-    content_h = max(1.0, height - pad * 2)
-    hud_h = min(92.0 if is_pad else 76.0, max(60.0, content_h * 0.10))
-    dock_h = min(80.0 if is_pad else 68.0, max(56.0, content_h * 0.10))
-    leftover = content_h - hud_h - dock_h - gap * 2
-    board_side = min(content_w, max(MIN_BOARD, leftover))
-    hud = Rect(pad, pad, content_w, hud_h)
-    board = Rect(pad + (content_w - board_side) / 2, hud.max_y + gap, board_side, board_side)
-    bottom_dock_y = height - pad - dock_h
-    if bottom_dock_y >= board.max_y + gap - 0.5:
-        dock_y = bottom_dock_y
-    else:
-        dock_y = min(bottom_dock_y, board.max_y + gap)
-    dock = Rect(pad, dock_y, content_w, dock_h)
+    top_space = max(pad, height * PORTRAIT_TOP_RATIO)
+    hud_h = min(92.0 if is_pad else 76.0, max(60.0, height * 0.09))
+    dock_h = min(80.0 if is_pad else 68.0, max(56.0, height * 0.08))
+    hud = Rect(pad, top_space, content_w, hud_h)
+    dock = Rect(pad, height - pad - dock_h, content_w, dock_h)
+    mid_top = hud.max_y + gap
+    mid_bottom = max(mid_top + 1.0, dock.y - gap)
+    available = max(1.0, mid_bottom - mid_top)
+    board_side = min(content_w, available)
+    board = Rect(
+        pad + (content_w - board_side) / 2,
+        mid_top + max(0.0, (available - board_side) / 2),
+        board_side,
+        board_side,
+    )
     return hud, board, dock
 
 
@@ -69,10 +73,14 @@ def landscape(width: float, height: float, is_pad: bool) -> tuple[Rect, Rect, Re
     if sidebar_w < LANDSCAPE_MIN_SIDEBAR:
         sidebar_w = min(LANDSCAPE_MIN_SIDEBAR, content_w * 0.38)
         play_w = max(MIN_BOARD, content_w - sidebar_w - gap)
-    hud_h = min(200.0 if is_pad else 160.0, max(88.0, content_h * 0.48))
-    dock_h = max(64.0, content_h - hud_h - gap)
+    section_gap = max(gap, content_h * LANDSCAPE_SECTION_GAP_RATIO)
+    min_dock = 80.0 if is_pad else 68.0
+    min_hud = 200.0 if is_pad else 184.0
+    max_hud = max(min_hud, content_h - section_gap - min_dock)
+    hud_h = min(max_hud, max(min_hud, content_h * 0.56))
+    dock_h = max(min_dock, content_h - hud_h - section_gap)
     hud = Rect(pad, pad, sidebar_w, hud_h)
-    dock = Rect(pad, hud.max_y + gap, sidebar_w, dock_h)
+    dock = Rect(pad, hud.max_y + section_gap, sidebar_w, dock_h)
     board = Rect(pad + sidebar_w + gap, pad, play_w, content_h)
     return hud, board, dock
 
@@ -127,10 +135,15 @@ def main() -> int:
             content_w = w - pad * 2
             ratio = board.w / content_w
             ratio_ok = abs(ratio - LANDSCAPE_GAMEPLAY_RATIO) <= 0.02
-        hud_ok = (not is_land) or True
+        hud_ok = True
         if not is_land:
-            hud_ok = hud.h <= (92.5 if is_pad else 76.5)
-        if pairs or not contained or not board_ok or not ratio_ok or not hud_ok:
+            hud_ok = hud.y + 0.5 >= h * PORTRAIT_TOP_RATIO
+        section_ok = True
+        if is_land and w >= 520:
+            pad = 12.0 if is_pad else 8.0
+            content_h = h - pad * 2
+            section_ok = dock.y + 0.5 >= hud.max_y + content_h * LANDSCAPE_SECTION_GAP_RATIO
+        if pairs or not contained or not board_ok or not ratio_ok or not hud_ok or not section_ok:
             failed += 1
             print(
                 f"FAIL {name}: overlaps={pairs} contained={contained} "

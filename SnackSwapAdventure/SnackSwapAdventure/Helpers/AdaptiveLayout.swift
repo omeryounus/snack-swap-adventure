@@ -97,8 +97,9 @@ struct AdaptiveLayout: Equatable {
 
     /// Reserved space *inside* a full-screen SpriteView (portrait overlay mode).
     var portraitBoardTopReserved: CGFloat {
+        let topSpace = height * PlayfieldGeometry.portraitTopRatio
         let hud: CGFloat = isPad ? 92 : 76
-        return hud + max(safeArea.top, 4)
+        return topSpace + hud + max(safeArea.top, 4)
     }
 
     var portraitBoardBottomReserved: CGFloat {

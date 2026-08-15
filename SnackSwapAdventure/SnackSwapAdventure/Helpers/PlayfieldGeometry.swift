@@ -10,9 +10,13 @@ struct PlayfieldGeometry: Equatable {
     var isLandscape: Bool
 
     static let minimumBoardSide: CGFloat = 168
+    /// Portrait breathing room above the HUD.
+    static let portraitTopRatio: CGFloat = 0.10
     /// Landscape split: gameplay column is 70% of the content width.
     static let landscapeGameplayRatio: CGFloat = 0.70
     static let landscapeMinSidebar: CGFloat = 140
+    /// Vertical gap between the moves/progress HUD and the booster dock.
+    static let landscapeSectionGapRatio: CGFloat = 0.10
 
     static func make(container: CGSize, isLandscape: Bool, isPad: Bool) -> PlayfieldGeometry {
         let width = max(container.width, 1)
@@ -28,22 +32,20 @@ struct PlayfieldGeometry: Equatable {
 
     private static func portrait(width: CGFloat, height: CGFloat, gap: CGFloat, pad: CGFloat, isPad: Bool) -> PlayfieldGeometry {
         let contentW = max(1, width - pad * 2)
-        let contentH = max(1, height - pad * 2)
-        // Compact HUD so the board sits high instead of under a tall top slab.
-        let hudH = min(isPad ? 92 : 76, max(60, contentH * 0.10))
-        let dockH = min(isPad ? 80 : 68, max(56, contentH * 0.10))
-        let leftover = contentH - hudH - dockH - gap * 2
-        let boardSide = min(contentW, max(Self.minimumBoardSide, leftover))
+        let topSpace = max(pad, height * Self.portraitTopRatio)
+        let hudH = min(isPad ? 92 : 76, max(60, height * 0.09))
+        let dockH = min(isPad ? 80 : 68, max(56, height * 0.08))
 
-        let hud = CGRect(x: pad, y: pad, width: contentW, height: hudH)
+        let hud = CGRect(x: pad, y: topSpace, width: contentW, height: hudH)
+        let dock = CGRect(x: pad, y: height - pad - dockH, width: contentW, height: dockH)
+
+        let midTop = hud.maxY + gap
+        let midBottom = max(midTop + 1, dock.minY - gap)
+        let available = max(1, midBottom - midTop)
+        let boardSide = min(contentW, available)
         let boardX = pad + (contentW - boardSide) / 2
-        let boardY = hud.maxY + gap
+        let boardY = midTop + max(0, (available - boardSide) / 2)
         let board = CGRect(x: boardX, y: boardY, width: boardSide, height: boardSide)
-        let bottomDockY = height - pad - dockH
-        let dockY = bottomDockY >= board.maxY + gap - 0.5
-            ? bottomDockY
-            : min(bottomDockY, board.maxY + gap)
-        let dock = CGRect(x: pad, y: dockY, width: contentW, height: dockH)
         return PlayfieldGeometry(hud: hud, board: board, dock: dock, isLandscape: false)
     }
 
@@ -56,11 +58,18 @@ struct PlayfieldGeometry: Equatable {
             sidebarW = min(Self.landscapeMinSidebar, contentW * 0.38)
             playW = max(Self.minimumBoardSide, contentW - sidebarW - gap)
         }
-        let hudH = min(isPad ? 200 : 160, max(88, contentH * 0.48))
-        let dockH = max(64, contentH - hudH - gap)
+
+        // Keep a 10% band between moves/progress and the booster dock so the
+        // goal row is not clipped against the next section.
+        let sectionGap = max(gap, contentH * Self.landscapeSectionGapRatio)
+        let minDock: CGFloat = isPad ? 80 : 68
+        let minHud: CGFloat = isPad ? 200 : 184
+        let maxHud = max(minHud, contentH - sectionGap - minDock)
+        let hudH = min(maxHud, max(minHud, contentH * 0.56))
+        let dockH = max(minDock, contentH - hudH - sectionGap)
 
         let hud = CGRect(x: pad, y: pad, width: sidebarW, height: hudH)
-        let dock = CGRect(x: pad, y: hud.maxY + gap, width: sidebarW, height: dockH)
+        let dock = CGRect(x: pad, y: hud.maxY + sectionGap, width: sidebarW, height: dockH)
         let board = CGRect(x: pad + sidebarW + gap, y: pad, width: playW, height: contentH)
         return PlayfieldGeometry(hud: hud, board: board, dock: dock, isLandscape: true)
     }
