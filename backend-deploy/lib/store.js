@@ -82,6 +82,7 @@ function snapshotFromStore(store) {
   return {
     players: Array.from(store.players.values()),
     scores: store.scores.slice(0, 500),
+    challenges: store.challenges.slice(0, 1000),
   };
 }
 
@@ -91,12 +92,31 @@ function applySnapshot(store, snapshot) {
     if (!p?.id) continue;
     store.players.set(p.id, {
       ...p,
+      friends: Array.isArray(p.friends) ? p.friends : [],
       stats: { ...emptyStats(), ...(p.stats || {}) },
     });
   }
   if (Array.isArray(snapshot.scores)) {
     store.scores = snapshot.scores.slice(0, 500);
   }
+  if (Array.isArray(snapshot.challenges)) {
+    store.challenges = snapshot.challenges.slice(0, 1000);
+  }
+  reindexInviteCodes(store);
+}
+
+/** code -> playerId, rebuilt on hydrate so a redeem works on any instance. */
+function reindexInviteCodes(store) {
+  store.inviteCodes = new Map();
+  for (const player of store.players.values()) {
+    if (player.inviteCode) {
+      store.inviteCodes.set(normalizeCode(player.inviteCode), player.id);
+    }
+  }
+}
+
+function normalizeCode(code) {
+  return String(code || "").trim().toUpperCase();
 }
 
 async function persist(store) {
@@ -110,6 +130,8 @@ function getStore() {
     globalThis[GLOBAL_KEY] = {
       players: new Map(),
       scores: [],
+      challenges: [],
+      inviteCodes: new Map(),
       seeded: false,
       hydratePromise: null,
     };
@@ -188,6 +210,7 @@ function upsertPlayer(input) {
     const existing = store.players.get(input.id);
     existing.displayName = name;
     if (input.avatarEmoji) existing.avatarEmoji = input.avatarEmoji;
+    if (input.inviteCode) claimInviteCode(store, existing, input.inviteCode);
     existing.updatedAt = now;
     store.players.set(existing.id, existing);
     queuePersist(store);
@@ -201,11 +224,151 @@ function upsertPlayer(input) {
     createdAt: now,
     updatedAt: now,
     lastPlayedAt: now,
+    inviteCode: null,
+    referredBy: null,
+    friends: [],
     stats: emptyStats(),
   };
+  if (input.inviteCode) claimInviteCode(store, player, input.inviteCode);
   store.players.set(id, player);
   queuePersist(store);
   return player;
+}
+
+/// The app generates its own code and shows it before ever talking to us, so
+/// the server records whatever the client already displays. First claim wins;
+/// a collision leaves the second player without a code rather than hijacking
+/// someone else's.
+function claimInviteCode(store, player, rawCode) {
+  const code = normalizeCode(rawCode);
+  if (!code || code.length < 4 || code.length > 32) return;
+  if (player.inviteCode && normalizeCode(player.inviteCode) === code) return;
+  const owner = store.inviteCodes.get(code);
+  if (owner && owner !== player.id) return;
+  if (player.inviteCode) store.inviteCodes.delete(normalizeCode(player.inviteCode));
+  player.inviteCode = code;
+  store.inviteCodes.set(code, player.id);
+}
+
+function publicFriend(player) {
+  return {
+    playerId: player.id,
+    displayName: player.displayName,
+    avatarEmoji: player.avatarEmoji,
+    highScore: player.stats.highScore,
+    highestLevel: player.stats.highestLevel,
+    totalStars: player.stats.totalStars,
+    wins: player.stats.wins,
+    lastPlayedAt: player.lastPlayedAt,
+  };
+}
+
+function linkFriends(a, b) {
+  if (!a.friends.includes(b.id)) a.friends.push(b.id);
+  if (!b.friends.includes(a.id)) b.friends.push(a.id);
+}
+
+/// Links two players and reports whether this was the first time, so the
+/// caller can decide about a one-off reward without double-paying on retries.
+function redeemInviteCode({ playerId, code }) {
+  const store = getStore();
+  const player = store.players.get(playerId);
+  if (!player) return { error: "unknown player" };
+
+  const normalized = normalizeCode(code);
+  const ownerId = store.inviteCodes.get(normalized);
+  if (!ownerId) return { error: "That code doesn't match anyone yet." };
+  if (ownerId === playerId) return { error: "You can't redeem your own code." };
+
+  const owner = store.players.get(ownerId);
+  if (!owner) return { error: "That code doesn't match anyone yet." };
+
+  const alreadyFriends = player.friends.includes(owner.id);
+  const firstRedemption = !player.referredBy;
+  if (firstRedemption) player.referredBy = owner.id;
+  linkFriends(player, owner);
+
+  const now = new Date().toISOString();
+  player.updatedAt = now;
+  owner.updatedAt = now;
+  store.players.set(player.id, player);
+  store.players.set(owner.id, owner);
+  queuePersist(store);
+
+  return {
+    friend: publicFriend(owner),
+    // Only a brand-new link earns stars; re-entering a code is a no-op.
+    rewarded: firstRedemption && !alreadyFriends,
+  };
+}
+
+function listFriends(playerId) {
+  const store = getStore();
+  const player = store.players.get(playerId);
+  if (!player) return [];
+  return player.friends
+    .map((id) => store.players.get(id))
+    .filter(Boolean)
+    .map(publicFriend)
+    .sort((a, b) => b.highScore - a.highScore);
+}
+
+function createChallenge({ fromPlayerId, toPlayerId, level, targetScore }) {
+  const store = getStore();
+  const from = store.players.get(fromPlayerId);
+  const to = store.players.get(toPlayerId);
+  if (!from || !to) return { error: "unknown player" };
+  if (from.id === to.id) return { error: "You can't challenge yourself." };
+  if (!from.friends.includes(to.id)) return { error: "You can only challenge friends." };
+
+  const challenge = {
+    id: crypto.randomUUID(),
+    fromPlayerId: from.id,
+    fromDisplayName: from.displayName,
+    fromAvatarEmoji: from.avatarEmoji,
+    toPlayerId: to.id,
+    toDisplayName: to.displayName,
+    toAvatarEmoji: to.avatarEmoji,
+    level: clampInt(level, 1, 999),
+    targetScore: clampInt(targetScore, 0, 10000000),
+    responseScore: null,
+    status: "pending",
+    winnerPlayerId: null,
+    createdAt: new Date().toISOString(),
+    respondedAt: null,
+  };
+  store.challenges.unshift(challenge);
+  if (store.challenges.length > 1000) store.challenges.length = 1000;
+  queuePersist(store);
+  return { challenge };
+}
+
+function listChallenges(playerId) {
+  const store = getStore();
+  const mine = store.challenges.filter(
+    (c) => c.toPlayerId === playerId || c.fromPlayerId === playerId
+  );
+  return {
+    incoming: mine.filter((c) => c.toPlayerId === playerId),
+    outgoing: mine.filter((c) => c.fromPlayerId === playerId),
+  };
+}
+
+function respondToChallenge({ challengeId, playerId, score }) {
+  const store = getStore();
+  const challenge = store.challenges.find((c) => c.id === challengeId);
+  if (!challenge) return { error: "unknown challenge" };
+  if (challenge.toPlayerId !== playerId) return { error: "That challenge isn't yours." };
+  if (challenge.status !== "pending") return { error: "That challenge is already settled." };
+
+  const responseScore = clampInt(score, 0, 10000000);
+  challenge.responseScore = responseScore;
+  challenge.status = "complete";
+  challenge.winnerPlayerId =
+    responseScore > challenge.targetScore ? challenge.toPlayerId : challenge.fromPlayerId;
+  challenge.respondedAt = new Date().toISOString();
+  queuePersist(store);
+  return { challenge };
 }
 
 function updatePlayerProfile(id, patch) {
@@ -375,4 +538,9 @@ export {
   recentScores,
   ensureHydrated,
   durabilityInfo,
+  redeemInviteCode,
+  listFriends,
+  createChallenge,
+  listChallenges,
+  respondToChallenge,
 };

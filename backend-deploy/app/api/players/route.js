@@ -14,7 +14,7 @@ export async function POST(request) {
     const body = await request.json();
     const displayName = String(body.displayName || "").trim();
     if (!displayName) return error("displayName is required");
-    const player = upsertPlayer({ id: body.playerId ? String(body.playerId) : undefined, displayName, avatarEmoji: body.avatarEmoji ? String(body.avatarEmoji) : undefined });
+    const player = upsertPlayer({ id: body.playerId ? String(body.playerId) : undefined, displayName, avatarEmoji: body.avatarEmoji ? String(body.avatarEmoji) : undefined, inviteCode: body.inviteCode ? String(body.inviteCode) : undefined });
     return json({ player: { ...player, winRate: winRate(player.stats) } }, 201);
   } catch { return error("Invalid JSON body"); }
 }
