@@ -15,7 +15,7 @@ LANDSCAPE_MIN_SIDEBAR = 140.0
 LANDSCAPE_MAX_SIDEBAR_PHONE = 260.0
 LANDSCAPE_MAX_SIDEBAR_PAD = 320.0
 LANDSCAPE_SECTION_GAP_RATIO = 0.10
-HUD_ACCESSORY_ROW_HEIGHT = 32.0
+HUD_ACCESSORY_ROW_HEIGHT = 34.0
 ACCESSORY_ROW_CASES = (0, 1, 2)
 
 
@@ -53,7 +53,7 @@ def portrait(width: float, height: float, is_pad: bool, accessories: float):
     pad = 12.0 if is_pad else 8.0
     gap = 12.0 if is_pad else 8.0
     content_w = max(1.0, width - pad * 2)
-    base_hud = min(92.0 if is_pad else 76.0, max(84.0 if is_pad else 68.0, height * 0.09))
+    base_hud = min(116.0 if is_pad else 96.0, max(100.0 if is_pad else 84.0, height * 0.11))
     hud_h = base_hud + accessories
     dock_h = min(80.0 if is_pad else 68.0, max(56.0, height * 0.08))
 

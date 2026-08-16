@@ -72,7 +72,7 @@ final class PlayfieldGeometryTests: XCTestCase {
             isPad: false
         )
         XCTAssertGreaterThanOrEqual(phone.hud.minY, 844 * PlayfieldGeometry.portraitTopRatio - 0.5)
-        XCTAssertLessThanOrEqual(phone.hud.height, 76.5)
+        XCTAssertLessThanOrEqual(phone.hud.height, 96.5)
 
         let midTop = phone.hud.maxY
         let midBottom = phone.dock.minY
@@ -90,16 +90,35 @@ final class PlayfieldGeometryTests: XCTestCase {
         XCTAssertEqual(maxPhone.board.midX, 220, accuracy: 1)
     }
 
-    /// The portrait HUD floor must clear its own contents: a stat row plus the
-    /// goal row measure ~66pt, and the old 60pt floor let them spill onto the
-    /// board on SE-sized screens.
+    /// The portrait HUD floor must clear its own contents. With comfortable
+    /// chip padding the stat row and goal row measure ~82pt, so small screens
+    /// get a fixed floor rather than a fraction of a short screen.
     func testPortraitHUDFloorClearsItsContents() {
         for size in [CGSize(width: 320, height: 568), CGSize(width: 375, height: 667)] {
             let geometry = PlayfieldGeometry.make(container: size, isLandscape: false, isPad: false)
             XCTAssertGreaterThanOrEqual(
                 geometry.hud.height,
-                68,
+                84,
                 "\(size) portrait HUD shorter than its contents"
+            )
+        }
+    }
+
+    /// Growing the HUD must not come out of the board on the screens that can
+    /// least afford it — portrait boards are width-bound, so there is headroom.
+    func testBiggerHUDDoesNotShrinkSmallScreenBoards() {
+        let expected: [(CGSize, CGFloat)] = [
+            (CGSize(width: 320, height: 568), 304),
+            (CGSize(width: 375, height: 667), 359),
+            (CGSize(width: 390, height: 844), 374)
+        ]
+        for (size, board) in expected {
+            let geometry = PlayfieldGeometry.make(container: size, isLandscape: false, isPad: false)
+            XCTAssertEqual(
+                geometry.board.width,
+                board,
+                accuracy: 1,
+                "\(size) board shrank when the HUD grew"
             )
         }
     }

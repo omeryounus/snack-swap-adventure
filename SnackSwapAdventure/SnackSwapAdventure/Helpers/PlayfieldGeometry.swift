@@ -28,7 +28,7 @@ struct PlayfieldGeometry: Equatable {
     /// Height reserved for each optional HUD row (Sugar Rush banner, hammer
     /// prompt). Without this the rows render outside the HUD rect and land on
     /// top of the board.
-    static let hudAccessoryRowHeight: CGFloat = 32
+    static let hudAccessoryRowHeight: CGFloat = 34
 
     /// - Parameter hudAccessoryRows: transient HUD rows currently on screen.
     static func make(
@@ -60,9 +60,10 @@ struct PlayfieldGeometry: Equatable {
         isPad: Bool, accessories: CGFloat
     ) -> PlayfieldGeometry {
         let contentW = max(1, width - pad * 2)
-        // Floor raised to what the stat row + goal row actually measure; the old
-        // 60pt floor was shorter than its own contents on SE-sized screens.
-        let baseHud = min(isPad ? 92 : 76, max(isPad ? 84 : 68, height * 0.09))
+        // Sized from the HUD's own contents rather than a flat fraction: the
+        // stat row and goal row need ~82pt with comfortable padding, and the
+        // floor keeps small screens legible instead of shrinking to fit.
+        let baseHud = min(isPad ? 116 : 96, max(isPad ? 100 : 84, height * 0.11))
         let hudH = baseHud + accessories
         let dockH = min(isPad ? 80 : 68, max(56, height * 0.08))
 

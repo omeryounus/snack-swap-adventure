@@ -93,9 +93,11 @@ struct AdaptiveLayout: Equatable {
     }
 
     /// Reserved space *inside* a full-screen SpriteView (portrait overlay mode).
+    /// Takes the HUD height from the real partition so it cannot drift from
+    /// what `PlayfieldGeometry` actually lays out.
     var portraitBoardTopReserved: CGFloat {
         let topSpace = height * PlayfieldGeometry.portraitTopRatio
-        let hud: CGFloat = isPad ? 92 : 76
+        let hud = PlayfieldGeometry.make(container: size, isLandscape: false, isPad: isPad).hud.height
         return topSpace + hud + max(safeArea.top, 4)
     }
 
@@ -172,6 +174,48 @@ struct AdaptiveLayout: Equatable {
     var controlSize: CGFloat {
         if isPad { return 48 }
         return isCompactWidth ? 40 : 44
+    }
+
+    // MARK: - Title top bar
+
+    /// The bar carries a lives pill, a profile chip and two controls. Below
+    /// ~400pt those cannot share one row without clipping, so it splits.
+    var topBarUsesTwoRows: Bool { isCompactWidth && !isLandscape }
+
+    var topBarControlSize: CGFloat {
+        if isPad { return 56 }
+        return isCompactWidth ? 46 : 50
+    }
+
+    var topBarSpacing: CGFloat {
+        if isPad { return 16 }
+        return isCompactWidth ? 8 : 12
+    }
+
+    var topBarRowSpacing: CGFloat { isCompactHeight ? 8 : 10 }
+
+    /// Breathing room above the bar and between it and the content below.
+    var topBarTopPadding: CGFloat {
+        if isCompactHeight { return 6 }
+        return isPad ? 18 : 12
+    }
+
+    var topBarBottomPadding: CGFloat {
+        if isCompactHeight { return 8 }
+        return isPad ? 22 : 16
+    }
+
+    var topBarChipPaddingH: CGFloat { isPad ? 18 : (isCompactWidth ? 12 : 16) }
+    var topBarChipPaddingV: CGFloat { isPad ? 12 : 10 }
+    var topBarNameFont: CGFloat { isPad ? 18 : (isCompactWidth ? 14 : 15) }
+    var topBarDetailFont: CGFloat { isPad ? 14 : 12 }
+    var topBarAvatarFont: CGFloat { isPad ? 28 : (isCompactWidth ? 20 : 24) }
+
+    /// How much of the level's theme name the gameplay HUD chip can show before
+    /// it would start squeezing the timer and moves chips off the row.
+    var hudThemeNameMaxWidth: CGFloat {
+        if isPad { return 200 }
+        return isCompactWidth ? 92 : 130
     }
 
     // MARK: - HUD

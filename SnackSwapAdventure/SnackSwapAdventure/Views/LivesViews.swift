@@ -6,26 +6,28 @@ struct LivesPill: View {
     /// Ticks the countdown without the manager republishing every second.
     @State private var now = Date()
 
+    @Environment(\.adaptiveLayout) private var layout
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 7) {
             Image(systemName: lives.hasLife ? "heart.fill" : "heart.slash.fill")
-                .font(.system(size: 13, weight: .bold))
+                .font(.system(size: layout.isPad ? 18 : 15, weight: .bold))
                 .foregroundStyle(lives.hasLife ? Color(hex: "FF3D8A") : SSATheme.textMuted)
 
             Text("\(lives.lives)")
-                .font(.system(size: 14, weight: .black, design: .rounded).monospacedDigit())
+                .font(.system(size: layout.topBarNameFont, weight: .black, design: .rounded).monospacedDigit())
                 .foregroundStyle(.white)
 
             if let seconds = lives.secondsUntilNextLife(now: now) {
                 Text(Self.countdown(seconds))
-                    .font(.system(size: 11, weight: .bold, design: .rounded).monospacedDigit())
+                    .font(.system(size: layout.topBarDetailFont, weight: .bold, design: .rounded).monospacedDigit())
                     .foregroundStyle(SSATheme.textSecondary)
+                    .lineLimit(1)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.horizontal, layout.topBarChipPaddingH)
+        .padding(.vertical, layout.topBarChipPaddingV)
         .background(Color.white.opacity(0.12))
         .clipShape(Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))

@@ -28,7 +28,8 @@ struct TitleView: View {
             VStack(spacing: 0) {
                 topBar
                     .padding(.horizontal, layout.screenPadding)
-                    .padding(.top, 8)
+                    .padding(.top, layout.topBarTopPadding)
+                    .padding(.bottom, layout.topBarBottomPadding)
 
                 if layout.titleUsesSplitLayout {
                     landscapeBody
@@ -49,77 +50,106 @@ struct TitleView: View {
         }
     }
 
+    /// Single row when there is width for it; two rows below ~400pt, where the
+    /// pill, the profile chip and both controls cannot share a line without
+    /// squeezing the player's name down to nothing.
     private var topBar: some View {
-        HStack(spacing: 8) {
-            LivesPill()
-
-            Button {
-                SoundManager.shared.playUITap()
-                onStats()
-            } label: {
-                HStack(spacing: 8) {
-                    Text(profile.avatarEmoji)
-                        .font(.system(size: layout.isCompactWidth ? 18 : 22))
-
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(profile.displayName)
-                            .font(.system(size: 14, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-
-                        Text("\(profile.stars) ⭐")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(SSATheme.candyYellow)
+        Group {
+            if layout.topBarUsesTwoRows {
+                VStack(alignment: .leading, spacing: layout.topBarRowSpacing) {
+                    HStack(spacing: layout.topBarSpacing) {
+                        profileChip
+                        Spacer(minLength: 8)
+                        dailyRewardButton
+                        settingsButton
                     }
-                    .layoutPriority(1)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.12))
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
-            }
-
-            Spacer()
-
-            Button {
-                SoundManager.shared.playUITap()
-                showDailyRewardsModal = true
-            } label: {
-                ZStack(alignment: .topTrailing) {
-                    Text("🎁")
-                        .font(.system(size: 22))
-                        .frame(width: layout.controlSize, height: layout.controlSize)
-                        .background(Color.white.opacity(0.12))
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
-
-                    if rewardsManager.isRewardAvailable {
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 12, height: 12)
-                            .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
-                            .offset(x: 2, y: -2)
+                    HStack(spacing: layout.topBarSpacing) {
+                        LivesPill()
+                        Spacer(minLength: 0)
                     }
                 }
+            } else {
+                HStack(spacing: layout.topBarSpacing) {
+                    LivesPill()
+                    profileChip
+                    Spacer(minLength: 8)
+                    dailyRewardButton
+                    settingsButton
+                }
             }
-            .accessibilityLabel("Daily Rewards")
+        }
+    }
 
-            Button {
-                SoundManager.shared.playUITap()
-                onSettings()
-            } label: {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: layout.controlSize, height: layout.controlSize)
+    private var profileChip: some View {
+        Button {
+            SoundManager.shared.playUITap()
+            onStats()
+        } label: {
+            HStack(spacing: 10) {
+                Text(profile.avatarEmoji)
+                    .font(.system(size: layout.topBarAvatarFont))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(profile.displayName)
+                        .font(.system(size: layout.topBarNameFont, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+
+                    Text("\(profile.stars) ⭐")
+                        .font(.system(size: layout.topBarDetailFont, weight: .bold, design: .rounded))
+                        .foregroundStyle(SSATheme.candyYellow)
+                        .lineLimit(1)
+                }
+                .layoutPriority(1)
+            }
+            .padding(.horizontal, layout.topBarChipPaddingH)
+            .padding(.vertical, layout.topBarChipPaddingV)
+            .background(Color.white.opacity(0.12))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
+        }
+    }
+
+    private var dailyRewardButton: some View {
+        Button {
+            SoundManager.shared.playUITap()
+            showDailyRewardsModal = true
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Text("🎁")
+                    .font(.system(size: layout.isPad ? 28 : 24))
+                    .frame(width: layout.topBarControlSize, height: layout.topBarControlSize)
                     .background(Color.white.opacity(0.12))
                     .clipShape(Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+
+                if rewardsManager.isRewardAvailable {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 12, height: 12)
+                        .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
+                        .offset(x: 2, y: -2)
+                }
             }
-            .accessibilityLabel("Settings")
         }
+        .accessibilityLabel("Daily Rewards")
+    }
+
+    private var settingsButton: some View {
+        Button {
+            SoundManager.shared.playUITap()
+            onSettings()
+        } label: {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: layout.isPad ? 22 : 20, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: layout.topBarControlSize, height: layout.topBarControlSize)
+                .background(Color.white.opacity(0.12))
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+        }
+        .accessibilityLabel("Settings")
     }
 
     private var portraitBody: some View {
