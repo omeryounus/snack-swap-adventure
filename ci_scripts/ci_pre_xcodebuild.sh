@@ -2,7 +2,7 @@
 # Xcode Cloud: pin marketing version and confirm Game Center entitlements exist.
 set -euo pipefail
 
-MARKETING_VERSION="1.2"
+MARKETING_VERSION="1.3"
 ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/.." && pwd)}"
 PROJ_DIR="$ROOT/SnackSwapAdventure"
 INFO="$PROJ_DIR/Info.plist"
