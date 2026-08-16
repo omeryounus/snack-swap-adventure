@@ -49,6 +49,7 @@ struct ContentView: View {
             await profile.ensureRegistered()
             meta.refreshMonsterUnlocks(maxLevel: profile.maxUnlockedLevel)
             iCloudSyncManager.shared.startSync()
+            SnacklingKeeper.shared.applyPerks()
             if meta.musicEnabled {
                 MusicPlayer.shared.play()
             }
@@ -126,7 +127,13 @@ struct ContentView: View {
                         gameState.stopTimer()
                         screen = .title
                     },
-                    onLevelLost: { consumeLifeForLoss() }
+                    onLevelLost: { consumeLifeForLoss() },
+                    onLevelWon: { stars in
+                        SnacklingKeeper.shared.awardLevelReward(
+                            level: gameState.level.levelNumber,
+                            stars: stars
+                        )
+                    }
                 )
                 .id(sceneID)
                 .transition(.opacity)
@@ -182,6 +189,11 @@ struct ContentView: View {
             if b == "time" { extraTime += 30 }
         }
         gameState.reset(to: config)
+        // Grown Snacklings pay back into play.
+        let perkMoves = SnacklingKeeper.shared.currentPerks.bonusMoves
+        if perkMoves > 0 {
+            gameState.movesLeft += perkMoves
+        }
         if extraMoves > 0 {
             gameState.movesLeft += extraMoves
         }

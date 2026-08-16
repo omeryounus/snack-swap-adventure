@@ -11,6 +11,8 @@ struct GameContainerView: View {
     let onMainMenu: () -> Void
     /// Fired once when the level is failed, so a life can be spent.
     var onLevelLost: () -> Void = {}
+    /// Fired once when the level is cleared, with the stars earned.
+    var onLevelWon: (Int) -> Void = { _ in }
 
     @State private var didSubmitResult = false
     @State private var submittedRank: Int?
@@ -120,6 +122,7 @@ struct GameContainerView: View {
             switch newValue {
             case .won(let stars, let score):
                 didSubmitResult = true
+                onLevelWon(stars)
                 Task { await submit(score: score, stars: stars, won: true) }
             case .lost(let score):
                 didSubmitResult = true

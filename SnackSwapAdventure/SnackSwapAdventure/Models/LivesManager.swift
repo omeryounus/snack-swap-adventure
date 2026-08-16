@@ -63,6 +63,11 @@ final class LivesManager: ObservableObject {
 
     @Published private(set) var lives: Int = LivesManager.maxLives
     @Published private(set) var nextLifeAt: Date?
+    /// Extra capacity earned from fully evolved Snacklings.
+    @Published private(set) var bonusMaxLives: Int = 0
+
+    /// Base capacity plus whatever the collection has earned.
+    var capacity: Int { Self.maxLives + bonusMaxLives }
 
     private let defaults = UserDefaults.standard
 
@@ -72,14 +77,14 @@ final class LivesManager: ObservableObject {
             nextLifeAt = nil
             persist()
         } else {
-            lives = max(0, min(Self.maxLives, defaults.integer(forKey: Keys.lives)))
+            lives = max(0, defaults.integer(forKey: Keys.lives))
             let stamp = defaults.double(forKey: Keys.anchor)
             nextLifeAt = stamp > 0 ? Date(timeIntervalSince1970: stamp) : nil
         }
         refresh()
     }
 
-    var isFull: Bool { lives >= Self.maxLives }
+    var isFull: Bool { lives >= capacity }
     var hasLife: Bool { lives > 0 }
 
     /// Seconds until the next life, or nil when full.
@@ -94,7 +99,7 @@ final class LivesManager: ObservableObject {
             lives: lives,
             anchor: nextLifeAt,
             now: now,
-            maxLives: Self.maxLives,
+            maxLives: capacity,
             interval: Self.regenInterval
         )
         guard result.lives != lives || result.anchor != nextLifeAt else { return }
@@ -120,15 +125,15 @@ final class LivesManager: ObservableObject {
 
     func grantLife(now: Date = Date()) {
         refresh(now: now)
-        guard lives < Self.maxLives else { return }
+        guard lives < capacity else { return }
         lives += 1
-        if lives >= Self.maxLives { nextLifeAt = nil }
+        if lives >= capacity { nextLifeAt = nil }
         persist()
         syncNotifications()
     }
 
     func refillAll() {
-        lives = Self.maxLives
+        lives = capacity
         nextLifeAt = nil
         persist()
         syncNotifications()
@@ -144,10 +149,25 @@ final class LivesManager: ObservableObject {
         return true
     }
 
+    /// Raises the ceiling as Snacklings evolve. Extra capacity is granted as
+    /// actual lives so the reward is felt immediately rather than as an empty
+    /// slot the player has to wait 30 minutes to fill.
+    func setBonusMaxLives(_ bonus: Int) {
+        let clamped = max(0, min(SnacklingPerks.maxBonusLives, bonus))
+        guard clamped != bonusMaxLives else { return }
+        let gained = clamped - bonusMaxLives
+        bonusMaxLives = clamped
+        if gained > 0 { lives = min(capacity, lives + gained) }
+        lives = min(lives, capacity)
+        if lives >= capacity { nextLifeAt = nil }
+        persist()
+        syncNotifications()
+    }
+
     /// Used by the iCloud merge, which must not resurrect spent lives.
     func applyMergedState(lives: Int, anchor: Date?) {
-        self.lives = max(0, min(Self.maxLives, lives))
-        self.nextLifeAt = self.lives >= Self.maxLives ? nil : anchor
+        self.lives = max(0, min(capacity, lives))
+        self.nextLifeAt = self.lives >= capacity ? nil : anchor
         persist()
         syncNotifications()
     }
@@ -168,7 +188,7 @@ final class LivesManager: ObservableObject {
     func secondsUntilFull(now: Date = Date()) -> TimeInterval? {
         guard !isFull else { return nil }
         guard let next = secondsUntilNextLife(now: now) else { return nil }
-        let remainingAfterNext = Self.maxLives - (lives + 1)
+        let remainingAfterNext = capacity - (lives + 1)
         return next + Double(max(0, remainingAfterNext)) * Self.regenInterval
     }
 }
