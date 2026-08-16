@@ -9,6 +9,8 @@ struct GameContainerView: View {
     let onNextLevel: () -> Void
     let onReplay: () -> Void
     let onMainMenu: () -> Void
+    /// Fired once when the level is failed, so a life can be spent.
+    var onLevelLost: () -> Void = {}
 
     @State private var didSubmitResult = false
     @State private var submittedRank: Int?
@@ -121,6 +123,7 @@ struct GameContainerView: View {
                 Task { await submit(score: score, stars: stars, won: true) }
             case .lost(let score):
                 didSubmitResult = true
+                onLevelLost()
                 Task { await submit(score: score, stars: 0, won: false) }
             case .playing, .timedOut:
                 break

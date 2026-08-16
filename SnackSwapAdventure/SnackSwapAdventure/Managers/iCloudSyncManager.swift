@@ -26,6 +26,9 @@ final class iCloudSyncManager: ObservableObject {
         static let hammerCount = "cloud.hammerCount"
         static let colorBombCount = "cloud.colorBombCount"
         static let extraMovesCount = "cloud.extraMovesCount"
+        static let lives = "cloud.lives"
+        static let livesAnchor = "cloud.livesAnchor"
+        static let updatedAt = "cloud.updatedAt"
     }
 
     private init() {
@@ -49,45 +52,60 @@ final class iCloudSyncManager: ObservableObject {
         store.set(Int64(profile.hammerCount), forKey: Keys.hammerCount)
         store.set(Int64(profile.colorBombCount), forKey: Keys.colorBombCount)
         store.set(Int64(profile.extraMovesCount), forKey: Keys.extraMovesCount)
+        store.set(Int64(LivesManager.shared.lives), forKey: Keys.lives)
+        store.set(LivesManager.shared.anchorForSync?.timeIntervalSince1970 ?? 0, forKey: Keys.livesAnchor)
+        // Stamps this device as the most recent writer, which is what decides
+        // spendable balances on the next merge.
+        let now = Date().timeIntervalSince1970
+        store.set(now, forKey: Keys.updatedAt)
+        lastLocalWriteAt = now
 
         store.synchronize()
     }
 
-    /// Pull remote iCloud progress and merge safely (keeping highest level/score/stars)
+    /// Merge policy depends on what the value means.
+    ///
+    /// Records only ever go up, so `max` is right for them. Spendable balances
+    /// are not records: taking the maximum meant every spend was undone by the
+    /// next sync, which handed out free stars, boosters and lives. Those follow
+    /// the most recently written device instead.
     func pullFromiCloud() {
         guard let store = kvStore else { return }
         let profile = PlayerProfile.shared
 
+        // Records — highest wins.
         let cloudLevel = Int(store.longLong(forKey: Keys.maxUnlockedLevel))
         let cloudHighScore = Int(store.longLong(forKey: Keys.highScore))
-        let cloudStars = Int(store.longLong(forKey: Keys.totalStars))
-        let cloudHammers = Int(store.longLong(forKey: Keys.hammerCount))
-        let cloudBombs = Int(store.longLong(forKey: Keys.colorBombCount))
-        let cloudMoves = Int(store.longLong(forKey: Keys.extraMovesCount))
-
         if cloudLevel > profile.maxUnlockedLevel {
             profile.unlockLevel(cloudLevel)
         }
-
         if cloudHighScore > profile.localHighScore {
             profile.localHighScore = cloudHighScore
         }
 
-        if cloudStars > profile.localStars {
-            profile.localStars = cloudStars
-        }
+        // Balances — newest writer wins, and only if the cloud copy is newer
+        // than this device's last local change.
+        let cloudUpdatedAt = store.double(forKey: Keys.updatedAt)
+        guard cloudUpdatedAt > lastLocalWriteAt else { return }
 
-        if cloudHammers > profile.hammerCount {
-            profile.hammerCount = cloudHammers
-        }
+        profile.localStars = max(0, Int(store.longLong(forKey: Keys.totalStars)))
+        profile.hammerCount = max(0, Int(store.longLong(forKey: Keys.hammerCount)))
+        profile.colorBombCount = max(0, Int(store.longLong(forKey: Keys.colorBombCount)))
+        profile.extraMovesCount = max(0, Int(store.longLong(forKey: Keys.extraMovesCount)))
 
-        if cloudBombs > profile.colorBombCount {
-            profile.colorBombCount = cloudBombs
-        }
+        let anchorStamp = store.double(forKey: Keys.livesAnchor)
+        LivesManager.shared.applyMergedState(
+            lives: Int(store.longLong(forKey: Keys.lives)),
+            anchor: anchorStamp > 0 ? Date(timeIntervalSince1970: anchorStamp) : nil
+        )
+        lastLocalWriteAt = cloudUpdatedAt
+    }
 
-        if cloudMoves > profile.extraMovesCount {
-            profile.extraMovesCount = cloudMoves
-        }
+    /// When this device last wrote a balance, so an older cloud snapshot cannot
+    /// overwrite a newer local spend.
+    private var lastLocalWriteAt: Double {
+        get { UserDefaults.standard.double(forKey: "ssa.cloud.lastLocalWriteAt") }
+        set { UserDefaults.standard.set(newValue, forKey: "ssa.cloud.lastLocalWriteAt") }
     }
 
     private func setupObservers() {

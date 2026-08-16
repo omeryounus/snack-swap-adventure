@@ -21,9 +21,26 @@ struct ContentView: View {
     @State private var sceneID = UUID()
     @Environment(\.scenePhase) private var scenePhase
 
+    @StateObject private var lives = LivesManager.shared
+    @State private var showOutOfLives = false
+    /// The level the player tried to start with an empty tank.
+    @State private var pendingLevel: Int?
+    @State private var isWatchingLifeAd = false
+
     var body: some View {
         AdaptiveRoot {
-            screenStack
+            ZStack {
+                screenStack
+
+                if showOutOfLives {
+                    OutOfLivesOverlay(
+                        onWatchAd: { watchAdForLife() },
+                        onSpendStars: { spendStarsForLives() },
+                        onClose: { dismissOutOfLives() }
+                    )
+                    .transition(.opacity)
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(SSATheme.bgVoid.ignoresSafeArea())
@@ -108,7 +125,8 @@ struct ContentView: View {
                     onMainMenu: {
                         gameState.stopTimer()
                         screen = .title
-                    }
+                    },
+                    onLevelLost: { consumeLifeForLoss() }
                 )
                 .id(sceneID)
                 .transition(.opacity)
@@ -148,6 +166,13 @@ struct ContentView: View {
     }
 
     private func startLevel(_ number: Int) {
+        // Lives gate entry, not completion: losing costs one, winning is free.
+        lives.refresh()
+        guard lives.hasLife else {
+            pendingLevel = number
+            showOutOfLives = true
+            return
+        }
         let config = LevelConfig.level(number)
         let boosters = meta.consumePendingBoosters()
         var extraMoves = 0
@@ -178,6 +203,53 @@ struct ContentView: View {
         }
         sceneID = UUID()
         screen = .playing
+    }
+
+    // MARK: - Lives
+
+    /// Retries the level the player was blocked from, once a life arrives.
+    private func resumePendingLevel() {
+        showOutOfLives = false
+        guard let number = pendingLevel else { return }
+        pendingLevel = nil
+        startLevel(number)
+    }
+
+    private func dismissOutOfLives() {
+        showOutOfLives = false
+        pendingLevel = nil
+    }
+
+    private func watchAdForLife() {
+        guard !isWatchingLifeAd else { return }
+        isWatchingLifeAd = true
+        RewardedAdService.shared.show { earned in
+            Task { @MainActor in
+                isWatchingLifeAd = false
+                guard earned else { return }
+                lives.grantLife()
+                resumePendingLevel()
+            }
+        }
+    }
+
+    private func spendStarsForLives() {
+        SoundManager.shared.playUITap()
+        guard lives.refillWithStars() else { return }
+        resumePendingLevel()
+    }
+
+    /// A life is spent on failure, so a win never costs anything.
+    private func consumeLifeForLoss() {
+        lives.consumeLife()
+        Task {
+            // Ask for notification permission at the first moment a reminder is
+            // actually worth something to the player.
+            if await NotificationScheduler.shared.requestAuthorizationIfNeeded() {
+                NotificationScheduler.shared.updateLivesFullReminder(in: lives.secondsUntilFull())
+                NotificationScheduler.shared.scheduleDailyRewardReminder()
+            }
+        }
     }
 }
 

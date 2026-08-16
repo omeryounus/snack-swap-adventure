@@ -51,6 +51,8 @@ struct TitleView: View {
 
     private var topBar: some View {
         HStack(spacing: 8) {
+            LivesPill()
+
             Button {
                 SoundManager.shared.playUITap()
                 onStats()

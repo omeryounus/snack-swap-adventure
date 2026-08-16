@@ -94,13 +94,25 @@ struct AdaptiveModalCard<Content: View>: View {
         let cardWidth = maxWidth ?? layout.overlayMaxWidth
         let maxCardHeight = max(160, layout.height - max(layout.safeArea.top + layout.safeArea.bottom, 16) - 12)
 
-        ScrollView(showsIndicators: false) {
+        // A bare ScrollView takes every point it is offered, which left short
+        // modals stretched down the whole screen. Render unscrolled when the
+        // content fits and only fall back to scrolling when it genuinely
+        // overflows.
+        ViewThatFits(in: .vertical) {
             content()
                 .padding(layout.overlayPadding)
+
+            // Only the scrolling fallback gets a height cap. `.frame(maxHeight:)`
+            // accepts the parent's proposal up to its limit, so applying it to
+            // the whole card stretched even short modals down the screen.
+            ScrollView(showsIndicators: false) {
+                content()
+                    .padding(layout.overlayPadding)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(maxHeight: maxCardHeight)
         }
-        .scrollBounceBehavior(.basedOnSize)
         .frame(maxWidth: cardWidth)
-        .frame(maxHeight: maxCardHeight)
         .background(
             RoundedRectangle(cornerRadius: layout.overlayCornerRadius, style: .continuous)
                 .fill(SSATheme.bgElevated)
