@@ -32,8 +32,7 @@ struct ScreenScaffold<Content: View>: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .safeAreaPadding(.top)
-            .safeAreaPadding(.bottom)
+            .adaptiveSafeAreaPadding(layout)
         }
     }
 

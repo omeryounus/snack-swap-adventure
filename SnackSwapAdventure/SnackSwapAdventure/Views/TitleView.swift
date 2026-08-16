@@ -36,8 +36,7 @@ struct TitleView: View {
                     portraitBody
                 }
             }
-            .safeAreaPadding(.top)
-            .safeAreaPadding(.bottom)
+            .adaptiveSafeAreaPadding(layout)
 
             if showDailyRewardsModal {
                 DailyRewardModalView(onDismiss: {
@@ -237,7 +236,10 @@ struct TitleView: View {
     }
 
     private var navGrid: some View {
-        LazyVGrid(columns: layout.gridItems(count: layout.navGridColumns), spacing: 14) {
+        // Adaptive, not a fixed column count: in landscape this grid sits in a
+        // half-width column, where 4 fixed columns squeezed each card to ~97pt
+        // and clipped "Ranks" down to "R".
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 14) {
             NavCard(title: "Ranks", subtitle: "Global Top 10", icon: "trophy.fill", color: SSATheme.candyYellow) {
                 onLeaderboard()
             }

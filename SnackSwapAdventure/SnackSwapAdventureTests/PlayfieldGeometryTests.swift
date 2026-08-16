@@ -2,7 +2,41 @@ import XCTest
 @testable import SnackSwapAdventure
 
 final class PlayfieldGeometryTests: XCTestCase {
+    /// The core contract: on every supported size, in every orientation, with
+    /// every combination of transient HUD rows, the three regions stay disjoint
+    /// and on screen.
     func testNoOverlapsOnReferenceDevices() {
+        for device in PlayfieldGeometry.referenceDevices {
+            for rows in PlayfieldGeometry.accessoryRowCases {
+                let isLandscape = device.size.width > device.size.height + 12
+                let geometry = PlayfieldGeometry.make(
+                    container: device.size,
+                    isLandscape: isLandscape,
+                    isPad: device.isPad,
+                    hudAccessoryRows: rows
+                )
+                let overlaps = geometry.overlappingPairs()
+                XCTAssertTrue(
+                    overlaps.isEmpty,
+                    "\(device.name) rows=\(rows) overlapping \(overlaps)"
+                )
+                XCTAssertTrue(
+                    geometry.isFullyContained(in: device.size),
+                    "\(device.name) rows=\(rows) leaked outside \(device.size) "
+                        + "hud=\(geometry.hud) board=\(geometry.board) dock=\(geometry.dock)"
+                )
+                XCTAssertGreaterThanOrEqual(
+                    min(geometry.board.width, geometry.board.height),
+                    PlayfieldGeometry.minimumBoardSide - 0.5,
+                    "\(device.name) rows=\(rows) board too small: \(geometry.board)"
+                )
+            }
+        }
+    }
+
+    /// The board is where the 8×8 grid is drawn, so it must be square in both
+    /// orientations — a stretched rect just wastes one axis.
+    func testBoardIsSquareInEveryOrientation() {
         for device in PlayfieldGeometry.referenceDevices {
             let isLandscape = device.size.width > device.size.height + 12
             let geometry = PlayfieldGeometry.make(
@@ -10,19 +44,11 @@ final class PlayfieldGeometryTests: XCTestCase {
                 isLandscape: isLandscape,
                 isPad: device.isPad
             )
-            let overlaps = geometry.overlappingPairs()
-            XCTAssertTrue(
-                overlaps.isEmpty,
-                "\(device.name) overlapping \(overlaps)"
-            )
-            XCTAssertTrue(
-                geometry.isFullyContained(in: device.size),
-                "\(device.name) leaked outside \(device.size) hud=\(geometry.hud) board=\(geometry.board) dock=\(geometry.dock)"
-            )
-            XCTAssertGreaterThanOrEqual(
-                min(geometry.board.width, geometry.board.height),
-                PlayfieldGeometry.minimumBoardSide - 0.5,
-                "\(device.name) board too small: \(geometry.board)"
+            XCTAssertEqual(
+                geometry.board.width,
+                geometry.board.height,
+                accuracy: 0.5,
+                "\(device.name) board not square: \(geometry.board)"
             )
         }
     }
@@ -64,6 +90,20 @@ final class PlayfieldGeometryTests: XCTestCase {
         XCTAssertEqual(maxPhone.board.midX, 220, accuracy: 1)
     }
 
+    /// The portrait HUD floor must clear its own contents: a stat row plus the
+    /// goal row measure ~66pt, and the old 60pt floor let them spill onto the
+    /// board on SE-sized screens.
+    func testPortraitHUDFloorClearsItsContents() {
+        for size in [CGSize(width: 320, height: 568), CGSize(width: 375, height: 667)] {
+            let geometry = PlayfieldGeometry.make(container: size, isLandscape: false, isPad: false)
+            XCTAssertGreaterThanOrEqual(
+                geometry.hud.height,
+                68,
+                "\(size) portrait HUD shorter than its contents"
+            )
+        }
+    }
+
     func testLandscapeBoardDoesNotEnterSidebar() {
         let geometry = PlayfieldGeometry.make(
             container: CGSize(width: 956, height: 440),
@@ -76,29 +116,56 @@ final class PlayfieldGeometryTests: XCTestCase {
         XCTAssertTrue(geometry.overlappingPairs().isEmpty)
     }
 
-    func testLandscapeGameplayAreaIsSeventyPercent() {
-        let sizes = [
-            CGSize(width: 844, height: 390),
-            CGSize(width: 956, height: 440),
-            CGSize(width: 1194, height: 834)
+    /// Landscape is height-bound, so the board should take the largest square
+    /// the height allows rather than a fixed fraction of the width.
+    func testLandscapeBoardTakesTheFullHeightSquare() {
+        let sizes: [(CGSize, Bool)] = [
+            (CGSize(width: 844, height: 390), false),
+            (CGSize(width: 956, height: 440), false),
+            (CGSize(width: 1194, height: 834), true)
         ]
-        for size in sizes {
-            let isPad = size.height > 500
+        for (size, isPad) in sizes {
             let geometry = PlayfieldGeometry.make(
                 container: size,
                 isLandscape: true,
                 isPad: isPad
             )
             let pad: CGFloat = isPad ? 12 : 8
-            let contentW = size.width - pad * 2
-            let ratio = geometry.board.width / contentW
+            let contentH = size.height - pad * 2
             XCTAssertEqual(
-                ratio,
-                PlayfieldGeometry.landscapeGameplayRatio,
-                accuracy: 0.02,
-                "\(size) gameplay width ratio \(ratio)"
+                geometry.board.height,
+                contentH,
+                accuracy: 0.5,
+                "\(size) board did not use the available height"
             )
-            XCTAssertEqual(geometry.board.height, size.height - pad * 2, accuracy: 0.5)
+            XCTAssertEqual(geometry.board.width, geometry.board.height, accuracy: 0.5)
+        }
+    }
+
+    /// The sidebar stays within its bounds so it neither starves the HUD on
+    /// small phones nor eats the board on wide screens.
+    func testLandscapeSidebarStaysWithinBounds() {
+        for device in PlayfieldGeometry.referenceDevices
+        where device.size.width > device.size.height + 12 && device.size.width >= 520 {
+            let geometry = PlayfieldGeometry.make(
+                container: device.size,
+                isLandscape: true,
+                isPad: device.isPad
+            )
+            let maxSidebar = device.isPad
+                ? PlayfieldGeometry.landscapeMaxSidebarPad
+                : PlayfieldGeometry.landscapeMaxSidebarPhone
+            XCTAssertGreaterThanOrEqual(
+                geometry.hud.width,
+                PlayfieldGeometry.landscapeMinSidebar - 0.5,
+                "\(device.name) sidebar too narrow"
+            )
+            XCTAssertLessThanOrEqual(
+                geometry.hud.width,
+                maxSidebar + 0.5,
+                "\(device.name) sidebar too wide"
+            )
+            XCTAssertEqual(geometry.dock.width, geometry.hud.width, accuracy: 0.5)
         }
     }
 
@@ -112,6 +179,35 @@ final class PlayfieldGeometryTests: XCTestCase {
         let gap = geometry.dock.minY - geometry.hud.maxY
         XCTAssertGreaterThanOrEqual(gap + 0.5, contentH * PlayfieldGeometry.landscapeSectionGapRatio)
         XCTAssertGreaterThanOrEqual(geometry.hud.height, 184)
+    }
+
+    /// Transient rows must come out of the layout budget, not out of thin air.
+    func testAccessoryRowsGrowTheHUDAndKeepTheDockOnScreen() {
+        for device in PlayfieldGeometry.referenceDevices {
+            let isLandscape = device.size.width > device.size.height + 12
+            let plain = PlayfieldGeometry.make(
+                container: device.size,
+                isLandscape: isLandscape,
+                isPad: device.isPad,
+                hudAccessoryRows: 0
+            )
+            let busy = PlayfieldGeometry.make(
+                container: device.size,
+                isLandscape: isLandscape,
+                isPad: device.isPad,
+                hudAccessoryRows: 2
+            )
+            XCTAssertGreaterThanOrEqual(
+                busy.hud.height,
+                plain.hud.height,
+                "\(device.name) HUD did not reserve room for accessory rows"
+            )
+            XCTAssertTrue(
+                busy.isFullyContained(in: device.size),
+                "\(device.name) dock pushed off screen by accessory rows: \(busy.dock)"
+            )
+            XCTAssertTrue(busy.overlappingPairs().isEmpty, "\(device.name) overlaps when busy")
+        }
     }
 
     func testNarrowLandscapeFallsBackToStackedPortrait() {

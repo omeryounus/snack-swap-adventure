@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
-"""Mirrors PlayfieldGeometry and fails if any reference device overlaps."""
+"""Mirrors PlayfieldGeometry and fails if any reference device overlaps.
+
+Sweeps every device size against every transient-HUD-row count, because the
+Sugar Rush banner and hammer prompt are what used to push the HUD onto the
+board.
+"""
 
 from dataclasses import dataclass
 
 
 MIN_BOARD = 168.0
 PORTRAIT_TOP_RATIO = 0.10
-LANDSCAPE_GAMEPLAY_RATIO = 0.70
 LANDSCAPE_MIN_SIDEBAR = 140.0
+LANDSCAPE_MAX_SIDEBAR_PHONE = 260.0
+LANDSCAPE_MAX_SIDEBAR_PAD = 320.0
 LANDSCAPE_SECTION_GAP_RATIO = 0.10
+HUD_ACCESSORY_ROW_HEIGHT = 32.0
+ACCESSORY_ROW_CASES = (0, 1, 2)
 
 
 @dataclass
@@ -41,13 +49,19 @@ class Rect:
         )
 
 
-def portrait(width: float, height: float, is_pad: bool) -> tuple[Rect, Rect, Rect]:
+def portrait(width: float, height: float, is_pad: bool, accessories: float):
     pad = 12.0 if is_pad else 8.0
     gap = 12.0 if is_pad else 8.0
     content_w = max(1.0, width - pad * 2)
-    top_space = max(pad, height * PORTRAIT_TOP_RATIO)
-    hud_h = min(92.0 if is_pad else 76.0, max(60.0, height * 0.09))
+    base_hud = min(92.0 if is_pad else 76.0, max(84.0 if is_pad else 68.0, height * 0.09))
+    hud_h = base_hud + accessories
     dock_h = min(80.0 if is_pad else 68.0, max(56.0, height * 0.08))
+
+    ideal_top = max(pad, height * PORTRAIT_TOP_RATIO)
+    fixed = hud_h + dock_h + gap * 2 + pad
+    wanted = min(content_w, MIN_BOARD)
+    top_space = max(pad, min(ideal_top, height - fixed - wanted))
+
     hud = Rect(pad, top_space, content_w, hud_h)
     dock = Rect(pad, height - pad - dock_h, content_w, dock_h)
     mid_top = hud.max_y + gap
@@ -63,32 +77,49 @@ def portrait(width: float, height: float, is_pad: bool) -> tuple[Rect, Rect, Rec
     return hud, board, dock
 
 
-def landscape(width: float, height: float, is_pad: bool) -> tuple[Rect, Rect, Rect]:
+def landscape(width: float, height: float, is_pad: bool, accessories: float):
     pad = 12.0 if is_pad else 8.0
     gap = 12.0 if is_pad else 8.0
     content_w = max(1.0, width - pad * 2)
     content_h = max(1.0, height - pad * 2)
-    play_w = content_w * LANDSCAPE_GAMEPLAY_RATIO
-    sidebar_w = content_w - play_w - gap
-    if sidebar_w < LANDSCAPE_MIN_SIDEBAR:
-        sidebar_w = min(LANDSCAPE_MIN_SIDEBAR, content_w * 0.38)
-        play_w = max(MIN_BOARD, content_w - sidebar_w - gap)
-    section_gap = max(gap, content_h * LANDSCAPE_SECTION_GAP_RATIO)
+
+    max_sidebar = LANDSCAPE_MAX_SIDEBAR_PAD if is_pad else LANDSCAPE_MAX_SIDEBAR_PHONE
+    square_budget = max(MIN_BOARD, min(content_h, content_w - LANDSCAPE_MIN_SIDEBAR - gap))
+    sidebar_w = min(
+        max(LANDSCAPE_MIN_SIDEBAR, content_w - square_budget - gap),
+        max(LANDSCAPE_MIN_SIDEBAR, min(max_sidebar, content_w - MIN_BOARD - gap)),
+    )
+    column_w = max(MIN_BOARD, content_w - sidebar_w - gap)
+
     min_dock = 80.0 if is_pad else 68.0
-    min_hud = 200.0 if is_pad else 184.0
-    max_hud = max(min_hud, content_h - section_gap - min_dock)
-    hud_h = min(max_hud, max(min_hud, content_h * 0.56))
-    dock_h = max(min_dock, content_h - hud_h - section_gap)
+    dock_h = max(min_dock, min(content_h * 0.22, 96.0 if is_pad else 84.0))
+    min_hud = (200.0 if is_pad else 184.0) + accessories
+    ideal_gap = max(gap, content_h * LANDSCAPE_SECTION_GAP_RATIO)
+
+    section_gap = ideal_gap
+    hud_h = max(1.0, content_h - dock_h - section_gap)
+    if hud_h < min_hud:
+        section_gap = max(gap, content_h - min_hud - dock_h)
+        hud_h = max(1.0, content_h - dock_h - section_gap)
+
     hud = Rect(pad, pad, sidebar_w, hud_h)
     dock = Rect(pad, hud.max_y + section_gap, sidebar_w, dock_h)
-    board = Rect(pad + sidebar_w + gap, pad, play_w, content_h)
+
+    board_side = max(1.0, min(column_w, content_h))
+    board = Rect(
+        pad + sidebar_w + gap + (column_w - board_side) / 2,
+        pad + (content_h - board_side) / 2,
+        board_side,
+        board_side,
+    )
     return hud, board, dock
 
 
-def make(width: float, height: float, is_landscape: bool, is_pad: bool):
+def make(width: float, height: float, is_landscape: bool, is_pad: bool, rows: int = 0):
+    accessories = max(0, rows) * HUD_ACCESSORY_ROW_HEIGHT
     if is_landscape and width >= 520:
-        return landscape(width, height, is_pad)
-    return portrait(width, height, is_pad)
+        return landscape(width, height, is_pad, accessories)
+    return portrait(width, height, is_pad, accessories)
 
 
 DEVICES = [
@@ -119,43 +150,32 @@ def main() -> int:
     failed = 0
     for name, w, h, is_pad in DEVICES:
         is_land = w > h + 12
-        hud, board, dock = make(w, h, is_land, is_pad)
-        pairs = []
-        items = [("hud", hud.inset(0.5)), ("board", board.inset(0.5)), ("dock", dock.inset(0.5))]
-        for i, (a_name, a) in enumerate(items):
-            for b_name, b in items[i + 1 :]:
-                if a.intersects(b):
-                    pairs.append(f"{a_name}/{b_name}")
-        contained = all(r.contained_in(w, h) for r in (hud, board, dock))
-        board_ok = min(board.w, board.h) + 0.5 >= MIN_BOARD
-        ratio_ok = True
-        ratio = 0.0
-        if is_land and w >= 520:
-            pad = 12.0 if is_pad else 8.0
-            content_w = w - pad * 2
-            ratio = board.w / content_w
-            ratio_ok = abs(ratio - LANDSCAPE_GAMEPLAY_RATIO) <= 0.02
-        hud_ok = True
-        if not is_land:
-            hud_ok = hud.y + 0.5 >= h * PORTRAIT_TOP_RATIO
-        section_ok = True
-        if is_land and w >= 520:
-            pad = 12.0 if is_pad else 8.0
-            content_h = h - pad * 2
-            section_ok = dock.y + 0.5 >= hud.max_y + content_h * LANDSCAPE_SECTION_GAP_RATIO
-        if pairs or not contained or not board_ok or not ratio_ok or not hud_ok or not section_ok:
-            failed += 1
-            print(
-                f"FAIL {name}: overlaps={pairs} contained={contained} "
-                f"board={board} ratio={ratio:.3f} hud={hud.h:.0f}"
-            )
-        else:
-            extra = f" hud={int(hud.h)}" if not is_land else f" play={ratio:.0%}"
-            print(f"OK   {name}: board={int(board.w)}x{int(board.h)}{extra}")
+        summaries = []
+        for rows in ACCESSORY_ROW_CASES:
+            hud, board, dock = make(w, h, is_land, is_pad, rows)
+            pairs = []
+            items = [("hud", hud.inset(0.5)), ("board", board.inset(0.5)), ("dock", dock.inset(0.5))]
+            for i, (a_name, a) in enumerate(items):
+                for b_name, b in items[i + 1 :]:
+                    if a.intersects(b):
+                        pairs.append(f"{a_name}/{b_name}")
+            contained = all(r.contained_in(w, h) for r in (hud, board, dock))
+            board_ok = min(board.w, board.h) + 0.5 >= MIN_BOARD
+            square_ok = abs(board.w - board.h) <= 0.5
+            if pairs or not contained or not board_ok or not square_ok:
+                failed += 1
+                print(
+                    f"FAIL {name} rows={rows}: overlaps={pairs} contained={contained} "
+                    f"square={square_ok} board={board}"
+                )
+            else:
+                summaries.append(f"{rows}:{int(board.w)}px/hud{int(hud.h)}")
+        if len(summaries) == len(ACCESSORY_ROW_CASES):
+            print(f"OK   {name}: " + "  ".join(summaries))
     if failed:
         print(f"\n{failed} device layouts failed")
         return 1
-    print("\nAll reference device layouts are non-overlapping")
+    print("\nAll reference device layouts are non-overlapping (0-2 accessory rows)")
     return 0
 
 

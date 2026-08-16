@@ -35,8 +35,7 @@ struct SplashView: View {
                     .foregroundStyle(SSATheme.textMuted)
                     .padding(.bottom, 12)
             }
-            .safeAreaPadding(.top)
-            .safeAreaPadding(.bottom)
+            .adaptiveSafeAreaPadding(layout)
         }
         .onAppear {
             simulateLoading()

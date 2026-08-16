@@ -68,13 +68,10 @@ struct AdaptiveLayout: Equatable {
         return width >= 520
     }
 
-    /// 30% chrome / 70% gameplay split used by `PlayfieldGeometry`.
+    /// Chrome column width, taken from the same partition `PlayfieldGeometry`
+    /// uses so callers never disagree with the real layout.
     var gameplaySidebarWidth: CGFloat {
-        let pad: CGFloat = isPad ? 12 : 8
-        let gap: CGFloat = isPad ? 12 : 8
-        let content = max(1, width - pad * 2)
-        let play = content * PlayfieldGeometry.landscapeGameplayRatio
-        return max(PlayfieldGeometry.landscapeMinSidebar, content - play - gap)
+        PlayfieldGeometry.make(container: size, isLandscape: isLandscape, isPad: isPad).hud.width
     }
 
     /// Cap is high on phones so the board fills its SpriteView; iPad stays readable.
@@ -230,13 +227,6 @@ struct AdaptiveLayout: Equatable {
 
     // MARK: - Grids
 
-    var navGridColumns: Int {
-        if isPad && isLandscape { return 4 }
-        if isPad { return 2 }
-        if isLandscape && width >= 700 { return 4 }
-        return 2
-    }
-
     var shopGridColumns: Int {
         if isPad && isLandscape { return 3 }
         if isPad { return 3 }
@@ -315,24 +305,58 @@ extension EnvironmentValues {
 }
 
 /// Root reader that publishes a live `AdaptiveLayout` into the environment.
+///
+/// `.ignoresSafeArea()` is what lets this measure the whole window, but it also
+/// zeroes `GeometryProxy.safeAreaInsets`, so the insets are read from the window
+/// itself. Without that, every screen believed it had no notch, status bar, or
+/// home indicator to avoid.
 struct AdaptiveRoot<Content: View>: View {
     @ViewBuilder var content: () -> Content
+
+    @State private var safeArea = EdgeInsets()
 
     var body: some View {
         GeometryReader { geo in
             let layout = AdaptiveLayout(
                 size: CGSize(width: max(geo.size.width, 1), height: max(geo.size.height, 1)),
-                safeArea: geo.safeAreaInsets
+                safeArea: safeArea
             )
             content()
                 .environment(\.adaptiveLayout, layout)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .onAppear { LayoutMetrics.sync(from: layout) }
+                .onAppear {
+                    refreshSafeArea()
+                    LayoutMetrics.sync(from: layout)
+                }
+                .onChange(of: geo.size) { _, _ in
+                    // Rotation: UIKit settles the new insets after the resize.
+                    refreshSafeArea()
+                    DispatchQueue.main.async { refreshSafeArea() }
+                }
                 .onChange(of: layout) { _, newValue in
                     LayoutMetrics.sync(from: newValue)
                 }
         }
         .ignoresSafeArea()
+    }
+
+    private func refreshSafeArea() {
+        let insets = AdaptiveRoot.windowSafeAreaInsets()
+        if insets != safeArea { safeArea = insets }
+    }
+
+    static func windowSafeAreaInsets() -> EdgeInsets {
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow }
+        guard let insets = window?.safeAreaInsets else { return EdgeInsets() }
+        return EdgeInsets(
+            top: insets.top,
+            leading: insets.left,
+            bottom: insets.bottom,
+            trailing: insets.right
+        )
     }
 }
 
@@ -345,5 +369,20 @@ extension View {
 
     func adaptiveHorizontalPadding(_ layout: AdaptiveLayout) -> some View {
         padding(.horizontal, layout.screenPadding)
+    }
+
+    /// `AdaptiveRoot` consumes the safe area with `.ignoresSafeArea()` so it can
+    /// measure the full window, which makes every descendant `.safeAreaPadding`
+    /// a silent no-op. Screens must re-apply the insets captured in the layout —
+    /// otherwise content slides under the status bar and, in landscape, under
+    /// the Dynamic Island.
+    func adaptiveSafeAreaPadding(
+        _ layout: AdaptiveLayout,
+        edges: Edge.Set = .all
+    ) -> some View {
+        padding(.top, edges.contains(.top) ? layout.safeArea.top : 0)
+            .padding(.bottom, edges.contains(.bottom) ? layout.safeArea.bottom : 0)
+            .padding(.leading, edges.contains(.leading) ? layout.safeArea.leading : 0)
+            .padding(.trailing, edges.contains(.trailing) ? layout.safeArea.trailing : 0)
     }
 }

@@ -34,7 +34,10 @@ struct GameContainerView: View {
 
             // Layer 4: FTUE Tutorial Coach Mark Overlay (Levels 1–3)
             if showFTUEOverlay {
-                FTUECoachOverlay(level: gameState.level.levelNumber) {
+                FTUECoachOverlay(
+                    level: gameState.level.levelNumber,
+                    chromeClearance: chromeClearance
+                ) {
                     showFTUEOverlay = false
                 }
             }
@@ -139,20 +142,62 @@ struct GameContainerView: View {
 
     // MARK: - Playfields
 
+    /// Transient HUD rows the geometry has to reserve height for, otherwise they
+    /// render past the HUD card and sit on top of the board.
+    private var hudAccessoryRows: Int {
+        (gameState.isFeverActive ? 1 : 0) + (activeBooster == .hammer ? 1 : 0)
+    }
+
+    /// Same partition the playfield uses, derived from the window so overlays
+    /// outside the playfield's GeometryReader can avoid the chrome.
+    private var windowGeometry: PlayfieldGeometry {
+        let content = CGSize(
+            width: max(1, layout.width - layout.safeArea.leading - layout.safeArea.trailing),
+            height: max(1, layout.height - layout.safeArea.top - layout.safeArea.bottom)
+        )
+        return PlayfieldGeometry.make(
+            container: content,
+            isLandscape: content.width > content.height + 12,
+            isPad: layout.isPad,
+            hudAccessoryRows: hudAccessoryRows
+        )
+    }
+
+    /// Portrait: clear the bottom dock. Landscape: clear the left sidebar.
+    private var chromeClearance: EdgeInsets {
+        let geometry = windowGeometry
+        let content = CGSize(
+            width: max(1, layout.width - layout.safeArea.leading - layout.safeArea.trailing),
+            height: max(1, layout.height - layout.safeArea.top - layout.safeArea.bottom)
+        )
+        if geometry.isLandscape {
+            return EdgeInsets(
+                top: 0,
+                leading: geometry.dock.maxX + layout.safeArea.leading,
+                bottom: layout.safeArea.bottom,
+                trailing: 0
+            )
+        }
+        return EdgeInsets(
+            top: 0,
+            leading: 0,
+            bottom: (content.height - geometry.dock.minY) + layout.safeArea.bottom,
+            trailing: 0
+        )
+    }
+
     private var playfield: some View {
         GeometryReader { geo in
             placedPlayfield(
                 PlayfieldGeometry.make(
                     container: geo.size,
                     isLandscape: geo.size.width > geo.size.height + 12,
-                    isPad: layout.isPad
+                    isPad: layout.isPad,
+                    hudAccessoryRows: hudAccessoryRows
                 )
             )
         }
-        .safeAreaPadding(.top)
-        .safeAreaPadding(.bottom)
-        .safeAreaPadding(.leading)
-        .safeAreaPadding(.trailing)
+        .adaptiveSafeAreaPadding(layout)
     }
 
     private func placedPlayfield(_ geometry: PlayfieldGeometry) -> some View {
@@ -169,6 +214,8 @@ struct GameContainerView: View {
             }
             .padding(geometry.isLandscape ? 8 : 4)
             .frame(width: geometry.hud.width, height: geometry.hud.height, alignment: .top)
+            // Matches board/dock: chrome can never paint outside its own rect.
+            .clipped()
             .offset(x: geometry.hud.minX, y: geometry.hud.minY)
 
             boardCard
@@ -176,7 +223,9 @@ struct GameContainerView: View {
                 .clipped()
                 .offset(x: geometry.board.minX, y: geometry.board.minY)
 
-            boosterBar(axis: geometry.isLandscape ? .vertical : .horizontal, compact: true)
+            // Horizontal in both orientations: the sidebar is wide enough for a
+            // 3-up row, and a vertical stack needed more height than the dock has.
+            boosterBar(axis: .horizontal, compact: true)
                 .frame(width: geometry.dock.width, height: geometry.dock.height)
                 .clipped()
                 .offset(x: geometry.dock.minX, y: geometry.dock.minY)

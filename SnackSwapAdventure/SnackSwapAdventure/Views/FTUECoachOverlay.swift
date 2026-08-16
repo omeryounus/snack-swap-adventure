@@ -41,6 +41,9 @@ final class FTUEManager: ObservableObject {
 /// Coach mark modal overlay for Level 1, 2, and 3 tutorials.
 struct FTUECoachOverlay: View {
     let level: Int
+    /// Space the gameplay chrome already occupies, so the coach card sits above
+    /// the booster dock instead of half on top of it.
+    var chromeClearance: EdgeInsets = EdgeInsets()
     let onDismiss: () -> Void
 
     @ObservedObject private var manager = FTUEManager.shared
@@ -165,8 +168,9 @@ struct FTUECoachOverlay: View {
                     }
                     .frame(maxWidth: 520)
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 24)
-                    .safeAreaPadding(.bottom)
+                    .padding(.leading, chromeClearance.leading)
+                    .padding(.trailing, chromeClearance.trailing)
+                    .padding(.bottom, 24 + chromeClearance.bottom)
                 }
             }
             .transition(.opacity)
