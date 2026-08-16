@@ -478,10 +478,11 @@ final class GameScene: SKScene {
         spawnParticles(at: Set([pos]))
         spawnSnackBurst(at: Set([pos]))
 
+        // Affordability was checked when hammer mode was armed in BoosterBarView.
         if PlayerProfile.shared.hammerCount > 0 {
             PlayerProfile.shared.hammerCount -= 1
         } else {
-            PlayerProfile.shared.deductStars(30)
+            PlayerProfile.shared.deductStars(ActiveBooster.hammer.cost)
         }
 
         resolveMatches(cascadeDepth: 0, forcedPositions: Set([pos]))

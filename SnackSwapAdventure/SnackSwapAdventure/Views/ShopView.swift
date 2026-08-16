@@ -98,23 +98,16 @@ struct ShopView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         VStack(spacing: 12) {
+                            // Previously these silently did nothing when the
+                            // player could not afford them.
                             BoosterShopRow(title: "3x Snack Hammer", price: "30 ⭐", icon: "hammer.fill") {
-                                if profile.stars >= 30 {
-                                    profile.deductStars(30)
-                                    profile.hammerCount += 3
-                                }
+                                buyBoosters(cost: 30) { profile.hammerCount += 3 }
                             }
                             BoosterShopRow(title: "3x Color Bomb", price: "50 ⭐", icon: "atom") {
-                                if profile.stars >= 50 {
-                                    profile.deductStars(50)
-                                    profile.colorBombCount += 3
-                                }
+                                buyBoosters(cost: 50) { profile.colorBombCount += 3 }
                             }
                             BoosterShopRow(title: "3x Extra Moves", price: "40 ⭐", icon: "plus.circle.fill") {
-                                if profile.stars >= 40 {
-                                    profile.deductStars(40)
-                                    profile.extraMovesCount += 3
-                                }
+                                buyBoosters(cost: 40) { profile.extraMovesCount += 3 }
                             }
                         }
 
@@ -132,7 +125,7 @@ struct ShopView: View {
         }
         // Purchase failures used to be written to errorMessage and never shown.
         .alert(
-            "Purchase Unavailable",
+            "Shop",
             isPresented: Binding(
                 get: { storeManager.errorMessage != nil },
                 set: { if !$0 { storeManager.errorMessage = nil } }
@@ -142,6 +135,15 @@ struct ShopView: View {
         } message: {
             Text(storeManager.errorMessage ?? "")
         }
+    }
+
+    private func buyBoosters(cost: Int, grant: () -> Void) {
+        guard profile.stars >= cost else {
+            storeManager.errorMessage = "That costs \(cost) ⭐ and you have \(profile.stars) ⭐. Grab a star bundle above."
+            return
+        }
+        profile.deductStars(cost)
+        grant()
     }
 
     private func productPrice(for id: String, fallback: String) -> String {

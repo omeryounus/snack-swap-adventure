@@ -20,6 +20,22 @@ enum ActiveBooster: String, CaseIterable {
         case .extraMoves: return 40
         }
     }
+
+    var displayName: String {
+        switch self {
+        case .hammer: return "Snack Hammer"
+        case .colorBomb: return "Color Bomb"
+        case .extraMoves: return "Extra Moves"
+        }
+    }
+
+    /// Owned boosters are spent before stars, and stars are never conjured:
+    /// the shop is the only way to top up. The booster bar used to grant 100
+    /// free stars here, which made every booster free and the star bundles
+    /// pointless.
+    static func canAfford(stock: Int, stars: Int, cost: Int) -> Bool {
+        stock > 0 || stars >= cost
+    }
 }
 
 /// Equal-width booster dock. Badges stay inside each cell so they never overlap.
@@ -34,6 +50,10 @@ struct BoosterBarView: View {
     let onExtraMovesUse: () -> Void
 
     @Environment(\.adaptiveLayout) private var layout
+
+    /// Set when a booster is tapped that the player cannot pay for.
+    @State private var insufficientFor: ActiveBooster?
+    @State private var showShop = false
 
     var body: some View {
         Group {
@@ -90,6 +110,25 @@ struct BoosterBarView: View {
                         .stroke(Color.white.opacity(0.12), lineWidth: 1)
                 )
         )
+        .alert(
+            "Not Enough Stars",
+            isPresented: Binding(
+                get: { insufficientFor != nil },
+                set: { if !$0 { insufficientFor = nil } }
+            ),
+            presenting: insufficientFor
+        ) { booster in
+            Button("Get Stars") {
+                insufficientFor = nil
+                showShop = true
+            }
+            Button("Cancel", role: .cancel) { insufficientFor = nil }
+        } message: { booster in
+            Text("\(booster.displayName) costs \(booster.cost) ⭐ and you have \(profile.stars) ⭐.")
+        }
+        .sheet(isPresented: $showShop) {
+            ShopView(onBack: { showShop = false })
+        }
     }
 
     private func boosterCell(
@@ -126,52 +165,69 @@ struct BoosterBarView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(isSelected ? SSATheme.candyPink.opacity(0.85) : Color.white.opacity(0.08))
             )
+            // Unaffordable boosters stay tappable so the tap can explain why
+            // and offer the shop, but they read as unavailable.
+            .opacity(canAfford(booster) || isSelected ? 1 : 0.45)
         }
         .buttonStyle(.plain)
+    }
+
+    private func stock(for booster: ActiveBooster) -> Int {
+        switch booster {
+        case .hammer: return profile.hammerCount
+        case .colorBomb: return profile.colorBombCount
+        case .extraMoves: return profile.extraMovesCount
+        }
+    }
+
+    private func canAfford(_ booster: ActiveBooster) -> Bool {
+        ActiveBooster.canAfford(
+            stock: stock(for: booster),
+            stars: profile.stars,
+            cost: booster.cost
+        )
     }
 
     private func hammerAction() {
         if activeBooster == .hammer {
             activeBooster = nil
-        } else {
-            if profile.hammerCount == 0 && profile.stars < ActiveBooster.hammer.cost {
-                profile.addStars(100)
-            }
-            activeBooster = .hammer
-            onHammerUse()
-            Task { @MainActor in SoundManager.shared.playSelect() }
+            return
         }
+        guard canAfford(.hammer) else {
+            insufficientFor = .hammer
+            return
+        }
+        // Charged on the tile tap in GameScene.smashTile, since the player can
+        // still cancel hammer mode without using it.
+        activeBooster = .hammer
+        onHammerUse()
+        Task { @MainActor in SoundManager.shared.playSelect() }
     }
 
     private func colorBombAction() {
-        if profile.colorBombCount > 0 || profile.stars >= ActiveBooster.colorBomb.cost {
-            if profile.colorBombCount > 0 {
-                profile.colorBombCount -= 1
-            } else {
-                profile.deductStars(ActiveBooster.colorBomb.cost)
-            }
-            onColorBombUse()
-        } else {
-            profile.addStars(100)
-            profile.deductStars(ActiveBooster.colorBomb.cost)
-            onColorBombUse()
+        guard canAfford(.colorBomb) else {
+            insufficientFor = .colorBomb
+            return
         }
+        if profile.colorBombCount > 0 {
+            profile.colorBombCount -= 1
+        } else {
+            profile.deductStars(ActiveBooster.colorBomb.cost)
+        }
+        onColorBombUse()
     }
 
     private func extraMovesAction() {
-        if profile.extraMovesCount > 0 || profile.stars >= ActiveBooster.extraMoves.cost {
-            if profile.extraMovesCount > 0 {
-                profile.extraMovesCount -= 1
-            } else {
-                profile.deductStars(ActiveBooster.extraMoves.cost)
-            }
-            gameState.addMoves(5)
-            onExtraMovesUse()
-        } else {
-            profile.addStars(100)
-            profile.deductStars(ActiveBooster.extraMoves.cost)
-            gameState.addMoves(5)
-            onExtraMovesUse()
+        guard canAfford(.extraMoves) else {
+            insufficientFor = .extraMoves
+            return
         }
+        if profile.extraMovesCount > 0 {
+            profile.extraMovesCount -= 1
+        } else {
+            profile.deductStars(ActiveBooster.extraMoves.cost)
+        }
+        gameState.addMoves(5)
+        onExtraMovesUse()
     }
 }

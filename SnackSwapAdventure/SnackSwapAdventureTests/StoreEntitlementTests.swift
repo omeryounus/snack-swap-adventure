@@ -88,4 +88,44 @@ final class StoreEntitlementTests: XCTestCase {
     // Cross-checking Configuration.storekit against these IDs cannot run here —
     // the test host is sandboxed and cannot read the source tree. That check
     // lives in scripts/verify_products.py instead.
+
+    // MARK: - Boosters cost something
+
+    /// The booster bar used to grant 100 free stars whenever the player could
+    /// not pay, which made every booster free and the star bundles pointless.
+    func testBoosterIsUnaffordableWithNoStockAndNoStars() {
+        for booster in ActiveBooster.allCases {
+            XCTAssertFalse(
+                ActiveBooster.canAfford(stock: 0, stars: booster.cost - 1, cost: booster.cost),
+                "\(booster.displayName) affordable while short of its \(booster.cost)⭐ cost"
+            )
+            XCTAssertFalse(
+                ActiveBooster.canAfford(stock: 0, stars: 0, cost: booster.cost),
+                "\(booster.displayName) affordable with nothing at all"
+            )
+        }
+    }
+
+    func testOwnedBoosterIsUsableWithoutStars() {
+        for booster in ActiveBooster.allCases {
+            XCTAssertTrue(
+                ActiveBooster.canAfford(stock: 1, stars: 0, cost: booster.cost),
+                "\(booster.displayName) unusable despite being owned"
+            )
+        }
+    }
+
+    func testStarsCoverABoosterWhenStockIsEmpty() {
+        for booster in ActiveBooster.allCases {
+            XCTAssertTrue(
+                ActiveBooster.canAfford(stock: 0, stars: booster.cost, cost: booster.cost)
+            )
+        }
+    }
+
+    func testEveryBoosterCostsSomething() {
+        for booster in ActiveBooster.allCases {
+            XCTAssertGreaterThan(booster.cost, 0, "\(booster.displayName) is free")
+        }
+    }
 }

@@ -22,6 +22,20 @@ final class PlayerProfile: ObservableObject {
         static let localHighestLevel = "ssa.localHighestLevel"
         static let localBestStreak = "ssa.localBestStreak"
         static let localCurrentStreak = "ssa.localCurrentStreak"
+        static let hammerCount = "ssa.hammerCount"
+        static let colorBombCount = "ssa.colorBombCount"
+        static let extraMovesCount = "ssa.extraMovesCount"
+    }
+
+    /// Booster stock was only ever held in memory, so quitting the app refilled
+    /// it to three of each — boosters were free on every launch. Load once and
+    /// write through on every change.
+    private static func loadStock(_ defaults: UserDefaults, _ key: String) -> Int {
+        if defaults.object(forKey: key) == nil {
+            defaults.set(welcomeBoosters, forKey: key)
+            return welcomeBoosters
+        }
+        return max(0, defaults.integer(forKey: key))
     }
 
     @Published var playerId: String
@@ -46,10 +60,20 @@ final class PlayerProfile: ObservableObject {
     @Published var localBestStreak: Int
     @Published var localCurrentStreak: Int
 
-    @Published var hammerCount: Int = 3
-    @Published var colorBombCount: Int = 3
-    @Published var extraMovesCount: Int = 3
+    @Published var hammerCount: Int = 3 {
+        didSet { defaults.set(hammerCount, forKey: Keys.hammerCount) }
+    }
+    @Published var colorBombCount: Int = 3 {
+        didSet { defaults.set(colorBombCount, forKey: Keys.colorBombCount) }
+    }
+    @Published var extraMovesCount: Int = 3 {
+        didSet { defaults.set(extraMovesCount, forKey: Keys.extraMovesCount) }
+    }
     @Published var selectedMascotSkin: String = "cosmic"
+
+    /// Granted once, on first launch only.
+    static let welcomeStars = 500
+    static let welcomeBoosters = 3
 
     var stars: Int { localStars }
 
@@ -86,7 +110,18 @@ final class PlayerProfile: ObservableObject {
         localTotalScore = defaults.integer(forKey: Keys.localTotalScore)
         localWins = defaults.integer(forKey: Keys.localWins)
         localLosses = defaults.integer(forKey: Keys.localLosses)
-        localStars = max(500, defaults.integer(forKey: Keys.localStars))
+        // A one-time welcome grant, not a floor. `max(500, …)` topped the
+        // balance back up on every launch, so stars could never actually be
+        // spent and the star bundles had nothing to sell.
+        if defaults.object(forKey: Keys.localStars) == nil {
+            localStars = Self.welcomeStars
+            defaults.set(Self.welcomeStars, forKey: Keys.localStars)
+        } else {
+            localStars = max(0, defaults.integer(forKey: Keys.localStars))
+        }
+        hammerCount = Self.loadStock(defaults, Keys.hammerCount)
+        colorBombCount = Self.loadStock(defaults, Keys.colorBombCount)
+        extraMovesCount = Self.loadStock(defaults, Keys.extraMovesCount)
         localMaxCombo = defaults.integer(forKey: Keys.localMaxCombo)
         localGamesPlayed = defaults.integer(forKey: Keys.localGamesPlayed)
         localHighestLevel = defaults.integer(forKey: Keys.localHighestLevel)
