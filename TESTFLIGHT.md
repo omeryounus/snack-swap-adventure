@@ -61,9 +61,16 @@ xcodebuild -exportArchive \
 - Create the app record for bundle ID `com.snackswap.adventure`.
 - Set the target Signing & Capabilities team in Xcode.
 - Create consumable IAPs with these product IDs:
-  - `com.snackswap.adventure.stars60`
-  - `com.snackswap.adventure.stars180`
-  - `com.snackswap.adventure.stars500`
+  - `com.snackswap.adventure.stars60` — credits 60 stars
+  - `com.snackswap.adventure.stars180` — credits 180 stars
+  - `com.snackswap.adventure.stars500` — credits 500 stars
+- Create one non-consumable IAP:
+  - `com.snackswap.adventure.removeads` — suppresses between-level interstitials
+
+These IDs must match `StoreManager.ProductIDs` exactly; if they drift,
+`Product.products(for:)` returns nothing and every buy button goes dead.
+Run `python3 scripts/verify_products.py` to check code, StoreKit config and
+this list agree.
 - Replace the Google sample AdMob app ID and rewarded ad unit before expecting ad revenue.
 - Complete privacy answers for ads/tracking and in-app purchases.
 - Add screenshots, description, keywords, support URL, and privacy policy URL.

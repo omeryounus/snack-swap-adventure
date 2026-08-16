@@ -46,11 +46,12 @@ struct ShopView: View {
                                 if !storeManager.isAdsRemoved {
                                     Button {
                                         SoundManager.shared.playUITap()
+                                        // Entitlements come from StoreKit only — never
+                                        // granted locally when the product fails to load.
                                         if let product = storeManager.products.first(where: { $0.id == StoreManager.ProductIDs.removeAds }) {
                                             Task { await storeManager.purchase(product) }
                                         } else {
-                                            storeManager.isAdsRemoved = true
-                                            UserDefaults.standard.set(true, forKey: "ssa.isAdsRemoved")
+                                            storeManager.reportStoreUnavailable()
                                         }
                                     } label: {
                                         Text(productPrice(for: StoreManager.ProductIDs.removeAds, fallback: "$1.99"))
@@ -72,42 +73,20 @@ struct ShopView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         LazyVGrid(columns: layout.gridItems(count: layout.shopGridColumns), spacing: 14) {
-                            ShopItemCard(
-                                title: "500 Stars",
-                                price: productPrice(for: StoreManager.ProductIDs.stars500, fallback: "$0.99"),
-                                icon: "star.fill",
-                                amount: 500
-                            ) {
-                                if let product = storeManager.products.first(where: { $0.id == StoreManager.ProductIDs.stars500 }) {
-                                    Task { await storeManager.purchase(product) }
-                                } else {
-                                    profile.addStars(500)
-                                }
-                            }
-
-                            ShopItemCard(
-                                title: "1,500 Stars",
-                                price: productPrice(for: StoreManager.ProductIDs.stars1500, fallback: "$2.99"),
-                                icon: "star.leadinghalf.filled",
-                                amount: 1500
-                            ) {
-                                if let product = storeManager.products.first(where: { $0.id == StoreManager.ProductIDs.stars1500 }) {
-                                    Task { await storeManager.purchase(product) }
-                                } else {
-                                    profile.addStars(1500)
-                                }
-                            }
-
-                            ShopItemCard(
-                                title: "5,000 Stars",
-                                price: productPrice(for: StoreManager.ProductIDs.stars5000, fallback: "$7.99"),
-                                icon: "crown.fill",
-                                amount: 5000
-                            ) {
-                                if let product = storeManager.products.first(where: { $0.id == StoreManager.ProductIDs.stars5000 }) {
-                                    Task { await storeManager.purchase(product) }
-                                } else {
-                                    profile.addStars(5000)
+                            ForEach(StoreManager.starPacks) { pack in
+                                ShopItemCard(
+                                    title: pack.title,
+                                    price: productPrice(for: pack.id, fallback: pack.fallbackPrice),
+                                    icon: pack.icon,
+                                    amount: pack.stars
+                                ) {
+                                    // Stars are credited by handleSuccessfulPurchase
+                                    // once StoreKit verifies the transaction.
+                                    if let product = storeManager.products.first(where: { $0.id == pack.id }) {
+                                        Task { await storeManager.purchase(product) }
+                                    } else {
+                                        storeManager.reportStoreUnavailable()
+                                    }
                                 }
                             }
                         }
@@ -150,6 +129,18 @@ struct ShopView: View {
                                 .padding(.top, 10)
                         }
                     }
+        }
+        // Purchase failures used to be written to errorMessage and never shown.
+        .alert(
+            "Purchase Unavailable",
+            isPresented: Binding(
+                get: { storeManager.errorMessage != nil },
+                set: { if !$0 { storeManager.errorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { storeManager.errorMessage = nil }
+        } message: {
+            Text(storeManager.errorMessage ?? "")
         }
     }
 

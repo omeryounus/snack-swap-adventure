@@ -14,17 +14,43 @@ final class StoreManager: ObservableObject {
     @Published var isAdsRemoved = false
 
     struct ProductIDs {
-        static let stars500 = "com.snackswap.adventure.stars.500"
-        static let stars1500 = "com.snackswap.adventure.stars.1500"
-        static let stars5000 = "com.snackswap.adventure.stars.5000"
+        static let stars60 = "com.snackswap.adventure.stars60"
+        static let stars180 = "com.snackswap.adventure.stars180"
+        static let stars500 = "com.snackswap.adventure.stars500"
         static let removeAds = "com.snackswap.adventure.removeads"
 
-        static let all: Set<String> = [stars500, stars1500, stars5000, removeAds]
+        static let all: Set<String> = [stars60, stars180, stars500, removeAds]
     }
+
+    /// Single source of truth for the star bundles: the ID must match the
+    /// product in App Store Connect, and `stars` is what the purchase grants.
+    /// The shop UI is built from this, so a bundle can never advertise one
+    /// amount and credit another.
+    struct StarPack: Identifiable {
+        let id: String
+        let stars: Int
+        let title: String
+        let fallbackPrice: String
+        let icon: String
+    }
+
+    static let starPacks: [StarPack] = [
+        StarPack(id: ProductIDs.stars60, stars: 60, title: "60 Stars",
+                 fallbackPrice: "$0.99", icon: "star.fill"),
+        StarPack(id: ProductIDs.stars180, stars: 180, title: "180 Stars",
+                 fallbackPrice: "$2.99", icon: "star.leadinghalf.filled"),
+        StarPack(id: ProductIDs.stars500, stars: 500, title: "500 Stars",
+                 fallbackPrice: "$6.99", icon: "crown.fill")
+    ]
+
+    static let adsRemovedKey = "ssa.isAdsRemoved"
 
     private var transactionTask: Task<Void, Error>?
 
     private init() {
+        // Seed from disk so a paying player is not shown ads during the window
+        // between launch and StoreKit returning current entitlements.
+        isAdsRemoved = UserDefaults.standard.bool(forKey: Self.adsRemovedKey)
         transactionTask = listenForTransactions()
         Task {
             await fetchProducts()
@@ -75,6 +101,13 @@ final class StoreManager: ObservableObject {
         }
     }
 
+    /// Called when a buy button is tapped but StoreKit has no such product.
+    /// Previously the shop silently granted the item for free here.
+    func reportStoreUnavailable() {
+        errorMessage = "The App Store is unavailable right now. Please try again in a moment."
+        Task { await fetchProducts() }
+    }
+
     /// Restore prior purchases
     func restorePurchases() async {
         isPurchasing = true
@@ -121,24 +154,20 @@ final class StoreManager: ObservableObject {
 
         self.purchasedProductIDs = purchased
         self.isAdsRemoved = purchased.contains(ProductIDs.removeAds)
-        UserDefaults.standard.set(isAdsRemoved, forKey: "ssa.isAdsRemoved")
+        UserDefaults.standard.set(isAdsRemoved, forKey: Self.adsRemovedKey)
     }
 
     private func handleSuccessfulPurchase(_ transaction: StoreKit.Transaction) {
         purchasedProductIDs.insert(transaction.productID)
 
-        switch transaction.productID {
-        case ProductIDs.stars500:
-            PlayerProfile.shared.addStars(500)
-        case ProductIDs.stars1500:
-            PlayerProfile.shared.addStars(1500)
-        case ProductIDs.stars5000:
-            PlayerProfile.shared.addStars(5000)
-        case ProductIDs.removeAds:
+        if let pack = Self.starPacks.first(where: { $0.id == transaction.productID }) {
+            PlayerProfile.shared.addStars(pack.stars)
+            return
+        }
+
+        if transaction.productID == ProductIDs.removeAds {
             isAdsRemoved = true
-            UserDefaults.standard.set(true, forKey: "ssa.isAdsRemoved")
-        default:
-            break
+            UserDefaults.standard.set(true, forKey: Self.adsRemovedKey)
         }
     }
 

@@ -87,10 +87,10 @@ struct GameContainerView: View {
                     target: gameState.level.targetScore,
                     rank: submittedRank ?? profile.lastSubmittedRank,
                     isSyncing: profile.isSyncing,
-                    onPrimary: onNextLevel,
-                    onReplay: onReplay,
-                    onMap: onExit,
-                    onMainMenu: onMainMenu
+                    onPrimary: { afterInterstitial(onNextLevel) },
+                    onReplay: { afterInterstitial(onReplay) },
+                    onMap: { afterInterstitial(onExit) },
+                    onMainMenu: { afterInterstitial(onMainMenu) }
                 )
                 .transition(.opacity.combined(with: .scale))
             } else if case .lost(let score) = gameState.outcome {
@@ -101,10 +101,10 @@ struct GameContainerView: View {
                     target: gameState.level.targetScore,
                     rank: submittedRank ?? profile.lastSubmittedRank,
                     isSyncing: profile.isSyncing,
-                    onPrimary: onReplay,
-                    onReplay: onReplay,
-                    onMap: onExit,
-                    onMainMenu: onMainMenu
+                    onPrimary: { afterInterstitial(onReplay) },
+                    onReplay: { afterInterstitial(onReplay) },
+                    onMap: { afterInterstitial(onExit) },
+                    onMainMenu: { afterInterstitial(onMainMenu) }
                 )
                 .transition(.opacity.combined(with: .scale))
             }
@@ -302,6 +302,14 @@ struct GameContainerView: View {
                 scene.refreshHUD()
             }
         )
+    }
+
+    /// Level transitions are the interstitial slot. The service returns
+    /// immediately when Remove Ads is owned, when the cadence has not come
+    /// round, or when nothing is loaded — navigation is never blocked on an ad.
+    private func afterInterstitial(_ action: @escaping () -> Void) {
+        gameState.stopTimer()
+        InterstitialAdService.shared.showIfEligible { action() }
     }
 
     private func exitToMap() {

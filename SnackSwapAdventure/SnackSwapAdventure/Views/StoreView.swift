@@ -7,6 +7,11 @@ struct StoreView: View {
     @StateObject private var storeManager = StoreManager.shared
     @StateObject private var profile = PlayerProfile.shared
 
+    /// Presentation only — the amount and price come from StoreManager.starPacks.
+    private static let packNames = ["Handful of Stars", "Pouch of Stars", "Vault of Stars"]
+    private static let packIcons = ["✨", "🌟", "👑"]
+    private static let packBadges: [String?] = [nil, "POPULAR 🔥", "BEST VALUE 💎"]
+
     var body: some View {
         ZStack {
             // Background Gradient
@@ -69,31 +74,18 @@ struct StoreView: View {
                                 .foregroundStyle(.white.opacity(0.7))
                                 .padding(.horizontal, 4)
 
-                            starPackRow(
-                                title: "Handful of Stars",
-                                stars: 500,
-                                icon: "✨",
-                                defaultPrice: "$0.99",
-                                productID: StoreManager.ProductIDs.stars500
-                            )
-
-                            starPackRow(
-                                title: "Pouch of Stars",
-                                stars: 1500,
-                                icon: "🌟",
-                                defaultPrice: "$2.99",
-                                productID: StoreManager.ProductIDs.stars1500,
-                                badge: "POPULAR 🔥"
-                            )
-
-                            starPackRow(
-                                title: "Vault of Stars",
-                                stars: 5000,
-                                icon: "👑",
-                                defaultPrice: "$7.99",
-                                productID: StoreManager.ProductIDs.stars5000,
-                                badge: "BEST VALUE 💎"
-                            )
+                            // Driven by StoreManager.starPacks so this screen and
+                            // ShopView can never advertise different amounts.
+                            ForEach(Array(StoreManager.starPacks.enumerated()), id: \.element.id) { index, pack in
+                                starPackRow(
+                                    title: Self.packNames[index % Self.packNames.count],
+                                    stars: pack.stars,
+                                    icon: Self.packIcons[index % Self.packIcons.count],
+                                    defaultPrice: pack.fallbackPrice,
+                                    productID: pack.id,
+                                    badge: Self.packBadges[index % Self.packBadges.count]
+                                )
+                            }
                         }
 
                         // Restore Purchases Button
@@ -157,12 +149,12 @@ struct StoreView: View {
 
             if !storeManager.isAdsRemoved {
                 Button(action: {
+                    // Entitlements come from StoreKit only — never granted
+                    // locally when the product fails to load.
                     if let product = storeManager.products.first(where: { $0.id == StoreManager.ProductIDs.removeAds }) {
                         Task { await storeManager.purchase(product) }
                     } else {
-                        // Fallback simulated unlock
-                        storeManager.isAdsRemoved = true
-                        UserDefaults.standard.set(true, forKey: "ssa.isAdsRemoved")
+                        storeManager.reportStoreUnavailable()
                     }
                 }) {
                     Text(productPrice(for: StoreManager.ProductIDs.removeAds, defaultPrice: "$1.99"))
@@ -231,11 +223,12 @@ struct StoreView: View {
             Spacer()
 
             Button(action: {
+                // Stars are credited by handleSuccessfulPurchase once StoreKit
+                // verifies the transaction — never granted locally.
                 if let product = storeManager.products.first(where: { $0.id == productID }) {
                     Task { await storeManager.purchase(product) }
                 } else {
-                    // Fallback simulated purchase
-                    profile.addStars(stars)
+                    storeManager.reportStoreUnavailable()
                 }
             }) {
                 Text(productPrice(for: productID, defaultPrice: defaultPrice))

@@ -16,6 +16,8 @@ struct SnackSwapAdventureApp: App {
                 .environmentObject(RewardedAdService.shared)
                 .onAppear {
                     RewardedAdService.shared.start()
+                    // No-ops when Remove Ads is owned.
+                    InterstitialAdService.shared.start()
                     GameCenterManager.shared.authenticateLocalPlayer()
                     Task {
                         await StoreManager.shared.loadProducts()
