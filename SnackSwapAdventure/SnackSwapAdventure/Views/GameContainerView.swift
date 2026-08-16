@@ -90,7 +90,10 @@ struct GameContainerView: View {
                     onPrimary: { afterInterstitial(onNextLevel) },
                     onReplay: { afterInterstitial(onReplay) },
                     onMap: { afterInterstitial(onExit) },
-                    onMainMenu: { afterInterstitial(onMainMenu) }
+                    onMainMenu: { afterInterstitial(onMainMenu) },
+                    level: gameState.level.levelNumber,
+                    themeName: gameState.level.themeName,
+                    snacks: LevelTheme.forLevel(gameState.level.levelNumber).snacks.map(\.emoji)
                 )
                 .transition(.opacity.combined(with: .scale))
             } else if case .lost(let score) = gameState.outcome {
@@ -599,7 +602,15 @@ struct LevelResultOverlay: View {
     let onReplay: () -> Void
     let onMap: () -> Void
     let onMainMenu: () -> Void
+    /// Level identity for the shareable card; defaults keep previews simple.
+    var level: Int = 1
+    var themeName: String = ""
+    var snacks: [String] = []
     @State private var showPrize = false
+    @State private var shareImage: ShareableWin?
+    @State private var challengeFailed = false
+    @StateObject private var gameCenter = GameCenterManager.shared
+    @StateObject private var profileForShare = PlayerProfile.shared
     @Environment(\.adaptiveLayout) private var layout
 
     var body: some View {
@@ -660,6 +671,10 @@ struct LevelResultOverlay: View {
                     Text("Global Rank #\(rank)")
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(Color.yellow)
+                }
+
+                if won {
+                    socialRow
                 }
 
                 VStack(spacing: 12) {
@@ -737,7 +752,81 @@ struct LevelResultOverlay: View {
                 showPrize = true
             }
         }
+        .alert("Nothing to Challenge With", isPresented: $challengeFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Game Center needs a submitted score before it can send a challenge. Try again in a moment.")
+        }
     }
+
+    /// Share the win, or dare a Game Center friend to beat it.
+    private var socialRow: some View {
+        HStack(spacing: 10) {
+            Button {
+                SoundManager.shared.playUITap()
+                if let image = WinShareCardRenderer.render(
+                    level: level,
+                    themeName: themeName,
+                    stars: stars,
+                    score: score,
+                    playerName: profileForShare.displayName,
+                    snacks: snacks
+                ) {
+                    shareImage = ShareableWin(image: image)
+                }
+            } label: {
+                Label("Share", systemImage: "square.and.arrow.up")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.white.opacity(0.12))
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(OverlayPressButtonStyle())
+
+            Button {
+                SoundManager.shared.playUITap()
+                Task {
+                    let shown = await gameCenter.presentChallenge(
+                        for: .highScore,
+                        message: "I just scored \(score) on level \(level) of Snack Swap Adventure. Beat that! 🍪"
+                    )
+                    if !shown { challengeFailed = true }
+                }
+            } label: {
+                Label("Challenge", systemImage: "flag.checkered.2.crossed")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.white.opacity(0.12))
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(OverlayPressButtonStyle())
+        }
+        .sheet(item: $shareImage) { win in
+            ShareSheet(items: [win.image, "I just cleared level \(level) of Snack Swap Adventure!"])
+        }
+    }
+}
+
+/// Wraps the rendered card so `.sheet(item:)` can drive presentation.
+struct ShareableWin: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
+/// UIActivityViewController bridge — SwiftUI's ShareLink cannot carry a
+/// freshly rendered UIImage without writing it to disk first.
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 private struct OverlayPressButtonStyle: ButtonStyle {

@@ -49,8 +49,12 @@ final class MetaProgress: ObservableObject {
     ]
 
     /// Stars awarded per successful friend invite share.
-    static let inviteRewardStars = 25
-    static let maxInviteRewardsPerDay = 5
+    // The share reward is on the honour system — nothing verifies that anyone
+    // installed — so it stays well under the cheapest star bundle (60 ⭐ for
+    // $0.99). It used to hand out 125 ⭐ a day, which was more than that bundle
+    // every single day and left the star purchases with nothing to sell.
+    static let inviteRewardStars = 10
+    static let maxInviteRewardsPerDay = 2
 
     private let defaults = UserDefaults.standard
     private enum Keys {

@@ -11,6 +11,14 @@ final class GameCenterManager: NSObject, ObservableObject, GKGameCenterControlle
     @Published var localPlayerName = ""
     @Published var authError: String?
 
+    // MARK: - Friends (see GameCenterSocial.swift)
+
+    @Published var friendEntries: [FriendRankEntry] = []
+    @Published var isLoadingFriends = false
+    /// Why the friends list is empty, when it is. Nil means the list is good.
+    @Published var friendsMessage: String?
+    @Published var receivedChallengeCount = 0
+
     struct Leaderboards {
         static let highestLevel = "snackswap.highest_level"
         static let highScore = "snackswap.high_score"
