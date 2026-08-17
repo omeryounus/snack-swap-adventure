@@ -60,10 +60,11 @@ struct PlayfieldGeometry: Equatable {
         isPad: Bool, accessories: CGFloat
     ) -> PlayfieldGeometry {
         let contentW = max(1, width - pad * 2)
-        // Sized from the HUD's own contents rather than a flat fraction: the
-        // stat row and goal row need ~82pt with comfortable padding, and the
-        // floor keeps small screens legible instead of shrinking to fit.
-        let baseHud = min(isPad ? 116 : 96, max(isPad ? 100 : 84, height * 0.11))
+        // A full-height status bar rather than a thin strip: the chips and goal
+        // row are the player's primary read during a level, so they get real
+        // presence. Tall phones absorb this out of slack and keep the same
+        // board; SE-class and iPad trade some board width for it.
+        let baseHud = min(isPad ? 268 : 224, max(isPad ? 224 : 204, height * 0.25))
         let hudH = baseHud + accessories
         let dockH = min(isPad ? 80 : 68, max(56, height * 0.08))
 

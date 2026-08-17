@@ -35,8 +35,11 @@ struct GameHUD: View {
     // MARK: - Portrait
 
     private var topBar: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 8) {
+        // Two stat rows rather than one. At this size five chips on a single
+        // line overflow even a Pro Max, and the extra height is there to be
+        // used rather than left as padding.
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
                 pauseButton
                 statChip(
                     title: gameState.level.themeName.uppercased(),
@@ -46,13 +49,19 @@ struct GameHUD: View {
                 )
                 Spacer(minLength: 4)
                 statChip(title: "⭐", value: "\(profile.stars)", accent: Theme.accentGold)
+            }
+
+            HStack(spacing: 10) {
                 timerChip
                 statChip(
                     title: "MOVES",
                     value: "\(gameState.movesLeft)",
                     accent: gameState.movesLeft <= 5 ? .orange : .white
                 )
+                Spacer(minLength: 0)
             }
+
+            Spacer(minLength: 0)
 
             compactGoalRow
 
@@ -60,8 +69,9 @@ struct GameHUD: View {
                 feverRow
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(hudBackground)
     }
 
@@ -117,11 +127,11 @@ struct GameHUD: View {
             onPause()
         } label: {
             Image(systemName: "pause.fill")
-                .font(.system(size: 15, weight: .bold))
+                .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(.white)
-                .frame(width: 38, height: 38)
+                .frame(width: 62, height: 62)
                 .background(Color.white.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Pause")
@@ -135,41 +145,41 @@ struct GameHUD: View {
         accent: Color,
         titleMaxWidth: CGFloat? = nil
     ) -> some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 3) {
             Text(title)
-                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .frame(maxWidth: titleMaxWidth)
             Text(value)
-                .font(.system(size: layout.isCompactWidth ? 15 : 17, weight: .black, design: .rounded).monospacedDigit())
+                .font(.system(size: layout.isCompactWidth ? 22 : 26, weight: .black, design: .rounded).monospacedDigit())
                 .foregroundStyle(accent)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .frame(minWidth: 38)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .frame(minWidth: 56)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
         .background(Color.white.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private var timerChip: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 3) {
             Text("TIME")
-                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundStyle(Theme.textSecondary)
             Text("\(gameState.timeRemaining)")
-                .font(.system(size: layout.isCompactWidth ? 15 : 17, weight: .black, design: .rounded).monospacedDigit())
+                .font(.system(size: layout.isCompactWidth ? 22 : 26, weight: .black, design: .rounded).monospacedDigit())
                 .foregroundStyle(gameState.isTimerUrgent ? Color.red : Theme.accentGold)
                 .opacity(timerPulse ? 0.55 : 1)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .frame(minWidth: 42)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .frame(minWidth: 64)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
         .background(Color.white.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
@@ -181,7 +191,7 @@ struct GameHUD: View {
     private var compactGoalRow: some View {
         HStack(spacing: 8) {
             Text(gameState.level.goal.shortTitle)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .font(.system(size: 17, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -201,10 +211,10 @@ struct GameHUD: View {
                         .animation(.easeOut(duration: 0.25), value: gameState.goalProgressValue)
                 }
             }
-            .frame(height: 9)
+            .frame(height: 14)
 
             Text("\(gameState.goalProgressValue)/\(gameState.level.progressDenominator)")
-                .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
+                .font(.system(size: 17, weight: .semibold, design: .rounded).monospacedDigit())
                 .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
         }

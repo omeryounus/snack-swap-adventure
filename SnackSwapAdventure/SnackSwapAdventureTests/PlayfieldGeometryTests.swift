@@ -72,7 +72,7 @@ final class PlayfieldGeometryTests: XCTestCase {
             isPad: false
         )
         XCTAssertGreaterThanOrEqual(phone.hud.minY, 844 * PlayfieldGeometry.portraitTopRatio - 0.5)
-        XCTAssertLessThanOrEqual(phone.hud.height, 96.5)
+        XCTAssertLessThanOrEqual(phone.hud.height, 224.5)
 
         let midTop = phone.hud.maxY
         let midBottom = phone.dock.minY
@@ -98,19 +98,19 @@ final class PlayfieldGeometryTests: XCTestCase {
             let geometry = PlayfieldGeometry.make(container: size, isLandscape: false, isPad: false)
             XCTAssertGreaterThanOrEqual(
                 geometry.hud.height,
-                84,
+                204,
                 "\(size) portrait HUD shorter than its contents"
             )
         }
     }
 
-    /// Growing the HUD must not come out of the board on the screens that can
-    /// least afford it — portrait boards are width-bound, so there is headroom.
-    func testBiggerHUDDoesNotShrinkSmallScreenBoards() {
+    /// Tall phones have enough slack that the full-height HUD costs them
+    /// nothing — the board there is bound by width, not height.
+    func testTallPhonesKeepTheirFullBoard() {
         let expected: [(CGSize, CGFloat)] = [
-            (CGSize(width: 320, height: 568), 304),
-            (CGSize(width: 375, height: 667), 359),
-            (CGSize(width: 390, height: 844), 374)
+            (CGSize(width: 390, height: 844), 374),
+            (CGSize(width: 402, height: 874), 386),
+            (CGSize(width: 440, height: 956), 424)
         ]
         for (size, board) in expected {
             let geometry = PlayfieldGeometry.make(container: size, isLandscape: false, isPad: false)
@@ -120,6 +120,27 @@ final class PlayfieldGeometryTests: XCTestCase {
                 accuracy: 1,
                 "\(size) board shrank when the HUD grew"
             )
+        }
+    }
+
+    /// Short screens do pay for the taller HUD, so the board must still be
+    /// comfortably playable there — including with both transient rows open.
+    func testShortScreensStayPlayableWithTheTallerHUD() {
+        for size in [CGSize(width: 320, height: 568), CGSize(width: 375, height: 667)] {
+            for rows in PlayfieldGeometry.accessoryRowCases {
+                let geometry = PlayfieldGeometry.make(
+                    container: size,
+                    isLandscape: false,
+                    isPad: false,
+                    hudAccessoryRows: rows
+                )
+                XCTAssertGreaterThanOrEqual(
+                    geometry.board.width,
+                    PlayfieldGeometry.minimumBoardSide,
+                    "\(size) rows=\(rows) board dropped below the playable minimum"
+                )
+                XCTAssertTrue(geometry.overlappingPairs().isEmpty)
+            }
         }
     }
 

@@ -53,7 +53,7 @@ def portrait(width: float, height: float, is_pad: bool, accessories: float):
     pad = 12.0 if is_pad else 8.0
     gap = 12.0 if is_pad else 8.0
     content_w = max(1.0, width - pad * 2)
-    base_hud = min(116.0 if is_pad else 96.0, max(100.0 if is_pad else 84.0, height * 0.11))
+    base_hud = min(268.0 if is_pad else 224.0, max(224.0 if is_pad else 204.0, height * 0.25))
     hud_h = base_hud + accessories
     dock_h = min(80.0 if is_pad else 68.0, max(56.0, height * 0.08))
 
