@@ -22,6 +22,7 @@ final class PlayerProfile: ObservableObject {
         static let localHighestLevel = "ssa.localHighestLevel"
         static let localBestStreak = "ssa.localBestStreak"
         static let localCurrentStreak = "ssa.localCurrentStreak"
+        static let levelStars = "ssa.levelStars"
         static let hammerCount = "ssa.hammerCount"
         static let colorBombCount = "ssa.colorBombCount"
         static let extraMovesCount = "ssa.extraMovesCount"
@@ -59,6 +60,10 @@ final class PlayerProfile: ObservableObject {
     @Published var localHighestLevel: Int
     @Published var localBestStreak: Int
     @Published var localCurrentStreak: Int
+
+    /// Best stars earned per level, keyed by level number. `localStars` is
+    /// spendable currency; this is the permanent record the world map shows.
+    @Published private(set) var levelStars: [Int: Int] = [:]
 
     @Published var hammerCount: Int = 3 {
         didSet { defaults.set(hammerCount, forKey: Keys.hammerCount) }
@@ -119,6 +124,13 @@ final class PlayerProfile: ObservableObject {
         } else {
             localStars = max(0, defaults.integer(forKey: Keys.localStars))
         }
+        if let stored = defaults.dictionary(forKey: Keys.levelStars) as? [String: Int] {
+            levelStars = stored.reduce(into: [:]) { result, entry in
+                if let level = Int(entry.key) {
+                    result[level] = max(0, min(3, entry.value))
+                }
+            }
+        }
         hammerCount = Self.loadStock(defaults, Keys.hammerCount)
         colorBombCount = Self.loadStock(defaults, Keys.colorBombCount)
         extraMovesCount = Self.loadStock(defaults, Keys.extraMovesCount)
@@ -160,6 +172,25 @@ final class PlayerProfile: ObservableObject {
     }
 
     /// Record a finished level locally, then push to Vercel, Game Center, and iCloud.
+    /// Stars the player has actually earned on `level`, 0 if never cleared.
+    func stars(forLevel level: Int) -> Int {
+        levelStars[level] ?? 0
+    }
+
+    var totalEarnedStars: Int {
+        levelStars.values.reduce(0, +)
+    }
+
+    /// Records a personal best. Replaying a level can raise its rating but
+    /// never lower it.
+    private func recordBestStars(_ stars: Int, forLevel level: Int) {
+        let clamped = max(0, min(3, stars))
+        guard clamped > (levelStars[level] ?? 0) else { return }
+        levelStars[level] = clamped
+        let encoded = levelStars.reduce(into: [String: Int]()) { $0["\($1.key)"] = $1.value }
+        defaults.set(encoded, forKey: Keys.levelStars)
+    }
+
     func recordLevelResult(
         level: Int,
         score: Int,
@@ -175,6 +206,7 @@ final class PlayerProfile: ObservableObject {
         localHighestLevel = max(localHighestLevel, level)
 
         if won {
+            recordBestStars(stars, forLevel: level)
             localWins += 1
             localStars += stars
             localCurrentStreak += 1
