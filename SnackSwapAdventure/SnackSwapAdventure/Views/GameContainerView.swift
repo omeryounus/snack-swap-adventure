@@ -617,6 +617,7 @@ struct LevelResultOverlay: View {
     @State private var challengeFailed = false
     @StateObject private var gameCenter = GameCenterManager.shared
     @StateObject private var profileForShare = PlayerProfile.shared
+    @StateObject private var snacklingKeeper = SnacklingKeeper.shared
     @Environment(\.adaptiveLayout) private var layout
 
     var body: some View {
@@ -677,6 +678,10 @@ struct LevelResultOverlay: View {
                     Text("Global Rank #\(rank)")
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(Color.yellow)
+                }
+
+                if won, let reward = snacklingKeeper.lastReward {
+                    snackRewardRow(reward)
                 }
 
                 if won {
@@ -763,6 +768,28 @@ struct LevelResultOverlay: View {
         } message: {
             Text("Game Center needs a submitted score before it can send a challenge. Try again in a moment.")
         }
+    }
+
+    /// What the level paid into the pantry, so snacks do not appear silently
+    /// in the Dex.
+    private func snackRewardRow(_ reward: SnacklingKeeper.Reward) -> some View {
+        HStack(spacing: 10) {
+            Text(reward.snack.emoji)
+                .font(.system(size: 26))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("+\(reward.amount) \(reward.snack.displayName)")
+                    .font(.system(size: 15, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("Feed your Snacklings in the Dex")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     /// Share the win, or dare a Game Center friend to beat it.

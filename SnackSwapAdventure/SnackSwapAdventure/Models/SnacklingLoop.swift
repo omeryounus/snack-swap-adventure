@@ -132,15 +132,31 @@ final class SnacklingKeeper: ObservableObject {
 
     var totalSnacks: Int { pantry.values.reduce(0, +) }
 
+    /// The most recent level payout, so the win screen can show what was earned
+    /// instead of snacks appearing silently in the Dex.
+    struct Reward: Equatable {
+        let snack: SnackType
+        let amount: Int
+    }
+
+    @Published private(set) var lastReward: Reward?
+
     /// Pays out a cleared level. Returns what was granted so the UI can show it.
     @discardableResult
-    func awardLevelReward(level: Int, stars: Int) -> (snack: SnackType, amount: Int) {
+    func awardLevelReward(level: Int, stars: Int) -> Reward {
         let theme = LevelTheme.forLevel(level)
         let snack = theme.snacks.first ?? .cookie
         let amount = SnacklingRules.snackReward(stars: stars)
         pantry[snack.rawValue, default: 0] += amount
         persistPantry()
-        return (snack, amount)
+        let reward = Reward(snack: snack, amount: amount)
+        lastReward = reward
+        iCloudSyncManager.shared.pushToiCloud()
+        return reward
+    }
+
+    func clearLastReward() {
+        lastReward = nil
     }
 
     // MARK: Feeding
@@ -169,6 +185,8 @@ final class SnacklingKeeper: ObservableObject {
         persistPantry()
         persistFeeds()
 
+        iCloudSyncManager.shared.pushToiCloud()
+
         let after = stage(for: monster)
         if after > before {
             applyPerks()
@@ -194,6 +212,25 @@ final class SnacklingKeeper: ObservableObject {
     /// Pushes the max-lives perk into LivesManager. Called on change and launch.
     func applyPerks() {
         LivesManager.shared.setBonusMaxLives(currentPerks.bonusMaxLives)
+    }
+
+    // MARK: iCloud
+
+    /// Snapshot for the key-value store. Both are spendable balances, so the
+    /// merge follows the newest writer like stars and boosters — taking a
+    /// per-key maximum would resurrect spent snacks.
+    var syncSnapshot: (pantry: [String: Int], feeds: [String: Int]) {
+        (pantry.reduce(into: [String: Int]()) { $0["\($1.key)"] = $1.value }, feeds)
+    }
+
+    func applyMergedState(pantry encodedPantry: [String: Int], feeds mergedFeeds: [String: Int]) {
+        pantry = encodedPantry.reduce(into: [:]) { result, entry in
+            if let key = Int(entry.key) { result[key] = max(0, entry.value) }
+        }
+        feeds = mergedFeeds.mapValues { max(0, $0) }
+        persistPantry()
+        persistFeeds()
+        applyPerks()
     }
 
     private func persistPantry() {

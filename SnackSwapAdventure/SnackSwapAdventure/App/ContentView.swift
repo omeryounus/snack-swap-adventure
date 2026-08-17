@@ -188,6 +188,8 @@ struct ContentView: View {
             if b == "moves" { extraMoves += 5 }
             if b == "time" { extraTime += 30 }
         }
+        // Drop the previous level's payout so the win card cannot show a stale one.
+        SnacklingKeeper.shared.clearLastReward()
         gameState.reset(to: config)
         // Grown Snacklings pay back into play.
         let perkMoves = SnacklingKeeper.shared.currentPerks.bonusMoves

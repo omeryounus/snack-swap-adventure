@@ -29,6 +29,8 @@ final class iCloudSyncManager: ObservableObject {
         static let lives = "cloud.lives"
         static let livesAnchor = "cloud.livesAnchor"
         static let updatedAt = "cloud.updatedAt"
+        static let snackPantry = "cloud.snackPantry"
+        static let snacklingFeeds = "cloud.snacklingFeeds"
     }
 
     private init() {
@@ -52,6 +54,9 @@ final class iCloudSyncManager: ObservableObject {
         store.set(Int64(profile.hammerCount), forKey: Keys.hammerCount)
         store.set(Int64(profile.colorBombCount), forKey: Keys.colorBombCount)
         store.set(Int64(profile.extraMovesCount), forKey: Keys.extraMovesCount)
+        let snacklings = SnacklingKeeper.shared.syncSnapshot
+        store.set(snacklings.pantry, forKey: Keys.snackPantry)
+        store.set(snacklings.feeds, forKey: Keys.snacklingFeeds)
         store.set(Int64(LivesManager.shared.lives), forKey: Keys.lives)
         store.set(LivesManager.shared.anchorForSync?.timeIntervalSince1970 ?? 0, forKey: Keys.livesAnchor)
         // Stamps this device as the most recent writer, which is what decides
@@ -92,6 +97,11 @@ final class iCloudSyncManager: ObservableObject {
         profile.hammerCount = max(0, Int(store.longLong(forKey: Keys.hammerCount)))
         profile.colorBombCount = max(0, Int(store.longLong(forKey: Keys.colorBombCount)))
         profile.extraMovesCount = max(0, Int(store.longLong(forKey: Keys.extraMovesCount)))
+
+        SnacklingKeeper.shared.applyMergedState(
+            pantry: (store.dictionary(forKey: Keys.snackPantry) as? [String: Int]) ?? [:],
+            feeds: (store.dictionary(forKey: Keys.snacklingFeeds) as? [String: Int]) ?? [:]
+        )
 
         let anchorStamp = store.double(forKey: Keys.livesAnchor)
         LivesManager.shared.applyMergedState(
