@@ -39,8 +39,11 @@ struct LevelTheme: Equatable {
     let boardFill: SKColor
     let boardStroke: SKColor
 
+    /// 30 palettes cycled across the campaign, so every level is themed.
+    static let paletteCount = 30
+
     static func forLevel(_ level: Int) -> LevelTheme {
-        let n = max(1, min(30, level))
+        let n = ((max(1, level) - 1) % paletteCount) + 1
         switch n {
         case 1:
             return LevelTheme(
@@ -318,67 +321,118 @@ struct LevelConfig: Equatable {
     static let prototype = level(1)
 
     static func world(for level: Int) -> (name: String, emoji: String) {
-        switch level {
-        case 1...10: return ("Cookie Kingdom", "🍪")
-        case 11...20: return ("Popcorn Plains", "🍿")
-        default: return ("Candy Canyon", "🍬")
+        let act = Act.containing(level: level)
+        return (act.name, act.emoji)
+    }
+
+    /// Three acts of 100. Each act is a deliberate step up rather than a
+    /// continuation of the same curve: more snack types on the board, a bigger
+    /// grid, a tighter budget and steeper targets.
+    struct Act {
+        let index: Int
+        let name: String
+        let emoji: String
+        let scoreMultiplier: Double
+
+        static func containing(level: Int) -> Act {
+            switch (max(1, level) - 1) / levelsPerAct {
+            case 0: return Act(index: 0, name: "Snack Kingdom", emoji: "🍪", scoreMultiplier: 1.0)
+            case 1: return Act(index: 1, name: "Sugar Frontier", emoji: "🍭", scoreMultiplier: 1.45)
+            default: return Act(index: 2, name: "Master Bakery", emoji: "👑", scoreMultiplier: 2.0)
+            }
         }
     }
 
+    static let levelsPerAct = 100
+
+    /// How far through its own act a level sits, 0..<100.
+    static func stepWithinAct(_ level: Int) -> Int {
+        (max(1, level) - 1) % levelsPerAct
+    }
+
+    static func boardSize(for level: Int) -> Int {
+        let step = stepWithinAct(level)
+        switch Act.containing(level: level).index {
+        case 0: return step < 10 ? 6 : (step < 35 ? 7 : 8)
+        case 1: return step < 20 ? 7 : (step < 60 ? 8 : 9)
+        default: return step < 30 ? 8 : 9
+        }
+    }
+
+    /// Fewer colours make matches easier to find, so this is the single
+    /// strongest difficulty lever — it steps up once per act.
+    static func snackVariety(for level: Int) -> Int {
+        let step = stepWithinAct(level)
+        switch Act.containing(level: level).index {
+        case 0: return step < 20 ? 4 : 5
+        case 1: return step < 30 ? 5 : 6
+        default: return 6
+        }
+    }
+
+    /// The level's palette first, topped up from the full set when the act
+    /// calls for more colours than the theme names.
+    static func snackTypes(for level: Int) -> [SnackType] {
+        let theme = LevelTheme.forLevel(level)
+        var chosen: [SnackType] = []
+        for snack in theme.snacks where !chosen.contains(snack) {
+            chosen.append(snack)
+        }
+        for snack in SnackType.allCases where !chosen.contains(snack) {
+            chosen.append(snack)
+        }
+        let variety = min(max(3, snackVariety(for: level)), SnackType.allCases.count)
+        return Array(chosen.prefix(variety))
+    }
+
     static func level(_ number: Int) -> LevelConfig {
-        let n = max(1, min(30, number))
+        let n = max(1, min(totalLevels, number))
+        let act = Act.containing(level: n)
+        let step = stepWithinAct(n)
         let world = world(for: n)
         let theme = LevelTheme.forLevel(n)
-        
-        let boardSize: Int
-        switch n {
-        case 1...5:
-            boardSize = 6
-        case 6...12:
-            boardSize = 7
-        case 13...22:
-            boardSize = 8
-        default:
-            boardSize = 9
-        }
-        
-        let snacks = theme.snacks
-        let moves = max(12, 35 - n)
-        let timeLimit = max(40, 130 - n * 3)
-        
-        // Scale scores and goals relative to board cells
+
+        let boardSize = boardSize(for: n)
+        let snacks = snackTypes(for: n)
+
+        // Budgets reset a little at each act boundary so a new act opens with
+        // room to learn its board, then tighten across the hundred.
+        let moveBase = [30, 26, 22][act.index]
+        let moves = max(10, moveBase - step / 8)
+        let timeBase = [125, 108, 96][act.index]
+        let timeLimit = max(40, timeBase - step / 2)
+
         let totalCells = boardSize * boardSize
-        let scoreTarget: Int
+        let cellScale = Double(totalCells) / 64.0
+        let baseScore = Double(400 + n * 180) * cellScale * act.scoreMultiplier
+        // Rounded to a readable multiple of 50.
+        let scoreTarget = max(300, Int((baseScore / 50).rounded()) * 50)
+
         let goal: LevelGoal
-        
         switch n {
         case 1:
-            scoreTarget = 300
             goal = .clearSnacks(6)
         case 2:
-            scoreTarget = 500
             goal = .makeCombos(1)
         case 3:
-            scoreTarget = 700
             goal = .collect(.popcorn, count: 8)
-        case _ where n % 4 == 1:
-            scoreTarget = (500 + n * 250) * totalCells / 64
-            goal = .score(scoreTarget)
-        case _ where n % 4 == 2:
-            scoreTarget = (600 + n * 250) * totalCells / 64
-            let snack = snacks[n % snacks.count]
-            let collectCount = max(8, (8 + n * 2) * totalCells / 64)
-            goal = .collect(snack, count: collectCount)
-        case _ where n % 4 == 3:
-            scoreTarget = (600 + n * 250) * totalCells / 64
-            let clearCount = max(15, (25 + n * 3) * totalCells / 64)
-            goal = .clearSnacks(clearCount)
         default:
-            scoreTarget = (700 + n * 250) * totalCells / 64
-            let combos = max(2, 2 + n / 5)
-            goal = .makeCombos(combos)
+            switch n % 4 {
+            case 1:
+                goal = .score(scoreTarget)
+            case 2:
+                let snack = snacks[n % snacks.count]
+                let count = Int(Double(8 + step / 3) * cellScale * act.scoreMultiplier)
+                goal = .collect(snack, count: max(8, count))
+            case 3:
+                let count = Int(Double(20 + step / 2) * cellScale * act.scoreMultiplier)
+                goal = .clearSnacks(max(15, count))
+            default:
+                let combos = 2 + step / 12 + act.index * 2
+                goal = .makeCombos(max(2, combos))
+            }
         }
-        
+
         return LevelConfig(
             levelNumber: n,
             boardSize: boardSize,
@@ -393,7 +447,7 @@ struct LevelConfig: Equatable {
         )
     }
 
-    static let totalLevels = 30
+    static let totalLevels = 300
 }
 
 enum GameOutcome: Equatable {

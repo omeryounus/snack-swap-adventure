@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// Screen 02: World Map — a winding candy trail through all 30 levels.
+/// Screen 02: World Map — a winding candy trail through the whole campaign.
 ///
-/// The trail, the node colours and the world banners are all derived from
-/// `LevelTheme`, so the map shifts palette as the player climbs instead of
-/// repeating three hardcoded bands. Stars shown are the ones actually earned.
+/// Node colours come from each level's `LevelTheme` and the banners from the
+/// act, so the map shifts as the player climbs instead of repeating three
+/// hardcoded bands. Stars shown are the ones actually earned.
 struct WorldMapView: View {
     let maxUnlockedLevel: Int
     let onSelectLevel: (Int) -> Void
@@ -37,9 +37,15 @@ struct WorldMapView: View {
                             trail(width: geo.size.width)
                                 .frame(height: canvasHeight)
                         }
-                        .onAppear {
-                            // Drop the player where they actually are.
-                            proxy.scrollTo(scrollAnchor, anchor: .center)
+                        .task {
+                            // Drop the player where they actually are. onAppear
+                            // fires before the 300 nodes are laid out, so the
+                            // scroll lands on whatever happens to exist.
+                            await Task.yield()
+                            try? await Task.sleep(nanoseconds: 120_000_000)
+                            withAnimation(.easeInOut(duration: 0.35)) {
+                                proxy.scrollTo(scrollAnchor, anchor: .center)
+                            }
                         }
                     }
                 }
@@ -98,21 +104,29 @@ struct WorldMapView: View {
                     .position(x: width / 2, y: banner.y)
             }
 
-            ForEach(Array(points.enumerated()), id: \.offset) { index, point in
-                let level = index + 1
-                LevelNode(
-                    level: level,
-                    stars: profile.stars(forLevel: level),
-                    isUnlocked: level <= maxUnlockedLevel,
-                    isCurrent: level == maxUnlockedLevel,
-                    size: nodeSize
-                ) {
-                    SoundManager.shared.playUITap()
-                    selectedLevelForPreview = level
+            // Nodes live in a stack of real rows rather than being `.position`ed.
+            // A positioned view's frame is the entire canvas, so ScrollViewReader
+            // resolved every level to the same rect and always landed mid-map.
+            VStack(spacing: 0) {
+                ForEach(Array(points.enumerated()), id: \.offset) { index, point in
+                    let level = index + 1
+                    LevelNode(
+                        level: level,
+                        stars: profile.stars(forLevel: level),
+                        isUnlocked: level <= maxUnlockedLevel,
+                        isCurrent: level == maxUnlockedLevel,
+                        size: nodeSize
+                    ) {
+                        SoundManager.shared.playUITap()
+                        selectedLevelForPreview = level
+                    }
+                    .frame(width: width, height: spacing, alignment: .center)
+                    .offset(x: point.x - width / 2)
+                    .id(level)
                 }
-                .id(level)
-                .position(x: point.x, y: point.y)
             }
+            // Line the row centres up with the path points.
+            .padding(.top, topInset - spacing / 2)
         }
         .frame(width: width)
     }
@@ -152,14 +166,17 @@ struct WorldMapView: View {
         let y: CGFloat
     }
 
-    /// A banner at the head of each ten-level world, named from the theme the
-    /// player is about to enter rather than a hardcoded list.
+    /// A banner at the head of each ten-level region, labelled by act. Palette
+    /// names cycle every 30 levels, so using them here repeated "Warm Cookie
+    /// Bakery" at level 151 — the act is what actually changed.
     private func worldBanners(width: CGFloat) -> [Banner] {
         stride(from: 1, through: totalLevels, by: 10).map { level in
+            let act = LevelConfig.Act.containing(level: level)
+            let region = LevelConfig.stepWithinAct(level) / 10 + 1
             let theme = LevelTheme.forLevel(level)
             return Banner(
                 level: level,
-                title: theme.name,
+                title: "\(act.emoji) \(act.name) · \(region)/10",
                 tint: theme.bgColors.dropFirst().first ?? SSATheme.candyPink,
                 y: topInset + CGFloat(level - 1) * spacing - spacing * 0.55
             )
