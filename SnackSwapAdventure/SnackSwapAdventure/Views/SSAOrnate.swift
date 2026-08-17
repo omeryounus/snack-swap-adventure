@@ -148,7 +148,7 @@ struct SSAOrnateStat: View {
     let title: String
     let value: String
     var accent: Color = SSATheme.candyYellow
-    var minWidth: CGFloat = 76
+    var minWidth: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 1) {
@@ -165,7 +165,7 @@ struct SSAOrnateStat: View {
                 .minimumScaleFactor(0.6)
         }
         .frame(minWidth: minWidth)
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 6)
         .padding(.vertical, 7)
         .background(
             RoundedRectangle(cornerRadius: 13, style: .continuous)

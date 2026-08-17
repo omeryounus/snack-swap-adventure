@@ -98,7 +98,7 @@ final class PlayfieldGeometryTests: XCTestCase {
             let geometry = PlayfieldGeometry.make(container: size, isLandscape: false, isPad: false)
             XCTAssertGreaterThanOrEqual(
                 geometry.hud.height,
-                230 + PlayfieldGeometry.hudAccessoryReserveRows * PlayfieldGeometry.hudAccessoryRowHeight,
+                198 + PlayfieldGeometry.hudAccessoryReserveRows * PlayfieldGeometry.hudAccessoryRowHeight,
                 "\(size) portrait HUD shorter than its contents"
             )
         }

@@ -38,38 +38,42 @@ struct GameHUD: View {
         VStack(spacing: 10) {
             // Level plaque centred like a hanging sign, with pause and the
             // star purse flanking it.
-            HStack(spacing: 10) {
-                pauseButton
-                Spacer(minLength: 8)
-                starPurse
-            }
-
-            // Its own row: sharing a line with the pause button and the star
-            // purse left too little width, so long names were cropped.
+            // The name leads, full width, so it is never cropped.
             SSAOrnateBanner(
                 title: gameState.level.themeName,
                 tint: SSATheme.candyPink,
                 stretches: true
             )
 
-            HStack(spacing: 10) {
+            // One row underneath: pause and the star purse flank the three
+            // stats, which share the remaining width equally so the row fits
+            // by construction on any screen.
+            HStack(spacing: 8) {
+                pauseButton
+
                 SSAOrnateStat(
                     title: "LEVEL",
                     value: "\(gameState.level.levelNumber)",
                     accent: .white
                 )
+                .frame(maxWidth: .infinity)
+
                 SSAOrnateStat(
                     title: "TIME",
                     value: "\(gameState.timeRemaining)",
                     accent: gameState.isTimerUrgent ? .red : SSATheme.candyYellow
                 )
+                .frame(maxWidth: .infinity)
                 .opacity(timerPulse ? 0.6 : 1)
+
                 SSAOrnateStat(
                     title: "MOVES",
                     value: "\(gameState.movesLeft)",
                     accent: gameState.movesLeft <= 5 ? .orange : .white
                 )
-                Spacer(minLength: 0)
+                .frame(maxWidth: .infinity)
+
+                starPurse
             }
 
             // The card permanently reserves room for the transient rows so the
@@ -106,17 +110,17 @@ struct GameHUD: View {
     private var starPurse: some View {
         HStack(spacing: 5) {
             Image(systemName: "star.fill")
-                .font(.system(size: 18, weight: .black))
+                .font(.system(size: 15, weight: .black))
                 .foregroundStyle(SSATheme.candyYellow)
                 .shadow(color: SSATheme.candyYellow.opacity(0.8), radius: 5)
             Text("\(profile.stars)")
-                .font(.system(size: 23, weight: .black, design: .rounded).monospacedDigit())
+                .font(.system(size: 19, weight: .black, design: .rounded).monospacedDigit())
                 .foregroundStyle(Color(hex: "FFE9A8"))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
         .background(Capsule().fill(SSAOrnate.plaqueFill))
         .overlay(Capsule().stroke(SSAOrnate.gold, lineWidth: 2.5))
     }
@@ -212,9 +216,9 @@ struct GameHUD: View {
             onPause()
         } label: {
             Image(systemName: "pause.fill")
-                .font(.system(size: 24, weight: .black))
+                .font(.system(size: 20, weight: .black))
                 .foregroundStyle(Color(hex: "FFF3D6"))
-                .frame(width: 58, height: 58)
+                .frame(width: 50, height: 50)
                 .background(Circle().fill(SSAOrnate.plaqueFill))
                 .overlay(Circle().stroke(SSAOrnate.gold, lineWidth: 3))
                 .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1).padding(3))
