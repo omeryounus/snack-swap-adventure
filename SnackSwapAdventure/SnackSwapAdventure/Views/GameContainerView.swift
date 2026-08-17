@@ -244,17 +244,12 @@ struct GameContainerView: View {
     private var boardCard: some View {
         boardView
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
-            )
-            .clipped()
     }
 
     private var boardView: some View {
         SpriteView(
             scene: scene,
-            options: [.ignoresSiblingOrder]
+            options: [.allowsTransparency, .ignoresSiblingOrder]
         )
         .allowsHitTesting(gameState.outcome == .playing && !gameState.isPaused)
         .onAppear {
@@ -335,8 +330,9 @@ struct GameContainerView: View {
                 scene.size = bounds
             }
         }
-        // Keep tiles inside the rounded clip so the first row is never shaved off.
-        let margin = max(18, layout.boardMargin)
+        // Just enough to clear the tray's gilded stroke and corner gems — any
+        // more and the board stops filling the width it has been given.
+        let margin = max(12, layout.boardMargin)
         scene.playfieldInsets = UIEdgeInsets(top: margin, left: margin, bottom: margin, right: margin)
         scene.maxTileSize = layout.maxTileSize
         scene.rebuildBoard()
