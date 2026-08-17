@@ -145,12 +145,17 @@ struct BoosterBarView: View {
                         .foregroundStyle(isSelected ? .white : SSATheme.candyYellow)
                         .frame(width: 32, height: 32)
 
-                    Text(count > 0 ? "\(count)" : "\(booster.cost)⭐")
-                        .font(.system(size: 9, weight: .black, design: .rounded))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(Capsule().fill(count > 0 ? SSATheme.candyGreen : SSATheme.candyOrange))
+                    Text(count > 0 ? "\(count)" : "\(booster.cost)★")
+                        .font(.system(size: 10, weight: .black, design: .rounded))
+                        .foregroundStyle(count > 0 ? .white : Color(hex: "3A2205"))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule().fill(count > 0
+                                           ? AnyShapeStyle(SSATheme.candyGreen)
+                                           : AnyShapeStyle(SSAOrnate.gold))
+                        )
+                        .overlay(Capsule().stroke(Color.black.opacity(0.35), lineWidth: 1))
                 }
 
                 Text(booster.rawValue)
@@ -160,11 +165,23 @@ struct BoosterBarView: View {
                     .minimumScaleFactor(0.7)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, compact ? 4 : 6)
+            .padding(.vertical, compact ? 5 : 7)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(isSelected ? SSATheme.candyPink.opacity(0.85) : Color.white.opacity(0.08))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(isSelected
+                          ? AnyShapeStyle(SSATheme.candyPink.opacity(0.9))
+                          : AnyShapeStyle(SSAOrnate.plaqueFill))
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(SSAOrnate.gold, lineWidth: 2.5)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 11.5, style: .continuous)
+                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                    .padding(2.5)
+            )
+            .shadow(color: .black.opacity(0.45), radius: 5, y: 3)
             // Unaffordable boosters stay tappable so the tap can explain why
             // and offer the shop, but they read as unavailable.
             .opacity(canAfford(booster) || isSelected ? 1 : 0.45)

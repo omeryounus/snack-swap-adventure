@@ -219,11 +219,38 @@ final class GameScene: SKScene {
 
         let levelTheme = LevelTheme.forLevel(gameState?.level.levelNumber ?? 1)
         frame.fillColor = levelTheme.boardFill
-        frame.strokeColor = levelTheme.boardStroke
-        frame.lineWidth = 3
+        // Gilded tray edge rather than a flat themed stroke.
+        frame.strokeColor = SKColor(red: 0.96, green: 0.78, blue: 0.36, alpha: 1)
+        frame.lineWidth = 6
         frame.zPosition = 0
         addChild(frame)
         boardBackground = frame
+
+        // Inner bevel + the level's own colour, so the theme still reads.
+        let bevel = SKShapeNode(rect: rect.insetBy(dx: 5, dy: 5), cornerRadius: 15)
+        bevel.fillColor = .clear
+        bevel.strokeColor = levelTheme.boardStroke.withAlphaComponent(0.9)
+        bevel.lineWidth = 2
+        bevel.zPosition = 0.4
+        addChild(bevel)
+
+        // Corner gems, matching the gilded HUD frames.
+        for corner in [
+            CGPoint(x: rect.minX + 10, y: rect.minY + 10),
+            CGPoint(x: rect.maxX - 10, y: rect.minY + 10),
+            CGPoint(x: rect.minX + 10, y: rect.maxY - 10),
+            CGPoint(x: rect.maxX - 10, y: rect.maxY - 10)
+        ] {
+            let gem = SKShapeNode(rectOf: CGSize(width: 11, height: 11), cornerRadius: 2)
+            gem.position = corner
+            gem.zRotation = .pi / 4
+            gem.fillColor = SKColor(red: 1.0, green: 0.42, blue: 0.62, alpha: 1)
+            gem.strokeColor = SKColor(red: 1.0, green: 0.9, blue: 0.6, alpha: 1)
+            gem.lineWidth = 1.5
+            gem.glowWidth = 2
+            gem.zPosition = 2.5
+            addChild(gem)
+        }
 
         let innerGlow = SKShapeNode(rect: rect.insetBy(dx: 8, dy: 8), cornerRadius: 14)
         innerGlow.fillColor = .clear

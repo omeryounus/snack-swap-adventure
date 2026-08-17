@@ -35,25 +35,30 @@ struct GameHUD: View {
     // MARK: - Portrait
 
     private var topBar: some View {
-        // Two stat rows rather than one. At this size five chips on a single
-        // line overflow even a Pro Max, and the extra height is there to be
-        // used rather than left as padding.
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 10) {
+            // Level plaque centred like a hanging sign, with pause and the
+            // star purse flanking it.
             HStack(spacing: 10) {
                 pauseButton
-                statChip(
-                    title: gameState.level.themeName.uppercased(),
-                    value: "\(gameState.level.levelNumber)",
-                    accent: .white,
-                    titleMaxWidth: layout.hudThemeNameMaxWidth
-                )
                 Spacer(minLength: 4)
-                statChip(title: "⭐", value: "\(profile.stars)", accent: Theme.accentGold)
+                SSAOrnateBanner(title: gameState.level.themeName, tint: SSATheme.candyPink)
+                Spacer(minLength: 4)
+                starPurse
             }
 
             HStack(spacing: 10) {
-                timerChip
-                statChip(
+                SSAOrnateStat(
+                    title: "LEVEL",
+                    value: "\(gameState.level.levelNumber)",
+                    accent: .white
+                )
+                SSAOrnateStat(
+                    title: "TIME",
+                    value: "\(gameState.timeRemaining)",
+                    accent: gameState.isTimerUrgent ? .red : SSATheme.candyYellow
+                )
+                .opacity(timerPulse ? 0.6 : 1)
+                SSAOrnateStat(
                     title: "MOVES",
                     value: "\(gameState.movesLeft)",
                     accent: gameState.movesLeft <= 5 ? .orange : .white
@@ -61,21 +66,92 @@ struct GameHUD: View {
                 Spacer(minLength: 0)
             }
 
-            compactGoalRow
+            // The card permanently reserves room for the transient rows so the
+            // board never moves. Idle, that space carries the goal description
+            // and a divider rather than reading as a hole in the frame.
+            idleOrnament
 
             if gameState.isFeverActive {
                 feverRow
             }
 
-            // The card permanently reserves room for the transient rows so the
-            // board never moves. Pack content upward so that reserve reads as
-            // trailing padding rather than a hole in the middle of the card.
-            Spacer(minLength: 0)
+            objectiveRow
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(hudBackground)
+        .background(ornateHudBackground)
+    }
+
+    /// Gilded shell for the whole bar.
+    private var ornateHudBackground: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(SSAOrnate.panelFill)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(SSAOrnate.gold, lineWidth: 3)
+            RoundedRectangle(cornerRadius: 19, style: .continuous)
+                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                .padding(3)
+        }
+        .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+    }
+
+    private var starPurse: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "star.fill")
+                .font(.system(size: 15, weight: .black))
+                .foregroundStyle(SSATheme.candyYellow)
+                .shadow(color: SSATheme.candyYellow.opacity(0.8), radius: 5)
+            Text("\(profile.stars)")
+                .font(.system(size: 19, weight: .black, design: .rounded).monospacedDigit())
+                .foregroundStyle(Color(hex: "FFE9A8"))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Capsule().fill(SSAOrnate.plaqueFill))
+        .overlay(Capsule().stroke(SSAOrnate.gold, lineWidth: 2.5))
+    }
+
+    private var idleOrnament: some View {
+        VStack(spacing: 8) {
+            Spacer(minLength: 0)
+            HStack(spacing: 10) {
+                Capsule().fill(SSAOrnate.gold).frame(height: 2)
+                SSAGem(size: 9, tint: SSATheme.candyPink)
+                Capsule().fill(SSAOrnate.gold).frame(height: 2)
+            }
+            .opacity(0.5)
+            Text(gameState.level.goal.detail)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color(hex: "E7D6FF").opacity(0.75))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// The level goal, framed and labelled rather than sharing a line.
+    private var objectiveRow: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 8) {
+                Text(gameState.level.goal.shortTitle)
+                    .font(.system(size: 15, weight: .black, design: .rounded))
+                    .foregroundStyle(Color(hex: "FFF3D6"))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Spacer(minLength: 6)
+                Text("\(gameState.goalProgressValue)/\(gameState.level.progressDenominator)")
+                    .font(.system(size: 15, weight: .black, design: .rounded).monospacedDigit())
+                    .foregroundStyle(SSATheme.candyYellow)
+                    .lineLimit(1)
+            }
+
+            SSAOrnateProgressBar(progress: gameState.progress, height: 18)
+                .animation(.easeOut(duration: 0.25), value: gameState.goalProgressValue)
+        }
     }
 
     // MARK: - Landscape
@@ -130,11 +206,13 @@ struct GameHUD: View {
             onPause()
         } label: {
             Image(systemName: "pause.fill")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 62, height: 62)
-                .background(Color.white.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .font(.system(size: 24, weight: .black))
+                .foregroundStyle(Color(hex: "FFF3D6"))
+                .frame(width: 58, height: 58)
+                .background(Circle().fill(SSAOrnate.plaqueFill))
+                .overlay(Circle().stroke(SSAOrnate.gold, lineWidth: 3))
+                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1).padding(3))
+                .shadow(color: .black.opacity(0.5), radius: 6, y: 3)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Pause")
