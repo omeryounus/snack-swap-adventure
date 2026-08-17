@@ -72,7 +72,7 @@ final class PlayfieldGeometryTests: XCTestCase {
             isPad: false
         )
         XCTAssertGreaterThanOrEqual(phone.hud.minY, 844 * PlayfieldGeometry.portraitTopRatio - 0.5)
-        XCTAssertLessThanOrEqual(phone.hud.height, 224.5)
+        XCTAssertLessThanOrEqual(phone.hud.minY, 24, "top band is wasted space, keep it thin")
 
         let midTop = phone.hud.maxY
         let midBottom = phone.dock.minY
@@ -98,7 +98,7 @@ final class PlayfieldGeometryTests: XCTestCase {
             let geometry = PlayfieldGeometry.make(container: size, isLandscape: false, isPad: false)
             XCTAssertGreaterThanOrEqual(
                 geometry.hud.height,
-                204,
+                204 + PlayfieldGeometry.hudAccessoryReserveRows * PlayfieldGeometry.hudAccessoryRowHeight,
                 "\(size) portrait HUD shorter than its contents"
             )
         }
@@ -221,32 +221,46 @@ final class PlayfieldGeometryTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(geometry.hud.height, 184)
     }
 
-    /// Transient rows must come out of the layout budget, not out of thin air.
-    func testAccessoryRowsGrowTheHUDAndKeepTheDockOnScreen() {
+    /// The board must never move under the player. Sugar Rush and the hammer
+    /// prompt appear mid-level, so if the HUD grew to fit them the board slid
+    /// down by half the difference — which is exactly what it used to do.
+    func testBoardIsIdenticalWhetherTransientRowsAreShowingOrNot() {
         for device in PlayfieldGeometry.referenceDevices {
             let isLandscape = device.size.width > device.size.height + 12
-            let plain = PlayfieldGeometry.make(
+            let rects = PlayfieldGeometry.accessoryRowCases.map { rows in
+                PlayfieldGeometry.make(
+                    container: device.size,
+                    isLandscape: isLandscape,
+                    isPad: device.isPad,
+                    hudAccessoryRows: rows
+                )
+            }
+            guard let reference = rects.first else { return XCTFail("no cases") }
+            for geometry in rects {
+                XCTAssertEqual(geometry.board, reference.board, "\(device.name) board moved")
+                XCTAssertEqual(geometry.hud, reference.hud, "\(device.name) HUD resized")
+                XCTAssertEqual(geometry.dock, reference.dock, "\(device.name) dock moved")
+            }
+        }
+    }
+
+    /// …and the fixed height must actually be enough for those rows, or they
+    /// would render outside the card and land on the board.
+    func testHUDReservesRoomForEveryTransientRow() {
+        for device in PlayfieldGeometry.referenceDevices
+        where !(device.size.width > device.size.height + 12) {
+            let geometry = PlayfieldGeometry.make(
                 container: device.size,
-                isLandscape: isLandscape,
-                isPad: device.isPad,
-                hudAccessoryRows: 0
+                isLandscape: false,
+                isPad: device.isPad
             )
-            let busy = PlayfieldGeometry.make(
-                container: device.size,
-                isLandscape: isLandscape,
-                isPad: device.isPad,
-                hudAccessoryRows: 2
-            )
+            let reserve = PlayfieldGeometry.hudAccessoryReserveRows
+                * PlayfieldGeometry.hudAccessoryRowHeight
             XCTAssertGreaterThanOrEqual(
-                busy.hud.height,
-                plain.hud.height,
-                "\(device.name) HUD did not reserve room for accessory rows"
+                geometry.hud.height,
+                reserve,
+                "\(device.name) HUD cannot fit its transient rows"
             )
-            XCTAssertTrue(
-                busy.isFullyContained(in: device.size),
-                "\(device.name) dock pushed off screen by accessory rows: \(busy.dock)"
-            )
-            XCTAssertTrue(busy.overlappingPairs().isEmpty, "\(device.name) overlaps when busy")
         }
     }
 

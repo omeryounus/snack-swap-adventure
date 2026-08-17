@@ -61,13 +61,16 @@ struct GameHUD: View {
                 Spacer(minLength: 0)
             }
 
-            Spacer(minLength: 0)
-
             compactGoalRow
 
             if gameState.isFeverActive {
                 feverRow
             }
+
+            // The card permanently reserves room for the transient rows so the
+            // board never moves. Pack content upward so that reserve reads as
+            // trailing padding rather than a hole in the middle of the card.
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 14)

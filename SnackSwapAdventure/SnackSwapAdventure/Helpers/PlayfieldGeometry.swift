@@ -16,8 +16,9 @@ struct PlayfieldGeometry: Equatable {
     var isLandscape: Bool
 
     static let minimumBoardSide: CGFloat = 168
-    /// Portrait breathing room above the HUD.
-    static let portraitTopRatio: CGFloat = 0.10
+    /// A thin band above the HUD. Kept small: the space is worth more to the
+    /// HUD and the board than it is as empty margin.
+    static let portraitTopRatio: CGFloat = 0.02
     static let landscapeMinSidebar: CGFloat = 140
     /// The sidebar stops growing here so wide screens spend their extra width on
     /// the board instead of on an increasingly empty chrome column.
@@ -25,23 +26,28 @@ struct PlayfieldGeometry: Equatable {
     static let landscapeMaxSidebarPad: CGFloat = 320
     /// Vertical gap between the moves/progress HUD and the booster dock.
     static let landscapeSectionGapRatio: CGFloat = 0.10
-    /// Height reserved for each optional HUD row (Sugar Rush banner, hammer
-    /// prompt). Without this the rows render outside the HUD rect and land on
-    /// top of the board.
+    /// Height of an optional HUD row (Sugar Rush banner, hammer prompt).
     static let hudAccessoryRowHeight: CGFloat = 34
+    /// Room for the transient rows is reserved *permanently*. Sizing the HUD to
+    /// whichever rows happen to be showing moved the board down mid-level every
+    /// time Sugar Rush triggered — the board must never move under the player.
+    static let hudAccessoryReserveRows: CGFloat = 2
 
-    /// - Parameter hudAccessoryRows: transient HUD rows currently on screen.
+    /// - Parameter hudAccessoryRows: how many transient rows are on screen.
+    ///   Accepted so call sites read honestly, but deliberately ignored: the
+    ///   rects are identical whether or not Sugar Rush is running.
     static func make(
         container: CGSize,
         isLandscape: Bool,
         isPad: Bool,
         hudAccessoryRows: Int = 0
     ) -> PlayfieldGeometry {
+        _ = hudAccessoryRows
         let width = max(container.width, 1)
         let height = max(container.height, 1)
         let gap: CGFloat = isPad ? 12 : 8
         let pad: CGFloat = isPad ? 12 : 8
-        let accessories = max(0, CGFloat(hudAccessoryRows)) * Self.hudAccessoryRowHeight
+        let accessories = Self.hudAccessoryReserveRows * Self.hudAccessoryRowHeight
 
         if isLandscape && width >= 520 {
             return landscape(
@@ -65,8 +71,12 @@ struct PlayfieldGeometry: Equatable {
         // presence. Tall phones absorb this out of slack and keep the same
         // board; SE-class and iPad trade some board width for it.
         let baseHud = min(isPad ? 268 : 224, max(isPad ? 224 : 204, height * 0.25))
-        let hudH = baseHud + accessories
         let dockH = min(isPad ? 80 : 68, max(56, height * 0.08))
+        // Very short windows (a stacked landscape phone, a slide-over slice)
+        // cannot seat the full-height bar and the dock at once. Shrink the HUD
+        // rather than letting the two collide.
+        let hudCeiling = max(96, height - dockH - gap * 2 - pad * 2 - 120)
+        let hudH = min(baseHud + accessories, hudCeiling)
 
         // The 10% top band is a luxury: give it back before letting the board
         // drop under its minimum on short screens.

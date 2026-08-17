@@ -10,12 +10,13 @@ from dataclasses import dataclass
 
 
 MIN_BOARD = 168.0
-PORTRAIT_TOP_RATIO = 0.10
+PORTRAIT_TOP_RATIO = 0.02
 LANDSCAPE_MIN_SIDEBAR = 140.0
 LANDSCAPE_MAX_SIDEBAR_PHONE = 260.0
 LANDSCAPE_MAX_SIDEBAR_PAD = 320.0
 LANDSCAPE_SECTION_GAP_RATIO = 0.10
 HUD_ACCESSORY_ROW_HEIGHT = 34.0
+HUD_ACCESSORY_RESERVE_ROWS = 2.0
 ACCESSORY_ROW_CASES = (0, 1, 2)
 
 
@@ -54,8 +55,9 @@ def portrait(width: float, height: float, is_pad: bool, accessories: float):
     gap = 12.0 if is_pad else 8.0
     content_w = max(1.0, width - pad * 2)
     base_hud = min(268.0 if is_pad else 224.0, max(224.0 if is_pad else 204.0, height * 0.25))
-    hud_h = base_hud + accessories
     dock_h = min(80.0 if is_pad else 68.0, max(56.0, height * 0.08))
+    hud_ceiling = max(96.0, height - dock_h - gap * 2 - pad * 2 - 120.0)
+    hud_h = min(base_hud + accessories, hud_ceiling)
 
     ideal_top = max(pad, height * PORTRAIT_TOP_RATIO)
     fixed = hud_h + dock_h + gap * 2 + pad
@@ -116,7 +118,9 @@ def landscape(width: float, height: float, is_pad: bool, accessories: float):
 
 
 def make(width: float, height: float, is_landscape: bool, is_pad: bool, rows: int = 0):
-    accessories = max(0, rows) * HUD_ACCESSORY_ROW_HEIGHT
+    # Reserved permanently, so the board never moves when a transient row shows.
+    del rows
+    accessories = HUD_ACCESSORY_RESERVE_ROWS * HUD_ACCESSORY_ROW_HEIGHT
     if is_landscape and width >= 520:
         return landscape(width, height, is_pad, accessories)
     return portrait(width, height, is_pad, accessories)
