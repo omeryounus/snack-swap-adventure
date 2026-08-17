@@ -40,11 +40,17 @@ struct GameHUD: View {
             // star purse flanking it.
             HStack(spacing: 10) {
                 pauseButton
-                Spacer(minLength: 4)
-                SSAOrnateBanner(title: gameState.level.themeName, tint: SSATheme.candyPink)
-                Spacer(minLength: 4)
+                Spacer(minLength: 8)
                 starPurse
             }
+
+            // Its own row: sharing a line with the pause button and the star
+            // purse left too little width, so long names were cropped.
+            SSAOrnateBanner(
+                title: gameState.level.themeName,
+                tint: SSATheme.candyPink,
+                stretches: true
+            )
 
             HStack(spacing: 10) {
                 SSAOrnateStat(
@@ -100,11 +106,11 @@ struct GameHUD: View {
     private var starPurse: some View {
         HStack(spacing: 5) {
             Image(systemName: "star.fill")
-                .font(.system(size: 15, weight: .black))
+                .font(.system(size: 18, weight: .black))
                 .foregroundStyle(SSATheme.candyYellow)
                 .shadow(color: SSATheme.candyYellow.opacity(0.8), radius: 5)
             Text("\(profile.stars)")
-                .font(.system(size: 19, weight: .black, design: .rounded).monospacedDigit())
+                .font(.system(size: 23, weight: .black, design: .rounded).monospacedDigit())
                 .foregroundStyle(Color(hex: "FFE9A8"))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -125,7 +131,7 @@ struct GameHUD: View {
             }
             .opacity(0.5)
             Text(gameState.level.goal.detail)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color(hex: "E7D6FF").opacity(0.75))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -138,13 +144,13 @@ struct GameHUD: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 8) {
                 Text(gameState.level.goal.shortTitle)
-                    .font(.system(size: 15, weight: .black, design: .rounded))
+                    .font(.system(size: 18, weight: .black, design: .rounded))
                     .foregroundStyle(Color(hex: "FFF3D6"))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 Spacer(minLength: 6)
                 Text("\(gameState.goalProgressValue)/\(gameState.level.progressDenominator)")
-                    .font(.system(size: 15, weight: .black, design: .rounded).monospacedDigit())
+                    .font(.system(size: 18, weight: .black, design: .rounded).monospacedDigit())
                     .foregroundStyle(SSATheme.candyYellow)
                     .lineLimit(1)
             }

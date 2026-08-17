@@ -114,10 +114,12 @@ struct SSAOrnatePanel<Content: View>: View {
 struct SSAOrnateBanner: View {
     let title: String
     var tint: Color = SSATheme.candyPink
+    /// Fills the row it is given so long level names are not cropped.
+    var stretches: Bool = false
 
     var body: some View {
         Text(title.uppercased())
-            .font(.system(size: 13, weight: .black, design: .rounded))
+            .font(.system(size: 16, weight: .black, design: .rounded))
             .foregroundStyle(
                 LinearGradient(
                     colors: [Color(hex: "FFF6D5"), Color(hex: "FFD98A")],
@@ -127,9 +129,10 @@ struct SSAOrnateBanner: View {
             )
             .shadow(color: .black.opacity(0.6), radius: 1, y: 1)
             .lineLimit(1)
-            .minimumScaleFactor(0.6)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 7)
+            .minimumScaleFactor(0.55)
+            .frame(maxWidth: stretches ? .infinity : nil)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 9)
             .background(
                 Capsule().fill(SSAOrnate.plaqueFill)
             )
@@ -145,17 +148,17 @@ struct SSAOrnateStat: View {
     let title: String
     let value: String
     var accent: Color = SSATheme.candyYellow
-    var minWidth: CGFloat = 68
+    var minWidth: CGFloat = 76
 
     var body: some View {
         VStack(spacing: 1) {
             Text(title)
-                .font(.system(size: 11, weight: .black, design: .rounded))
+                .font(.system(size: 13, weight: .black, design: .rounded))
                 .foregroundStyle(Color(hex: "E7D6FF").opacity(0.9))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(value)
-                .font(.system(size: 24, weight: .black, design: .rounded).monospacedDigit())
+                .font(.system(size: 30, weight: .black, design: .rounded).monospacedDigit())
                 .foregroundStyle(accent)
                 .shadow(color: accent.opacity(0.55), radius: 5)
                 .lineLimit(1)

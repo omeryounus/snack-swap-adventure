@@ -70,7 +70,7 @@ struct PlayfieldGeometry: Equatable {
         // row are the player's primary read during a level, so they get real
         // presence. Tall phones absorb this out of slack and keep the same
         // board; SE-class and iPad trade some board width for it.
-        let baseHud = min(isPad ? 268 : 224, max(isPad ? 224 : 204, height * 0.25))
+        let baseHud = min(isPad ? 300 : 250, max(isPad ? 250 : 230, height * 0.28))
         let dockH = min(isPad ? 80 : 68, max(56, height * 0.08))
         // Very short windows (a stacked landscape phone, a slide-over slice)
         // cannot seat the full-height bar and the dock at once. Shrink the HUD
