@@ -276,6 +276,9 @@ struct GameplayBackgroundView: View {
     /// imagesets were UI mockups and were removed from the catalog.
     private var theme: LevelTheme { LevelTheme.forLevel(level) }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var drifting = false
+
     var body: some View {
         GeometryReader { geo in
             let shortest = min(geo.size.width, geo.size.height)
@@ -316,14 +319,45 @@ struct GameplayBackgroundView: View {
                     endRadius: shortest * 0.52
                 )
 
-                ForEach(0..<12, id: \.self) { i in
-                    Text(themeSnackEmojis[i % themeSnackEmojis.count])
-                        .font(.system(size: CGFloat((i * 5 + 14) % 18 + 16)))
-                        .opacity(0.10)
-                        .rotationEffect(.degrees(Double(i * 29 % 360)))
+                // Soft colour blobs drifting behind the snacks give the scene
+                // depth without competing with the board.
+                ForEach(blobs) { blob in
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [blob.tint.opacity(0.30), .clear],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: blob.radius
+                            )
+                        )
+                        .frame(width: blob.radius * 2, height: blob.radius * 2)
                         .position(
-                            x: CGFloat((i * 89 + 41) % Int(max(1, geo.size.width))),
-                            y: CGFloat((i * 131 + 53) % Int(max(1, geo.size.height)))
+                            x: blob.x * geo.size.width,
+                            y: blob.y * geo.size.height
+                        )
+                        .offset(y: drifting ? -blob.drift : blob.drift)
+                        .animation(
+                            motion(duration: blob.duration, delay: blob.delay),
+                            value: drifting
+                        )
+                }
+                .blur(radius: 18)
+                .accessibilityHidden(true)
+
+                ForEach(sprinkles) { sprinkle in
+                    Text(sprinkle.emoji)
+                        .font(.system(size: sprinkle.size))
+                        .opacity(sprinkle.opacity)
+                        .rotationEffect(.degrees(drifting ? sprinkle.rotation + 14 : sprinkle.rotation - 14))
+                        .position(
+                            x: sprinkle.x * geo.size.width,
+                            y: sprinkle.y * geo.size.height
+                        )
+                        .offset(y: drifting ? -sprinkle.drift : sprinkle.drift)
+                        .animation(
+                            motion(duration: sprinkle.duration, delay: sprinkle.delay),
+                            value: drifting
                         )
                 }
                 .accessibilityHidden(true)
@@ -338,12 +372,114 @@ struct GameplayBackgroundView: View {
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
+        .onAppear { drifting = true }
+    }
+
+    /// Still scene when the player has asked for less motion.
+    private func motion(duration: Double, delay: Double) -> Animation? {
+        guard !reduceMotion else { return nil }
+        return .easeInOut(duration: duration)
+            .repeatForever(autoreverses: true)
+            .delay(delay)
     }
 
     /// Falls back to the world band when a level has no themed snacks.
     private var themeSnackEmojis: [String] {
         let emojis = theme.snacks.map(\.emoji)
         return emojis.isEmpty ? world.snacks : emojis
+    }
+
+    // MARK: - Per-level composition
+
+    /// Layout is seeded from the level number, so every level gets its own
+    /// arrangement rather than the same picture in a different colour. The seed
+    /// is deterministic: level 7 looks the same each time you play it.
+    private var sprinkles: [Sprinkle] {
+        var rng = SeededGenerator(seed: UInt64(level &* 2_654_435_761 &+ 17))
+        let emojis = themeSnackEmojis
+        // Denser, larger scenes deeper into the game.
+        let count = 12 + min(6, level / 6)
+        return (0..<count).map { index in
+            Sprinkle(
+                id: index,
+                emoji: emojis[Int(rng.next(upTo: UInt64(emojis.count)))],
+                x: CGFloat(rng.unit()),
+                y: CGFloat(rng.unit()),
+                size: 16 + CGFloat(rng.unit()) * 22,
+                rotation: rng.unit() * 360,
+                drift: 8 + CGFloat(rng.unit()) * 20,
+                duration: 5 + rng.unit() * 6,
+                delay: rng.unit() * 2.5,
+                opacity: 0.08 + rng.unit() * 0.08
+            )
+        }
+    }
+
+    private var blobs: [Blob] {
+        var rng = SeededGenerator(seed: UInt64(level &* 40_503 &+ 91))
+        let tints = [world.accent, world.secondary, theme.bgColors.first ?? world.accent]
+        return (0..<3).map { index in
+            Blob(
+                id: index,
+                tint: tints[index % tints.count],
+                x: CGFloat(rng.unit()),
+                y: CGFloat(rng.unit()),
+                radius: 90 + CGFloat(rng.unit()) * 90,
+                drift: 12 + CGFloat(rng.unit()) * 22,
+                duration: 9 + rng.unit() * 8,
+                delay: rng.unit() * 3
+            )
+        }
+    }
+
+    struct Sprinkle: Identifiable {
+        let id: Int
+        let emoji: String
+        let x: CGFloat
+        let y: CGFloat
+        let size: CGFloat
+        let rotation: Double
+        let drift: CGFloat
+        let duration: Double
+        let delay: Double
+        let opacity: Double
+    }
+
+    struct Blob: Identifiable {
+        let id: Int
+        let tint: Color
+        let x: CGFloat
+        let y: CGFloat
+        let radius: CGFloat
+        let drift: CGFloat
+        let duration: Double
+        let delay: Double
+    }
+}
+
+/// Small deterministic generator so a level's backdrop is stable across
+/// launches without persisting anything.
+struct SeededGenerator {
+    private var state: UInt64
+
+    init(seed: UInt64) {
+        state = seed == 0 ? 0x9E3779B97F4A7C15 : seed
+    }
+
+    mutating func next() -> UInt64 {
+        state ^= state << 13
+        state ^= state >> 7
+        state ^= state << 17
+        return state
+    }
+
+    mutating func next(upTo bound: UInt64) -> UInt64 {
+        bound == 0 ? 0 : next() % bound
+    }
+
+    /// 0..<1
+    mutating func unit() -> Double {
+        Double(next() % 10_000) / 10_000.0
     }
 }
 
