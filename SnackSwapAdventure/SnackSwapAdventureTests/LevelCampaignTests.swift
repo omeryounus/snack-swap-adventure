@@ -1,4 +1,5 @@
 import XCTest
+import SpriteKit
 @testable import SnackSwapAdventure
 
 /// 300 procedurally generated levels across three acts. Every level has to be
@@ -114,14 +115,52 @@ final class LevelCampaignTests: XCTestCase {
 
     // MARK: - Theming
 
-    func testEveryLevelIsThemedAndPalettesCycle() {
-        XCTAssertEqual(
-            LevelTheme.forLevel(1).name,
-            LevelTheme.forLevel(LevelTheme.paletteCount + 1).name,
-            "palettes should cycle so no level is unthemed"
-        )
+    func testEveryLevelIsThemed() {
         for level in 1...LevelConfig.totalLevels {
             XCTAssertFalse(LevelTheme.forLevel(level).snacks.isEmpty, "level \(level)")
+            XCTAssertFalse(LevelTheme.forLevel(level).name.isEmpty, "level \(level)")
+            XCTAssertFalse(LevelTheme.forLevel(level).bgColors.isEmpty, "level \(level)")
+        }
+    }
+
+    /// The whole point of the variants: no two levels in the campaign should
+    /// look or read like the same place.
+    func testEveryLevelHasADistinctThemeName() {
+        var names: Set<String> = []
+        for level in 1...LevelConfig.totalLevels {
+            let name = LevelTheme.forLevel(level).name
+            XCTAssertFalse(names.contains(name), "level \(level) reuses the theme name \(name)")
+            names.insert(name)
+        }
+        XCTAssertEqual(names.count, LevelConfig.totalLevels)
+    }
+
+    /// A lap keeps its base identity but must actually change colour, or the
+    /// rename would be the only difference.
+    func testEachLapRecoloursItsBase() {
+        let base = LevelTheme.forLevel(1)
+        for lap in 1..<LevelTheme.variantPrefixes.count {
+            let variant = LevelTheme.forLevel(1 + lap * LevelTheme.paletteCount)
+            XCTAssertEqual(variant.snacks, base.snacks, "lap \(lap) changed the snack mix")
+            XCTAssertNotEqual(variant.bgColors, base.bgColors, "lap \(lap) is the same palette")
+        }
+    }
+
+    /// Rotation must preserve how light or dark a palette is, or later laps
+    /// would wash out against the board.
+    func testHueRotationPreservesBrightness() {
+        for lap in 1..<LevelTheme.variantPrefixes.count {
+            let base = SKColor(hex: "D97724")
+            let rotated = base.hueRotated(by: Double(lap) * 37.0)
+            var baseHue: CGFloat = 0, baseSat: CGFloat = 0
+            var baseBrightness: CGFloat = 0, baseAlpha: CGFloat = 0
+            var newHue: CGFloat = 0, newSat: CGFloat = 0
+            var newBrightness: CGFloat = 0, newAlpha: CGFloat = 0
+            base.getHue(&baseHue, saturation: &baseSat, brightness: &baseBrightness, alpha: &baseAlpha)
+            rotated.getHue(&newHue, saturation: &newSat, brightness: &newBrightness, alpha: &newAlpha)
+            XCTAssertEqual(baseBrightness, newBrightness, accuracy: 0.01, "lap \(lap) brightness")
+            XCTAssertEqual(baseSat, newSat, accuracy: 0.01, "lap \(lap) saturation")
+            XCTAssertNotEqual(baseHue, newHue, "lap \(lap) did not shift hue")
         }
     }
 

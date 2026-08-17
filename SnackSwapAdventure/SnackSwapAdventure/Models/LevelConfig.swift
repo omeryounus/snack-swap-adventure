@@ -5,6 +5,31 @@ extension SKColor {
     convenience init(hex: String) {
         self.init(Color(hex: hex))
     }
+
+    /// Spins the hue while holding saturation and brightness, so a rotated
+    /// palette keeps the contrast the original was designed with.
+    func hueRotated(by degrees: Double) -> SKColor {
+        var hue: CGFloat = 0
+        var saturation: CGFloat = 0
+        var brightness: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha) else {
+            return self
+        }
+        let shifted = (hue + CGFloat(degrees / 360.0)).truncatingRemainder(dividingBy: 1)
+        return SKColor(
+            hue: shifted < 0 ? shifted + 1 : shifted,
+            saturation: saturation,
+            brightness: brightness,
+            alpha: alpha
+        )
+    }
+}
+
+extension Color {
+    func hueRotated(by degrees: Double) -> Color {
+        Color(SKColor(self).hueRotated(by: degrees))
+    }
 }
 
 enum LevelGoal: Equatable, Codable {
@@ -39,11 +64,36 @@ struct LevelTheme: Equatable {
     let boardFill: SKColor
     let boardStroke: SKColor
 
-    /// 30 palettes cycled across the campaign, so every level is themed.
+    /// Hand-authored base palettes. Each is reworked into a fresh variant for
+    /// every lap of the campaign, so 300 levels get 300 distinct looks.
     static let paletteCount = 30
 
+    /// Ten laps x 30 bases. The prefix renames the family so a variant reads as
+    /// a new place rather than a repeat.
+    static let variantPrefixes = [
+        "", "Frosted", "Golden", "Midnight", "Neon",
+        "Crystal", "Spiced", "Royal", "Cosmic", "Eternal"
+    ]
+
     static func forLevel(_ level: Int) -> LevelTheme {
-        let n = ((max(1, level) - 1) % paletteCount) + 1
+        let zero = max(1, level) - 1
+        let base = basePalette(zero % paletteCount + 1)
+        let lap = (zero / paletteCount) % variantPrefixes.count
+        guard lap > 0 else { return base }
+
+        // 37 degrees per lap never repeats within ten laps and keeps
+        // neighbouring laps clearly apart.
+        let shift = Double(lap) * 37.0
+        return LevelTheme(
+            name: "\(variantPrefixes[lap]) \(base.name)",
+            snacks: base.snacks,
+            bgColors: base.bgColors.map { $0.hueRotated(by: shift) },
+            boardFill: base.boardFill.hueRotated(by: shift),
+            boardStroke: base.boardStroke.hueRotated(by: shift)
+        )
+    }
+
+    private static func basePalette(_ n: Int) -> LevelTheme {
         switch n {
         case 1:
             return LevelTheme(
