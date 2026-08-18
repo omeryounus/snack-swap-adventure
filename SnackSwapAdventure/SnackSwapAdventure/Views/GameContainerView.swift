@@ -216,9 +216,13 @@ struct GameContainerView: View {
                     gameState: gameState,
                     onClose: exitToMap,
                     onPause: { gameState.isPaused = true },
-                    chrome: geometry.isLandscape ? .sidebar : .topBar
+                    chrome: geometry.isLandscape ? .sidebar : .topBar,
+                    hammerPromptActive: activeBooster == .hammer,
+                    onCancelHammer: {
+                        activeBooster = nil
+                        scene.isHammerModeActive = false
+                    }
                 )
-                hammerBanner
                 Spacer(minLength: 0)
             }
             .padding(geometry.isLandscape ? 8 : 4)
@@ -254,36 +258,6 @@ struct GameContainerView: View {
         .allowsHitTesting(gameState.outcome == .playing && !gameState.isPaused)
         .onAppear {
             DispatchQueue.main.async { configureScene() }
-        }
-    }
-
-    @ViewBuilder
-    private var hammerBanner: some View {
-        if activeBooster == .hammer {
-            HStack(spacing: 10) {
-                Text("🔨 TAP A TILE!")
-                    .font(.system(size: layout.isCompactHeight ? 11 : 13, weight: .black, design: .rounded))
-                    .foregroundStyle(SSATheme.candyYellow)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-
-                Button {
-                    activeBooster = nil
-                    scene.isHammerModeActive = false
-                } label: {
-                    Text("CANCEL")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Color.red.opacity(0.7)))
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Capsule().fill(Color.black.opacity(0.75)))
-            .padding(.top, 4)
-            .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
 

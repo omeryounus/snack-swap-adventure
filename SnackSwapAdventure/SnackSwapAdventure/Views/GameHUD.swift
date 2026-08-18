@@ -12,6 +12,10 @@ struct GameHUD: View {
     let onClose: () -> Void
     let onPause: () -> Void
     var chrome: GameHUDChrome = .topBar
+    /// Hammer mode prompt. Rendered inside the card, in the space the geometry
+    /// already reserves for transient rows — outside it, the card's clip shaves it.
+    var hammerPromptActive: Bool = false
+    var onCancelHammer: () -> Void = {}
 
     @Environment(\.adaptiveLayout) private var layout
     /// PlayerProfile owns the canonical star balance and mirrors it into
@@ -78,11 +82,20 @@ struct GameHUD: View {
 
             // The card permanently reserves room for the transient rows so the
             // board never moves. Idle, that space carries the goal description
-            // and a divider rather than reading as a hole in the frame.
-            idleOrnament
+            // and a divider rather than reading as a hole in the frame — but it
+            // is filler, so it yields the moment a real row needs the space.
+            if hasTransientRow {
+                Spacer(minLength: 0)
+            } else {
+                idleOrnament
+            }
 
             if gameState.isFeverActive {
                 feverRow
+            }
+
+            if hammerPromptActive {
+                hammerRow
             }
 
             objectiveRow
@@ -126,6 +139,10 @@ struct GameHUD: View {
         .layoutPriority(1)
     }
 
+    private var hasTransientRow: Bool {
+        gameState.isFeverActive || hammerPromptActive
+    }
+
     private var idleOrnament: some View {
         VStack(spacing: 8) {
             Spacer(minLength: 0)
@@ -142,6 +159,34 @@ struct GameHUD: View {
                 .minimumScaleFactor(0.7)
             Spacer(minLength: 0)
         }
+    }
+
+    /// Hammer-mode prompt, styled to match the gilded chrome.
+    private var hammerRow: some View {
+        HStack(spacing: 8) {
+            Text("🔨 TAP A TILE!")
+                .font(.system(size: 13, weight: .black, design: .rounded))
+                .foregroundStyle(SSATheme.candyYellow)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Spacer(minLength: 4)
+
+            Button(action: onCancelHammer) {
+                Text("CANCEL")
+                    .font(.system(size: 12, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color.red.opacity(0.85)))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.35), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Color.black.opacity(0.5)))
+        .overlay(Capsule().strokeBorder(SSAOrnate.goldRim, lineWidth: 1.5))
     }
 
     /// The level goal, framed and labelled rather than sharing a line.
@@ -194,6 +239,10 @@ struct GameHUD: View {
 
             if gameState.isFeverActive {
                 feverRow
+            }
+
+            if hammerPromptActive {
+                hammerRow
             }
 
             if showsStatusLine {
