@@ -99,12 +99,11 @@ struct GameHUD: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(SSAOrnate.panelFill)
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(SSAOrnate.gold, lineWidth: 3)
+                .strokeBorder(SSAOrnate.gold, lineWidth: 3)
             RoundedRectangle(cornerRadius: 19, style: .continuous)
-                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
                 .padding(3)
         }
-        .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
     }
 
     private var starPurse: some View {
@@ -121,8 +120,10 @@ struct GameHUD: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
+        .frame(minWidth: 74)
         .background(Capsule().fill(SSAOrnate.plaqueFill))
-        .overlay(Capsule().stroke(SSAOrnate.gold, lineWidth: 2.5))
+        .overlay(Capsule().strokeBorder(SSAOrnate.gold, lineWidth: 2.5))
+        .layoutPriority(1)
     }
 
     private var idleOrnament: some View {
@@ -220,9 +221,8 @@ struct GameHUD: View {
                 .foregroundStyle(Color(hex: "FFF3D6"))
                 .frame(width: 50, height: 50)
                 .background(Circle().fill(SSAOrnate.plaqueFill))
-                .overlay(Circle().stroke(SSAOrnate.gold, lineWidth: 3))
-                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1).padding(3))
-                .shadow(color: .black.opacity(0.5), radius: 6, y: 3)
+                .overlay(Circle().strokeBorder(SSAOrnate.gold, lineWidth: 3))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.2), lineWidth: 1).padding(3))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Pause")

@@ -13,6 +13,27 @@ enum ActiveBooster: String, CaseIterable {
         }
     }
 
+    /// How much the drawing has to grow to fill its artboard. The exported
+    /// PDFs carry the margin each drawing had on its 128pt board, so without
+    /// this the icons render around two-thirds size.
+    var artworkScale: CGFloat {
+        switch self {
+        case .hammer: return 1.52
+        case .colorBomb: return 1.07
+        case .extraMoves: return 1.18
+        }
+    }
+
+    /// Vector artwork drawn in Figma. Falls back to `iconName` if an asset is
+    /// ever missing, so the dock never renders an empty cell.
+    var artworkName: String {
+        switch self {
+        case .hammer: return "Booster_hammer"
+        case .colorBomb: return "Booster_bomb"
+        case .extraMoves: return "Booster_extramoves"
+        }
+    }
+
     var cost: Int {
         switch self {
         case .hammer: return 30
@@ -131,6 +152,22 @@ struct BoosterBarView: View {
         }
     }
 
+    /// The drawn icon, or the SF Symbol if the asset is missing.
+    @ViewBuilder
+    private func boosterArtwork(_ booster: ActiveBooster) -> some View {
+        if UIImage(named: booster.artworkName) != nil {
+            Image(booster.artworkName)
+                .resizable()
+                .renderingMode(.original)
+                .aspectRatio(contentMode: .fit)
+                .scaleEffect(booster.artworkScale)
+        } else {
+            Image(systemName: booster.iconName)
+                .font(.system(size: compact ? 15 : (layout.isPad ? 18 : 17), weight: .bold))
+                .foregroundStyle(SSATheme.candyYellow)
+        }
+    }
+
     private func boosterCell(
         booster: ActiveBooster,
         count: Int,
@@ -138,13 +175,20 @@ struct BoosterBarView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: booster.iconName)
-                        .font(.system(size: compact ? 15 : (layout.isPad ? 18 : 17), weight: .bold))
-                        .foregroundStyle(isSelected ? .white : SSATheme.candyYellow)
-                        .frame(width: 32, height: 32)
+            VStack(spacing: 3) {
+                boosterArtwork(booster)
+                    .frame(width: compact ? 36 : 40, height: compact ? 36 : 40)
+                    .clipped()
 
+                Text(booster.rawValue)
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(isSelected ? SSATheme.candyYellow : .white.opacity(0.85))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, compact ? 5 : 7)
+            .overlay(alignment: .topTrailing) {
                     Text(count > 0 ? "\(count)" : "\(booster.cost)★")
                         .font(.system(size: 10, weight: .black, design: .rounded))
                         .foregroundStyle(count > 0 ? .white : Color(hex: "3A2205"))
@@ -156,16 +200,9 @@ struct BoosterBarView: View {
                                            : AnyShapeStyle(SSAOrnate.gold))
                         )
                         .overlay(Capsule().stroke(Color.black.opacity(0.35), lineWidth: 1))
-                }
-
-                Text(booster.rawValue)
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(isSelected ? SSATheme.candyYellow : .white.opacity(0.85))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                        .padding(.top, 2)
+                        .padding(.trailing, 4)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, compact ? 5 : 7)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(isSelected
@@ -174,11 +211,11 @@ struct BoosterBarView: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(SSAOrnate.gold, lineWidth: 2.5)
+                    .strokeBorder(SSAOrnate.gold, lineWidth: 2.5)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 11.5, style: .continuous)
-                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                    .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
                     .padding(2.5)
             )
             .shadow(color: .black.opacity(0.45), radius: 5, y: 3)

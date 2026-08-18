@@ -136,7 +136,7 @@ struct SSAOrnateBanner: View {
             .background(
                 Capsule().fill(SSAOrnate.plaqueFill)
             )
-            .overlay(Capsule().stroke(SSAOrnate.gold, lineWidth: 2.5))
+            .overlay(Capsule().strokeBorder(SSAOrnate.gold, lineWidth: 2.5))
             .overlay(alignment: .leading) { SSAGem(size: 10, tint: tint).offset(x: -3) }
             .overlay(alignment: .trailing) { SSAGem(size: 10, tint: tint).offset(x: 3) }
             .shadow(color: .black.opacity(0.5), radius: 6, y: 3)
@@ -173,7 +173,7 @@ struct SSAOrnateStat: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .stroke(SSAOrnate.goldRim, lineWidth: 2)
+                .strokeBorder(SSAOrnate.goldRim, lineWidth: 2)
         )
     }
 }
@@ -210,7 +210,7 @@ struct SSAOrnateProgressBar: View {
                     )
                     .clipShape(Capsule())
             }
-            .overlay(Capsule().stroke(SSAOrnate.gold, lineWidth: 2))
+            .overlay(Capsule().strokeBorder(SSAOrnate.gold, lineWidth: 2))
         }
         .frame(height: height)
     }
