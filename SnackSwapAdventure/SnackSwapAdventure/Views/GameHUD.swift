@@ -62,10 +62,14 @@ struct GameHUD: View {
                 )
                 .frame(maxWidth: .infinity)
 
+                // Both can end the level, but moves is the constraint the
+                // player steers with, so it carries the weight and time is
+                // demoted to a secondary readout.
                 SSAOrnateStat(
                     title: "TIME",
                     value: "\(gameState.timeRemaining)",
-                    accent: gameState.isTimerUrgent ? .red : SSATheme.candyYellow
+                    accent: gameState.isTimerUrgent ? .red : Color(hex: "9FD8FF"),
+                    compact: true
                 )
                 .frame(maxWidth: .infinity)
                 .opacity(timerPulse ? 0.6 : 1)
@@ -73,7 +77,8 @@ struct GameHUD: View {
                 SSAOrnateStat(
                     title: "MOVES",
                     value: "\(gameState.movesLeft)",
-                    accent: gameState.movesLeft <= 5 ? .orange : .white
+                    accent: gameState.movesLeft <= 5 ? .orange : SSATheme.candyYellow,
+                    emphasised: true
                 )
                 .frame(maxWidth: .infinity)
 
@@ -122,22 +127,24 @@ struct GameHUD: View {
     private var starPurse: some View {
         HStack(spacing: 5) {
             Image(systemName: "star.fill")
-                .font(.system(size: 15, weight: .black))
+                .font(.system(size: isSidebar ? 13 : 15, weight: .black))
                 .foregroundStyle(SSATheme.candyYellow)
                 .shadow(color: SSATheme.candyYellow.opacity(0.8), radius: 5)
             Text("\(profile.stars)")
-                .font(.system(size: 19, weight: .black, design: .rounded).monospacedDigit())
+                .font(.system(size: isSidebar ? 16 : 19, weight: .black, design: .rounded).monospacedDigit())
                 .foregroundStyle(Color(hex: "FFE9A8"))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .frame(minWidth: 74)
+        .padding(.horizontal, isSidebar ? 8 : 10)
+        .padding(.vertical, isSidebar ? 7 : 9)
+        .frame(minWidth: isSidebar ? 62 : 74)
         .background(Capsule().fill(SSAOrnate.plaqueFill))
         .overlay(Capsule().strokeBorder(SSAOrnate.gold, lineWidth: 2.5))
         .layoutPriority(1)
     }
+
+    private var isSidebar: Bool { chrome == .sidebar }
 
     private var hasTransientRow: Bool {
         gameState.isFeverActive || hammerPromptActive
@@ -152,11 +159,6 @@ struct GameHUD: View {
                 Capsule().fill(SSAOrnate.gold).frame(height: 2)
             }
             .opacity(0.5)
-            Text(gameState.level.goal.detail)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(hex: "E7D6FF").opacity(0.75))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
             Spacer(minLength: 0)
         }
     }
@@ -189,53 +191,113 @@ struct GameHUD: View {
         .overlay(Capsule().strokeBorder(SSAOrnate.goldRim, lineWidth: 1.5))
     }
 
-    /// The level goal, framed and labelled rather than sharing a line.
+    /// Target on the left, live value on the right, bar underneath. The old
+    /// layout restated the same number three times — as the goal detail, the
+    /// goal title, and again in the progress count.
     private var objectiveRow: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 8) {
-                Text(gameState.level.goal.shortTitle)
-                    .font(.system(size: 18, weight: .black, design: .rounded))
-                    .foregroundStyle(Color(hex: "FFF3D6"))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .lastTextBaseline, spacing: 8) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(goalCaption)
+                        .font(.system(size: isSidebar ? 9 : 11, weight: .black, design: .rounded))
+                        .foregroundStyle(Color(hex: "E7D6FF").opacity(0.75))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text(goalTargetText)
+                        .font(.system(size: isSidebar ? 13 : 16, weight: .black, design: .rounded).monospacedDigit())
+                        .foregroundStyle(Color(hex: "FFF3D6"))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+
                 Spacer(minLength: 6)
-                Text("\(gameState.goalProgressValue)/\(gameState.level.progressDenominator)")
-                    .font(.system(size: 18, weight: .black, design: .rounded).monospacedDigit())
+
+                Text(goalCurrentText)
+                    .font(.system(size: isSidebar ? 22 : 30, weight: .black, design: .rounded).monospacedDigit())
                     .foregroundStyle(SSATheme.candyYellow)
+                    .shadow(color: SSATheme.candyYellow.opacity(0.5), radius: 5)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
 
-            SSAOrnateProgressBar(progress: gameState.progress, height: 18)
+            SSAOrnateProgressBar(progress: gameState.progress, height: isSidebar ? 14 : 18)
                 .animation(.easeOut(duration: 0.25), value: gameState.goalProgressValue)
         }
+    }
+
+    /// What the player is being asked for, without repeating the number.
+    private var goalCaption: String {
+        switch gameState.level.goal {
+        case .score: return "TARGET SCORE"
+        case .collect(let type, _): return "COLLECT \(type.emoji)"
+        case .clearSnacks: return "CLEAR SNACKS"
+        case .makeCombos: return "MAKE COMBOS"
+        }
+    }
+
+    private var goalTargetText: String {
+        Self.grouped(gameState.level.progressDenominator)
+    }
+
+    private var goalCurrentText: String {
+        Self.grouped(gameState.goalProgressValue)
+    }
+
+    private static func grouped(_ value: Int) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        return f.string(from: NSNumber(value: value)) ?? "\(value)"
     }
 
     // MARK: - Landscape
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: sidebarIsTight ? 6 : 10) {
+            SSAOrnateBanner(
+                title: gameState.level.themeName,
+                tint: SSATheme.candyPink,
+                stretches: true,
+                compact: true
+            )
+
             HStack(spacing: 8) {
                 pauseButton
-                statChip(
-                    title: gameState.level.themeName.uppercased(),
+                Spacer(minLength: 4)
+                starPurse
+            }
+
+            // Three across even in the narrow column — they share the width, so
+            // the row fits whatever the sidebar happens to be.
+            HStack(spacing: 6) {
+                SSAOrnateStat(
+                    title: "LEVEL",
                     value: "\(gameState.level.levelNumber)",
                     accent: .white,
-                    titleMaxWidth: layout.hudThemeNameMaxWidth
+                    compact: true
                 )
-                Spacer(minLength: 0)
-                statChip(title: "⭐", value: "\(profile.stars)", accent: Theme.accentGold)
-            }
+                .frame(maxWidth: .infinity)
 
-            HStack(spacing: 8) {
-                timerChip
-                statChip(
+                SSAOrnateStat(
+                    title: "TIME",
+                    value: "\(gameState.timeRemaining)",
+                    accent: gameState.isTimerUrgent ? .red : SSATheme.candyYellow,
+                    compact: true
+                )
+                .frame(maxWidth: .infinity)
+                .opacity(timerPulse ? 0.6 : 1)
+
+                SSAOrnateStat(
                     title: "MOVES",
                     value: "\(gameState.movesLeft)",
-                    accent: gameState.movesLeft <= 5 ? .orange : .white
+                    accent: gameState.movesLeft <= 5 ? .orange : .white,
+                    compact: true
                 )
+                .frame(maxWidth: .infinity)
             }
 
-            goalRow
+            // Slack lives here, so transient rows push into it rather than
+            // shoving the objective out of the card.
+            Spacer(minLength: 0)
 
             if gameState.isFeverActive {
                 feverRow
@@ -245,14 +307,16 @@ struct GameHUD: View {
                 hammerRow
             }
 
-            if showsStatusLine {
-                statusLine
-            }
+            objectiveRow
         }
-        .padding(10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(hudBackground)
+        .padding(sidebarIsTight ? 8 : 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(ornateHudBackground)
     }
+
+    /// Phone landscape gives the sidebar barely 230pt of height, so it trims
+    /// its own spacing rather than pushing content out of the card.
+    private var sidebarIsTight: Bool { layout.isCompactHeight }
 
     // MARK: - Pieces
 
@@ -266,9 +330,9 @@ struct GameHUD: View {
             onPause()
         } label: {
             Image(systemName: "pause.fill")
-                .font(.system(size: 20, weight: .black))
+                .font(.system(size: isSidebar ? 17 : 20, weight: .black))
                 .foregroundStyle(Color(hex: "FFF3D6"))
-                .frame(width: 50, height: 50)
+                .frame(width: isSidebar ? 42 : 50, height: isSidebar ? 42 : 50)
                 .background(Circle().fill(SSAOrnate.plaqueFill))
                 .overlay(Circle().strokeBorder(SSAOrnate.gold, lineWidth: 3))
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.2), lineWidth: 1).padding(3))

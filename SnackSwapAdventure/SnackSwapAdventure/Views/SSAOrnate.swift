@@ -116,10 +116,13 @@ struct SSAOrnateBanner: View {
     var tint: Color = SSATheme.candyPink
     /// Fills the row it is given so long level names are not cropped.
     var stretches: Bool = false
+    /// Tighter type and padding for the landscape sidebar, which is both
+    /// narrower and shorter than the portrait bar.
+    var compact: Bool = false
 
     var body: some View {
         Text(title.uppercased())
-            .font(.system(size: 16, weight: .black, design: .rounded))
+            .font(.system(size: compact ? 13 : 16, weight: .black, design: .rounded))
             .foregroundStyle(
                 LinearGradient(
                     colors: [Color(hex: "FFF6D5"), Color(hex: "FFD98A")],
@@ -131,14 +134,14 @@ struct SSAOrnateBanner: View {
             .lineLimit(1)
             .minimumScaleFactor(0.55)
             .frame(maxWidth: stretches ? .infinity : nil)
-            .padding(.horizontal, 22)
-            .padding(.vertical, 9)
+            .padding(.horizontal, compact ? 12 : 22)
+            .padding(.vertical, compact ? 6 : 9)
             .background(
                 Capsule().fill(SSAOrnate.plaqueFill)
             )
             .overlay(Capsule().strokeBorder(SSAOrnate.gold, lineWidth: 2.5))
-            .overlay(alignment: .leading) { SSAGem(size: 10, tint: tint).offset(x: -3) }
-            .overlay(alignment: .trailing) { SSAGem(size: 10, tint: tint).offset(x: 3) }
+            .overlay(alignment: .leading) { SSAGem(size: compact ? 8 : 10, tint: tint).offset(x: -3) }
+            .overlay(alignment: .trailing) { SSAGem(size: compact ? 8 : 10, tint: tint).offset(x: 3) }
             .shadow(color: .black.opacity(0.5), radius: 6, y: 3)
     }
 }
@@ -149,31 +152,38 @@ struct SSAOrnateStat: View {
     let value: String
     var accent: Color = SSATheme.candyYellow
     var minWidth: CGFloat = 0
+    var compact: Bool = false
+    /// The level's primary failure constraint — drawn heavier so the player can
+    /// tell at a glance which number is the one that ends the run.
+    var emphasised: Bool = false
 
     var body: some View {
         VStack(spacing: 1) {
             Text(title)
-                .font(.system(size: 13, weight: .black, design: .rounded))
+                .font(.system(size: compact ? 10 : 13, weight: .black, design: .rounded))
                 .foregroundStyle(Color(hex: "E7D6FF").opacity(0.9))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(value)
-                .font(.system(size: 30, weight: .black, design: .rounded).monospacedDigit())
+                .font(.system(size: compact ? 21 : 30, weight: .black, design: .rounded).monospacedDigit())
                 .foregroundStyle(accent)
                 .shadow(color: accent.opacity(0.55), radius: 5)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
         .frame(minWidth: minWidth)
-        .padding(.horizontal, 6)
-        .padding(.vertical, 7)
+        .padding(.horizontal, compact ? 4 : 6)
+        .padding(.vertical, compact ? 5 : 7)
         .background(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(SSAOrnate.plaqueFill)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .strokeBorder(SSAOrnate.goldRim, lineWidth: 2)
+                .strokeBorder(
+                    emphasised ? SSAOrnate.gold : SSAOrnate.goldRim,
+                    lineWidth: emphasised ? 3 : 2
+                )
         )
     }
 }

@@ -373,9 +373,11 @@ final class GameScene: SKScene {
         monsterNode = nil
         messageLabel = nil
 
-        let ring = SKShapeNode(rectOf: CGSize(width: tileSize - 4, height: tileSize - 4), cornerRadius: 10)
+        // Sized so the stroke and glow both stay inside one cell: the ring plus
+        // half its line width plus its glow must not exceed tileSize.
+        let ring = SKShapeNode(rectOf: CGSize(width: tileSize - 10, height: tileSize - 10), cornerRadius: 9)
         ring.strokeColor = .white
-        ring.lineWidth = 3
+        ring.lineWidth = 2.5
         ring.fillColor = .clear
         ring.glowWidth = 2
         ring.isHidden = true
@@ -1142,20 +1144,20 @@ final class GameScene: SKScene {
             tileNodes[pos.row][pos.col]?.hintPulse()
 
             let ring = SKShapeNode(
-                rectOf: CGSize(width: tileSize - 8, height: tileSize - 8),
-                cornerRadius: 11
+                rectOf: CGSize(width: tileSize - 14, height: tileSize - 14),
+                cornerRadius: 10
             )
             ring.name = "hintRing"
             ring.position = point(for: pos)
             ring.fillColor = .clear
             ring.strokeColor = SKColor(red: 1.0, green: 0.86, blue: 0.32, alpha: 0.95)
             ring.lineWidth = 2.5
-            ring.glowWidth = 4
+            ring.glowWidth = 3
             ring.zPosition = 24
             addChild(ring)
             ring.run(.repeatForever(.sequence([
                 .group([
-                    .scale(to: 1.08, duration: 0.42),
+                    .scale(to: 1.04, duration: 0.42),
                     .fadeAlpha(to: 0.45, duration: 0.42)
                 ]),
                 .group([
