@@ -14,10 +14,15 @@ struct SnackSwapAdventureApp: App {
                 .preferredColorScheme(.dark)
                 .environmentObject(StoreManager.shared)
                 .environmentObject(RewardedAdService.shared)
-                .onAppear {
+                .task {
+                    // ATT must be requested while the app is active, and before
+                    // anything that could collect data used for tracking.
+                    await TrackingConsent.shared.requestIfNeeded()
                     RewardedAdService.shared.start()
                     // No-ops when Remove Ads is owned.
                     InterstitialAdService.shared.start()
+                }
+                .onAppear {
                     GameCenterManager.shared.authenticateLocalPlayer()
                     Task {
                         await StoreManager.shared.loadProducts()

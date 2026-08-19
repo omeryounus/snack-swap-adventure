@@ -3,6 +3,21 @@ import Foundation
 /// AdMob configuration. Uses Google's official test IDs in DEBUG.
 /// Replace production values in App Store builds via Info.plist / build settings.
 enum AdConfig {
+    /// Google's public sample publisher. While the unit IDs still point at it
+    /// there is no ad account behind them: no ads serve, nothing is earned,
+    /// and shipping them is against AdMob policy.
+    private static let samplePublisherPrefix = "ca-app-pub-3940256099942544"
+
+    /// Whether a real ad network is wired up. False keeps the Google Mobile
+    /// Ads SDK from initialising at all, so the app performs no third-party
+    /// data collection and the ATT prompt is not shown for a capability it
+    /// does not have. Replace the IDs below to turn ads back on.
+    static var adsEnabled: Bool {
+        !appID.hasPrefix(samplePublisherPrefix)
+            && !rewardedUnitID.hasPrefix(samplePublisherPrefix)
+            && !interstitialUnitID.hasPrefix(samplePublisherPrefix)
+    }
+
     /// Google sample App ID — replace with yours for production.
     static let appID = "ca-app-pub-3940256099942544~1458002511"
 

@@ -411,17 +411,22 @@ struct TimeUpOverlay: View {
                     }
                     .padding(.vertical, 8)
                 } else {
-                    Button(action: onWatchAd) {
-                        HStack {
-                            Text("▶️")
-                            Text("Watch Ad  ·  +\(extensionSeconds)s")
-                                .font(.headline.bold())
+                    // Offered only when an ad can actually play — with no ad
+                    // network the button ran its progress bar and granted
+                    // nothing.
+                    if AdConfig.adsEnabled {
+                        Button(action: onWatchAd) {
+                            HStack {
+                                Text("▶️")
+                                Text("Watch Ad  ·  +\(extensionSeconds)s")
+                                    .font(.headline.bold())
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(LinearGradient(colors: [.green, .mint], startPoint: .leading, endPoint: .trailing))
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(LinearGradient(colors: [.green, .mint], startPoint: .leading, endPoint: .trailing))
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
 
                     Button(action: onSpendStars) {

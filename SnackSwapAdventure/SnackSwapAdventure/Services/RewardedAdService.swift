@@ -26,6 +26,10 @@ final class RewardedAdService: NSObject, ObservableObject {
     }
 
     func start() {
+        // No ad network configured — do not initialise the SDK at all,
+        // so the app performs no third-party data collection.
+        guard AdConfig.adsEnabled else { isReady = false; return }
+
         #if canImport(GoogleMobileAds)
         guard Bundle.main.object(forInfoDictionaryKey: "GADApplicationIdentifier") != nil else {
             isReady = AdConfig.allowSimulatedFallback
@@ -70,6 +74,7 @@ final class RewardedAdService: NSObject, ObservableObject {
 
     /// Present a rewarded ad. Calls `completion(true)` if the user earned the reward.
     func show(from viewController: UIViewController? = nil, completion: @escaping (Bool) -> Void) {
+        guard AdConfig.adsEnabled else { completion(false); return }
         rewardHandler = completion
 
         #if canImport(GoogleMobileAds)

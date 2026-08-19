@@ -82,6 +82,9 @@ struct OutOfLivesOverlay: View {
                         }
                     }
 
+                    // Offered only when an ad can actually play. Without a
+                    // network the button used to spin and then do nothing.
+                    if AdConfig.adsEnabled {
                     Button {
                         isWatchingAd = true
                         onWatchAd()
@@ -95,6 +98,7 @@ struct OutOfLivesOverlay: View {
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                     .disabled(isWatchingAd)
+                    }
 
                     Button(action: onSpendStars) {
                         Label(

@@ -30,6 +30,10 @@ final class InterstitialAdService: NSObject, ObservableObject {
     }
 
     func start() {
+        // No ad network configured — do not initialise the SDK at all,
+        // so the app performs no third-party data collection.
+        guard AdConfig.adsEnabled else { isReady = false; return }
+
         guard !StoreManager.shared.isAdsRemoved else { return }
         load()
     }
