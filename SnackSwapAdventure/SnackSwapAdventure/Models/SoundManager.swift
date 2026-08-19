@@ -1,3 +1,4 @@
+import UIKit
 import AVFoundation
 import SpriteKit
 
@@ -36,16 +37,62 @@ final class SoundManager {
     private init() {
         configureSession()
         preloadAll()
+        observeSessionInterruptions()
     }
 
     private func configureSession() {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+            // `.playback`, not `.ambient`: ambient audio is silenced by the
+            // ring/silent switch, which made the game mute on any device with
+            // the switch flipped. `.mixWithOthers` keeps the player's own music
+            // going — the in-app sound and music toggles remain the way to
+            // turn the game quiet.
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try session.setActive(true)
         } catch {
             // Non-fatal: sounds simply won't play if session setup fails.
             print("SoundManager: audio session error \(error)")
+        }
+    }
+
+    /// A call, alarm, or another app taking audio deactivates our session. It
+    /// was never reactivated, so a single interruption left the game silent for
+    /// the rest of the launch.
+    private func observeSessionInterruptions() {
+        let center = NotificationCenter.default
+
+        center.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { note in
+            guard
+                let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                let type = AVAudioSession.InterruptionType(rawValue: raw),
+                type == .ended
+            else { return }
+            Task { @MainActor in SoundManager.shared.reactivateSession() }
+        }
+
+        center.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in SoundManager.shared.reactivateSession() }
+        }
+    }
+
+    /// Re-arms the session after an interruption or a trip to the background.
+    func reactivateSession() {
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+            // The music loop is paused by the same interruption and needs a
+            // nudge of its own once the session is live again.
+            MusicPlayer.shared.resumeAfterInterruption()
+        } catch {
+            print("SoundManager: could not reactivate audio session \(error)")
         }
     }
 

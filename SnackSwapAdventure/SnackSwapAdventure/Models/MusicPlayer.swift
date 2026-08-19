@@ -52,6 +52,14 @@ final class MusicPlayer {
         }
     }
 
+    /// After an interruption the underlying player is paused while `isPlaying`
+    /// still reads true, so `play()` would guard out and the loop never comes
+    /// back. Nudge the real player instead of going through that guard.
+    func resumeAfterInterruption() {
+        guard isPlaying, let player, !player.isPlaying else { return }
+        player.play()
+    }
+
     func play() {
         guard MetaProgress.shared.musicEnabled else { return }
         guard !isPlaying else { return }
